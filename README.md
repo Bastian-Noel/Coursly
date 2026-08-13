@@ -1,80 +1,147 @@
 # Coursly
 
-Application iOS 26 d'emploi du temps étudiant pour l'IUT de Vélizy / UVSQ.
+**Coursly** est une application iPhone native en SwiftUI qui simplifie la consultation de l'emploi du temps des étudiants de l'IUT de Vélizy / UVSQ.
 
-Le projet valide d'abord une chaîne de développement sans Mac personnel : code dans `main`, build iPhone sur GitHub Actions macOS, IPA non signée dans GitHub Releases, puis signature et installation directement sur l'iPhone.
+> [!NOTE]
+> Le projet est en cours de développement. Le dépôt contient actuellement le socle iOS 26, la configuration XcodeGen et la chaîne de distribution d'une IPA non signée ; les fonctionnalités d'emploi du temps sont décrites dans la [feuille de route](docs/PLAN.md) et seront ajoutées progressivement.
 
-## Documentation pour Codex / IA
+## Objectif
 
-Avant de modifier le projet, lire :
+Coursly doit permettre de répondre en quelques secondes à quatre questions :
 
-- [`AGENTS.md`](AGENTS.md) — règles générales de travail ;
-- [`docs/DECISIONS.md`](docs/DECISIONS.md) — décisions non négociables ;
-- [`docs/PRODUCT.md`](docs/PRODUCT.md) — vision produit ;
-- [`docs/DATA_SOURCES.md`](docs/DATA_SOURCES.md) — POST CELCAT et fallback iCal ;
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — architecture Swift ;
-- [`docs/UX.md`](docs/UX.md) — règles d'interface ;
-- [`docs/LIVE_ACTIVITY.md`](docs/LIVE_ACTIVITY.md) — Live Activity Lock Screen uniquement ;
-- [`docs/PLAN.md`](docs/PLAN.md) — ordre de réalisation ;
-- [`docs/CODEX_WORKFLOW.md`](docs/CODEX_WORKFLOW.md) — découpage des tâches Codex ;
-- [`docs/reference/README.md`](docs/reference/README.md) — code MJS de référence à porter en Swift.
+- quel cours ai-je maintenant ?
+- quel est le prochain cours ?
+- dans quelle salle dois-je aller ?
+- à quoi ressemble ma journée ou ma semaine ?
 
-## Décision data principale
+Le MVP prévoit notamment les vues Aujourd'hui et Semaine, le détail d'un cours, la recherche, la sélection de groupe et une Live Activity limitée à l'écran verrouillé. La vision complète est détaillée dans [`docs/PRODUCT.md`](docs/PRODUCT.md).
 
-```text
-POST GetCalendarData = source de vérité
-        ↓ échec réel uniquement
-iCal = fallback
-```
+## État du projet
 
-Il n'y a jamais de fusion ou de complément POST + iCal. Une réponse POST valide sans événement est une journée vide valide.
+| Élément | État |
+| --- | --- |
+| Application SwiftUI native | Socle initial |
+| Cible iPhone / iOS 26 | Configurée |
+| Génération du projet avec XcodeGen | Configurée |
+| Build et empaquetage d'une IPA non signée | Configurés dans GitHub Actions |
+| Modèles, clients CELCAT et parsers Swift | À venir |
+| Interfaces Aujourd'hui, Semaine et Recherche | À venir |
+| Live Activity sur l'écran verrouillé | À venir |
 
-## Références MJS
+Consultez [`docs/PLAN.md`](docs/PLAN.md) pour l'ordre de réalisation retenu.
 
-Le dossier `docs/reference/` conserve la logique du prototype JavaScript qui a servi à étudier CELCAT avant le portage natif :
+## Source des données : POST d'abord
 
-- parsing et normalisation du POST direct ;
-- mapping groupes lisibles ↔ IDs iCal internes ;
-- stratégie fallback stricte.
-
-Ces fichiers sont des références fonctionnelles : l'app finale doit porter leur comportement vers Swift/Foundation et ajouter les tests correspondants.
-
-## Distribution
-
-Après un push de code sur `main`, GitHub Actions :
-
-1. génère le projet Xcode avec XcodeGen ;
-2. compile pour un appareil iOS réel avec la signature désactivée ;
-3. crée `Coursly.ipa` ;
-4. publie l'IPA dans une GitHub Release ;
-5. met à jour `source.json` et `latest.json` sur la branche `site` ;
-6. GitHub Pages sert le portail de distribution.
-
-Site :
+Le POST CELCAT direct est l'unique source de vérité. Le flux iCal n'est utilisé qu'en cas d'échec réel du POST.
 
 ```text
-https://bastian-noel.github.io/Coursly/
+POST CELCAT direct
+  ├─ réponse exploitable, y compris [] → données POST uniquement
+  └─ erreur réseau, HTTP ou parsing    → fallback iCal uniquement
 ```
 
-Source :
+Les deux sources ne sont **jamais fusionnées ni utilisées pour se compléter**. Une réponse POST valide contenant `[]` représente une journée vide et ne déclenche pas le fallback. Les groupes visibles dans l'application utilisent des noms lisibles tels que `MMI1-A1` ; les identifiants techniques iCal restent internes.
+
+Pour les règles exhaustives, consultez [`docs/DECISIONS.md`](docs/DECISIONS.md) et [`docs/DATA_SOURCES.md`](docs/DATA_SOURCES.md).
+
+## Architecture cible
+
+Les vues SwiftUI consomment un modèle métier normalisé et ne parsèrent jamais directement les réponses CELCAT ou iCal.
 
 ```text
-https://bastian-noel.github.io/Coursly/source.json
+View
+  ↓
+ViewModel / Store
+  ↓
+CalendarService
+  ├── CelcatDirectClient
+  └── CelcatICalClient (fallback uniquement)
+        ↓
+Parsers
+        ↓
+EventNormalizer
+        ↓
+CalendarEvent
 ```
+
+Le réseau, le parsing et la normalisation restent séparés afin de faciliter les tests et de préserver la stratégie de fallback. Voir [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) pour les responsabilités de chaque composant.
+
+## Développer localement
+
+### Prérequis
+
+- macOS avec une version de Xcode prenant en charge iOS 26 et Swift 6 ;
+- [XcodeGen](https://github.com/yonaskolb/XcodeGen) ;
+- Git.
+
+### Générer et ouvrir le projet
+
+Le fichier `.xcodeproj` est généré à partir de [`project.yml`](project.yml) et ne doit pas devenir la source de configuration du projet.
+
+```bash
+git clone https://github.com/bastian-noel/Coursly.git
+cd Coursly
+xcodegen generate
+open Coursly.xcodeproj
+```
+
+Pour vérifier le build depuis le terminal :
+
+```bash
+xcodebuild \
+  -project Coursly.xcodeproj \
+  -scheme Coursly \
+  -configuration Debug \
+  -sdk iphonesimulator \
+  build
+```
+
+Le déploiement cible iOS 26 et le Bundle ID `fr.bastiannoel.coursly` sont définis dans `project.yml`.
+
+## Build et installation
+
+À chaque push de code sur `main`, GitHub Actions doit :
+
+1. générer le projet Xcode avec XcodeGen ;
+2. compiler l'application pour un iPhone réel avec la signature désactivée ;
+3. empaqueter `Coursly.ipa` ;
+4. publier l'IPA dans une GitHub Release ;
+5. mettre à jour les métadonnées de distribution de la branche `site` ;
+6. rendre la nouvelle version accessible depuis GitHub Pages.
+
+L'IPA produite est volontairement **non signée**. Elle doit être importée dans un sideloader compatible, puis signée avec le certificat et le profil de provisioning de l'utilisateur directement sur l'iPhone.
+
+- Portail de distribution : <https://bastian-noel.github.io/Coursly/>
+- Source compatible AltSource : <https://bastian-noel.github.io/Coursly/source.json>
+- Détails de la chaîne : [`docs/DISTRIBUTION.md`](docs/DISTRIBUTION.md)
+
+> [!WARNING]
+> Ne commitez jamais de certificat `.p12`, de mot de passe ou de profil `.mobileprovision` privé.
 
 ## Branches
 
-- `main` : développement iOS, documentation et CI.
+- `main` : code iOS, documentation et intégration continue ;
 - `site` : GitHub Pages et métadonnées de distribution uniquement.
 
-## Bundle ID
+## Documentation
 
-```text
-fr.bastiannoel.coursly
-```
+Avant toute contribution, lisez [`AGENTS.md`](AGENTS.md), puis les documents pertinents :
 
-Le Bundle ID doit rester stable afin que les nouvelles builds puissent remplacer l'application précédente après signature sur l'appareil.
+| Document | Contenu |
+| --- | --- |
+| [`docs/DECISIONS.md`](docs/DECISIONS.md) | Décisions non négociables et prioritaires |
+| [`docs/DATA_SOURCES.md`](docs/DATA_SOURCES.md) | Contrats CELCAT, POST principal et fallback iCal |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Architecture Swift attendue |
+| [`docs/PRODUCT.md`](docs/PRODUCT.md) | Vision, MVP et fonctionnalités cibles |
+| [`docs/UX.md`](docs/UX.md) | Hiérarchie visuelle et règles d'interface |
+| [`docs/LIVE_ACTIVITY.md`](docs/LIVE_ACTIVITY.md) | Live Activity limitée à l'écran verrouillé |
+| [`docs/PLAN.md`](docs/PLAN.md) | Ordre de réalisation |
+| [`docs/DISTRIBUTION.md`](docs/DISTRIBUTION.md) | Build, Releases et branche `site` |
+| [`docs/CODEX_WORKFLOW.md`](docs/CODEX_WORKFLOW.md) | Découpage et validation des tâches |
+| [`docs/reference/README.md`](docs/reference/README.md) | Prototype JavaScript de référence à porter en Swift |
 
-## Signature
+Les fichiers de `docs/reference/` documentent le comportement métier observé dans le prototype. Le portage doit utiliser les API Foundation adaptées, maintenir la séparation réseau/parsing/normalisation et ajouter des tests Swift autour des parsers.
 
-L'IPA générée par la CI est volontairement non signée. Elle doit être importée dans un sideloader compatible puis signée sur l'iPhone avec le certificat et le provisioning profile de l'utilisateur.
+## Licence
+
+Ce projet est distribué sous les termes du fichier [`LICENSE`](LICENSE).
