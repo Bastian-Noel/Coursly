@@ -6,21 +6,54 @@
   <meta name="color-scheme" content="dark light">
   <title>Coursly</title>
   <style>
-    :root{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",sans-serif;background:#0b1020;color:#f7f7fb}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px}main{width:min(680px,100%)}.card{padding:32px;border:1px solid #ffffff22;border-radius:28px;background:#ffffff0d;box-shadow:0 24px 70px #0006}h1{font-size:48px;margin:0 0 8px}p{color:#c8c9d4;line-height:1.55}.actions{display:grid;gap:12px;margin-top:28px}a{display:block;padding:15px 18px;border-radius:16px;background:#6266f5;color:#fff;text-decoration:none;font-weight:700;text-align:center}a.secondary{background:#ffffff10;border:1px solid #ffffff20}code{word-break:break-all}
+    :root{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",sans-serif;background:#0b1020;color:#f7f7fb}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px}main{width:min(720px,100%)}.card{padding:32px;border:1px solid #ffffff22;border-radius:28px;background:#ffffff0d;box-shadow:0 24px 70px #0006}h1{font-size:48px;margin:0 0 8px}h2{font-size:19px;margin-top:30px}p{color:#c8c9d4;line-height:1.55}.actions{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}a,button{box-sizing:border-box;display:block;width:100%;padding:15px 18px;border-radius:16px;background:#6266f5;color:#fff;text-decoration:none;font:inherit;font-weight:700;text-align:center;border:0;cursor:pointer}a.secondary,button.secondary{background:#ffffff10;border:1px solid #ffffff20}.wide{grid-column:1/-1}code{word-break:break-all;color:#d6d7ff}.status{font-size:14px;color:#9fa3b8}@media(max-width:560px){.actions{grid-template-columns:1fr}.wide{grid-column:auto}.card{padding:24px}h1{font-size:42px}}
   </style>
 </head>
 <body>
   <main>
     <section class="card">
       <h1>Coursly</h1>
-      <p>Builds iOS de développement. Télécharge l’IPA puis signe-la directement sur ton iPhone avec ton sideloader.</p>
+      <p>Builds iOS de développement. L’IPA est construite automatiquement sur GitHub puis peut être signée directement sur l’iPhone.</p>
+
+      <h2>Installer / ajouter la source</h2>
       <div class="actions">
-        <a href="source.json">Source AltStore / Feather / SideStore / KSign</a>
-        <a class="secondary" href="latest.json">Métadonnées de la dernière build</a>
-        <a class="secondary" href="https://github.com/Bastian-Noel/Coursly/releases">Télécharger depuis GitHub Releases</a>
+        <a href="feather://source/https://bastian-noel.github.io/Coursly/source.json">Ajouter à Feather</a>
+        <a href="sidestore://source?url=https%3A%2F%2Fbastian-noel.github.io%2FCoursly%2Fsource.json">Ajouter à SideStore</a>
+        <button class="secondary wide" id="copySource">Copier l’URL pour AltStore / KSign / autre AltSource</button>
       </div>
-      <p><code>https://bastian-noel.github.io/Coursly/source.json</code></p>
+
+      <h2>IPA</h2>
+      <div class="actions">
+        <a class="wide" id="downloadLatest" href="https://github.com/Bastian-Noel/Coursly/releases">Télécharger la dernière IPA</a>
+        <a class="secondary" href="source.json">Voir source.json</a>
+        <a class="secondary" href="https://github.com/Bastian-Noel/Coursly/releases">Toutes les builds</a>
+      </div>
+      <p class="status" id="buildStatus">Chargement des informations de la dernière build…</p>
+
+      <h2>URL de source</h2>
+      <p><code id="sourceURL">https://bastian-noel.github.io/Coursly/source.json</code></p>
     </section>
   </main>
+
+  <script>
+    const sourceURL = 'https://bastian-noel.github.io/Coursly/source.json';
+    document.getElementById('copySource').addEventListener('click', async () => {
+      await navigator.clipboard.writeText(sourceURL);
+      document.getElementById('copySource').textContent = 'URL copiée ✓';
+    });
+
+    fetch('latest.json', { cache: 'no-store' })
+      .then(r => r.json())
+      .then(build => {
+        if (!build.downloadURL) return;
+        const button = document.getElementById('downloadLatest');
+        button.href = build.downloadURL;
+        button.textContent = `Télécharger Coursly ${build.version} (build ${build.buildVersion})`;
+        document.getElementById('buildStatus').textContent = `Build ${build.buildVersion} · ${Math.round(build.size / 1024)} Ko · SHA-256 publié dans la source`;
+      })
+      .catch(() => {
+        document.getElementById('buildStatus').textContent = 'Les Releases GitHub restent disponibles si les métadonnées ne se chargent pas.';
+      });
+  </script>
 </body>
 </html>
