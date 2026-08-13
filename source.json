@@ -1,9 +1,11 @@
 {
   "name": "Coursly",
+  "identifier": "fr.bastiannoel.coursly.source",
   "subtitle": "Builds de développement de Coursly",
   "description": "Source officielle des builds iOS de développement de Coursly.",
   "website": "https://bastian-noel.github.io/Coursly/",
-  "tintColor": "#5B5FEF",
+  "iconURL": "https://avatars.githubusercontent.com/u/71983581?v=4",
+  "tintColor": "5B5FEF",
   "apps": [
     {
       "name": "Coursly",
@@ -11,7 +13,8 @@
       "developerName": "Bastian-Noel",
       "subtitle": "Emploi du temps étudiant à Vélizy",
       "localizedDescription": "Build de développement de Coursly.",
-      "tintColor": "#5B5FEF",
+      "iconURL": "https://avatars.githubusercontent.com/u/71983581?v=4",
+      "tintColor": "5B5FEF",
       "category": "utilities",
       "versions": [
         {
@@ -24,7 +27,12 @@
           "sha256": "9b274ef8a4e2c818a9307c83644fbc4f6531f046b547812ae791fc18593efc18",
           "minOSVersion": "26.0"
         }
-      ]
+      ],
+      "version": "0.1.0",
+      "versionDate": "2026-08-13T20:47:30Z",
+      "size": 10415,
+      "downloadURL": "https://github.com/Bastian-Noel/Coursly/releases/download/build-1/Coursly.ipa",
+      "appPermissions": {}
     }
   ],
   "news": []
