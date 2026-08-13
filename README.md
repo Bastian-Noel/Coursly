@@ -1,48 +1,24 @@
 # Coursly
 
-Prototype iOS 26 pour valider d'abord la chaîne de distribution sans Mac personnel.
+Builds iOS de développement de **Coursly**.
 
-## Première étape
+L’IPA publiée est destinée à être téléchargée puis signée directement sur l’iPhone avec le sideloader de votre choix.
 
-Cette version est volontairement minimale :
+## Ajouter la source
 
-- app SwiftUI « Hello Coursly » ;
-- build iPhone sur GitHub Actions ;
-- IPA produite sans signature ;
-- GitHub Pages avec bouton de téléchargement ;
-- `source.json` pour l'import dans un gestionnaire compatible AltStore/Feather ;
-- signature effectuée ensuite directement sur l'iPhone.
+Source compatible AltStore / Feather / SideStore / KSign :
 
-## Distribution
+`https://bastian-noel.github.io/Coursly/source.json`
 
-Après un push sur `main`, GitHub Actions :
+## Télécharger la dernière IPA
 
-1. génère le projet Xcode avec XcodeGen ;
-2. compile pour un appareil iOS réel avec la signature désactivée ;
-3. crée `Coursly.ipa` à partir de `Coursly.app` ;
-4. génère `source.json` avec la version et la taille de la build ;
-5. déploie l'IPA, le JSON et une page web sur GitHub Pages.
+Les builds sont publiées dans les Releases GitHub :
 
-URL prévue :
+https://github.com/Bastian-Noel/Coursly/releases
 
-```text
-https://bastian-noel.github.io/Coursly/
-```
+Le fichier `source.json` pointera automatiquement vers l’asset `Coursly.ipa` de la dernière Release.
 
-Source prévue :
+## Branches
 
-```text
-https://bastian-noel.github.io/Coursly/source.json
-```
-
-## Bundle ID
-
-```text
-fr.bastiannoel.coursly
-```
-
-Le Bundle ID doit rester stable pour que les builds suivantes remplacent l'app précédente après signature sur l'appareil.
-
-## Important
-
-L'IPA générée par la CI est volontairement non signée. iOS ne l'installe pas telle quelle : elle est prévue pour être importée puis signée sur l'appareil avec le certificat et le provisioning profile de l'utilisateur.
+- `main` : développement et CI iOS
+- `site` : GitHub Pages et métadonnées de distribution
