@@ -1,0 +1,20 @@
+{
+  "name": "Coursly",
+  "subtitle": "Builds de développement de Coursly",
+  "description": "Source officielle des builds iOS de développement de Coursly.",
+  "website": "https://bastian-noel.github.io/Coursly/",
+  "tintColor": "#5B5FEF",
+  "apps": [
+    {
+      "name": "Coursly",
+      "bundleIdentifier": "fr.bastiannoel.coursly",
+      "developerName": "Bastian-Noel",
+      "subtitle": "Emploi du temps étudiant à Vélizy",
+      "localizedDescription": "Build de développement de Coursly.",
+      "tintColor": "#5B5FEF",
+      "category": "utilities",
+      "versions": []
+    }
+  ],
+  "news": []
+}
