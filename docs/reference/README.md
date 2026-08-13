@@ -7,6 +7,7 @@ Ces fichiers ne doivent pas être exécutés dans Coursly. Ils servent à Codex 
 ## Fichiers
 
 - `direct-celcat-reference.mjs` : mapping des groupes, requête POST, parsing de la description CELCAT, parsing module, catégories et normalisation de la source principale.
+- `ical-core-reference.mjs` : noyau du parsing VEVENT/UID/SUMMARY/LOCATION/DESCRIPTION/DTSTART/DTEND et normalisation iCal de secours.
 - `fallback-strategy.mjs` : règle POST-first stricte et fallback iCal uniquement sur erreur.
 
 ## Sources historiques étudiées
@@ -30,6 +31,7 @@ Correspondances recommandées :
 - `eventCategoryToTag` → `CourseType` / normalizer
 - `parseCelcatDescription` → `DirectEventParser`
 - `parseModuleFromBlock` → fonction testable pure
+- parser VEVENT → `ICalParser`
 - stratégie `try POST / catch iCal` → `CalendarService`
 
 ## Tests Swift à écrire avant de considérer le portage terminé
@@ -53,3 +55,7 @@ Le prototype utilise `start=date` et `end=date` car c'est le comportement repris
 ## Limite iCal connue
 
 Le prototype maison ne développe pas `RRULE`/`RECURRENCE-ID`. Si le flux réel en contient, l'implémentation Swift doit ajouter la gestion des récurrences ou utiliser une stratégie adaptée.
+
+## Important
+
+Le fichier iCal de référence est volontairement plus minimal que le parser final attendu. Pour le port Swift, Foundation doit gérer correctement les timezones, notamment `Europe/Paris`, et les tests doivent couvrir les changements d'heure.
