@@ -1,0 +1,135 @@
+name: Build and publish Coursly
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-26
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build iPhone app without code signing
+        run: |
+          xcodebuild \
+            -project Coursly.xcodeproj \
+            -scheme Coursly \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" \
+            CODE_SIGN_IDENTITY='' \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            clean build
+
+      - name: Package IPA
+        run: |
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/Coursly.app Payload/Coursly.app
+          zip -qry Coursly.ipa Payload
+
+      - name: Read build metadata
+        id: meta
+        run: |
+          APP='build/Build/Products/Release-iphoneos/Coursly.app'
+          VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Info.plist")
+          BUILD=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Info.plist")
+          SIZE=$(stat -f%z Coursly.ipa)
+          SHA256=$(shasum -a 256 Coursly.ipa | awk '{print $1}')
+          DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          TAG="build-${BUILD}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "build=$BUILD" >> "$GITHUB_OUTPUT"
+          echo "size=$SIZE" >> "$GITHUB_OUTPUT"
+          echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
+          echo "date=$DATE" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.meta.outputs.tag }}" Coursly.ipa \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Coursly build ${{ steps.meta.outputs.build }}" \
+            --notes "Build de développement destinée à être signée sur l’appareil." \
+            --prerelease
+
+      - name: Update site metadata
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+          BUILD: ${{ steps.meta.outputs.build }}
+          SIZE: ${{ steps.meta.outputs.size }}
+          SHA256: ${{ steps.meta.outputs.sha256 }}
+          DATE: ${{ steps.meta.outputs.date }}
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          git fetch origin site
+          git worktree add public origin/site
+          DOWNLOAD="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/Coursly.ipa"
+
+          python3 - "$VERSION" "$BUILD" "$SIZE" "$SHA256" "$DATE" "$DOWNLOAD" <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          version, build, size, sha256, date, download = sys.argv[1:]
+          source_path = pathlib.Path('public/source.json')
+          source = json.loads(source_path.read_text(encoding='utf-8'))
+          app = source['apps'][0]
+
+          versions = [v for v in app.get('versions', []) if str(v.get('buildVersion')) != build]
+          versions.insert(0, {
+              'version': version,
+              'buildVersion': build,
+              'date': date,
+              'localizedDescription': 'Build de développement Coursly',
+              'downloadURL': download,
+              'size': int(size),
+              'sha256': sha256,
+              'minOSVersion': '26.0'
+          })
+          app['versions'] = versions[:20]
+          source_path.write_text(json.dumps(source, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+
+          latest = {
+              'name': 'Coursly',
+              'bundleIdentifier': 'fr.bastiannoel.coursly',
+              'version': version,
+              'buildVersion': build,
+              'date': date,
+              'downloadURL': download,
+              'size': int(size),
+              'sha256': sha256
+          }
+          pathlib.Path('public/latest.json').write_text(json.dumps(latest, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+          PY
+
+          cd public
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add source.json latest.json
+          git commit -m "Publish Coursly build $BUILD"
+          git push origin HEAD:site
+
+      - name: Upload CI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Coursly-${{ steps.meta.outputs.build }}
+          path: Coursly.ipa
+          retention-days: 14
