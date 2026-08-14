@@ -6,6 +6,7 @@ struct TodayView: View {
     var body: some View {
         TimelineView(.periodic(from: .now, by: 30)) { _ in
             let virtualNow = store.now
+            let day = Calendar.current.startOfDay(for: virtualNow)
             let events = store.events(on: virtualNow)
             let current = events.first { $0.start <= virtualNow && $0.end > virtualNow }
             let next = events.first { $0.start > virtualNow }
@@ -13,29 +14,43 @@ struct TodayView: View {
             ZStack {
                 CourslyBackdrop()
 
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 18) {
-                        header(now: virtualNow)
+                VStack(spacing: 10) {
+                    header(now: virtualNow, current: current, next: next)
 
-                        if store.simulationEnabled {
-                            simulationBanner(now: virtualNow)
-                        }
-
-                        if let current {
-                            focusCard(label: "EN COURS", event: current, now: virtualNow)
-                        } else if let next {
-                            focusCard(label: "PROCHAIN COURS", event: next, now: virtualNow)
-                        }
-
-                        stateContent(events: events)
+                    if store.simulationEnabled {
+                        simulationBanner(now: virtualNow)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 12)
-                    .padding(.bottom, 110)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    if store.isLoading && events.isEmpty {
+                        loadingState
+                    } else if let error = store.errorMessage, events.isEmpty {
+                        ContentUnavailableView(
+                            "Emploi du temps indisponible",
+                            systemImage: "wifi.exclamationmark",
+                            description: Text(error)
+                        )
+                        .frame(maxHeight: .infinity)
+                    } else if events.isEmpty {
+                        ContentUnavailableView(
+                            "Journée libre",
+                            systemImage: "sparkles",
+                            description: Text("Aucun cours prévu pour cette journée.")
+                        )
+                        .frame(maxHeight: .infinity)
+                    } else {
+                        TimetableGrid(
+                            days: [day],
+                            events: events,
+                            now: virtualNow,
+                            startHour: store.firstVisibleHour,
+                            endHour: store.lastVisibleHour
+                        )
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
                 }
-                .scrollIndicators(.hidden)
-                .refreshable { await store.load() }
+                .padding(.horizontal, 10)
+                .padding(.top, 6)
+                .padding(.bottom, 4)
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -44,135 +59,73 @@ struct TodayView: View {
                         .font(.headline)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Text(store.selectedGroup.name)
+                    Text(store.selectedGroupsLabel)
                         .font(.caption.weight(.semibold))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 7)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 6)
                         .glassEffect(.regular, in: Capsule())
                 }
             }
             .navigationDestination(for: CalendarEvent.self) { EventDetailView(event: $0) }
+            .refreshable { await store.load() }
         }
     }
 
-    private func header(now: Date) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(now.formatted(.dateTime.weekday(.wide).day().month(.wide)))
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(.secondary)
-                .textCase(.uppercase)
+    private func header(now: Date, current: CalendarEvent?, next: CalendarEvent?) -> some View {
+        HStack(alignment: .bottom, spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(now.formatted(.dateTime.weekday(.wide).day().month(.wide)))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
 
-            Text("Aujourd’hui")
-                .font(.system(size: 36, weight: .bold, design: .rounded))
-                .tracking(-1)
+                Text("Aujourd’hui")
+                    .font(.system(size: 29, weight: .bold, design: .rounded))
+            }
 
-            Text(now.formatted(date: .omitted, time: .shortened))
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(.secondary)
+            Spacer(minLength: 8)
+
+            if let current {
+                statusPill(title: "En cours", detail: current.room.isEmpty ? current.title : current.room)
+            } else if let next {
+                statusPill(title: "Prochain", detail: next.start.formatted(date: .omitted, time: .shortened))
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.top, 4)
+    }
+
+    private func statusPill(title: String, detail: String) -> some View {
+        VStack(alignment: .trailing, spacing: 1) {
+            Text(title)
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.secondary)
+            Text(detail)
+                .font(.caption.weight(.semibold))
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .glassEffect(.regular, in: Capsule())
     }
 
     private func simulationBanner(now: Date) -> some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             Image(systemName: "clock.arrow.2.circlepath")
-                .font(.headline)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Simulation active")
-                    .font(.subheadline.weight(.semibold))
-                Text(now.formatted(date: .abbreviated, time: .shortened))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+            Text("Simulation : \(now.formatted(date: .abbreviated, time: .shortened))")
             Spacer()
         }
-        .padding(14)
-        .glassEffect(
-            .regular.tint(Color.orange.opacity(0.16)),
-            in: RoundedRectangle(cornerRadius: 18, style: .continuous)
-        )
+        .font(.caption.weight(.semibold))
+        .foregroundStyle(.orange)
+        .padding(.horizontal, 10)
     }
 
-    private func focusCard(label: String, event: CalendarEvent, now: Date) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text(label)
-                    .font(.caption.weight(.heavy))
-                    .foregroundStyle(.tint)
-                    .tracking(0.7)
-                Spacer()
-                temporalLabel(for: event, now: now)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-            }
-
-            NavigationLink(value: event) {
-                EventCard(event: event, emphasized: true)
-            }
-            .buttonStyle(.plain)
-
-            if event.start <= now && event.end > now {
-                ProgressView(value: progress(for: event, now: now))
-                    .progressViewStyle(.linear)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func stateContent(events: [CalendarEvent]) -> some View {
-        if store.isLoading && events.isEmpty {
-            VStack(spacing: 12) {
-                ProgressView()
-                Text("Actualisation de l’emploi du temps…")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 50)
-        } else if let error = store.errorMessage, events.isEmpty {
-            ContentUnavailableView(
-                "Emploi du temps indisponible",
-                systemImage: "wifi.exclamationmark",
-                description: Text(error)
-            )
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 32)
-        } else if events.isEmpty {
-            ContentUnavailableView(
-                "Journée libre",
-                systemImage: "sparkles",
-                description: Text("Aucun cours prévu pour cette journée.")
-            )
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 32)
-        } else {
-            Text("LA JOURNÉE")
-                .font(.caption.weight(.heavy))
+    private var loadingState: some View {
+        VStack(spacing: 10) {
+            ProgressView()
+            Text("Actualisation de l’emploi du temps…")
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
-                .tracking(0.8)
-                .padding(.top, 2)
-
-            ForEach(events) { event in
-                NavigationLink(value: event) {
-                    EventCard(event: event)
-                }
-                .buttonStyle(.plain)
-            }
         }
-    }
-
-    private func progress(for event: CalendarEvent, now: Date) -> Double {
-        guard event.duration > 0 else { return 0 }
-        return min(max(now.timeIntervalSince(event.start) / event.duration, 0), 1)
-    }
-
-    private func temporalLabel(for event: CalendarEvent, now: Date) -> Text {
-        if now < event.start {
-            let minutes = max(0, Int(event.start.timeIntervalSince(now) / 60))
-            return Text("dans \(minutes) min")
-        }
-        let minutes = max(0, Int(event.end.timeIntervalSince(now) / 60))
-        return Text("\(minutes) min restantes")
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
