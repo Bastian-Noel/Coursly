@@ -3,7 +3,7 @@ import Observation
 
 @MainActor @Observable
 final class CalendarStore {
-    var selectedGroups: [StudentGroup] = Self.loadSelectedGroups() {
+    var selectedGroups: [StudentGroup] {
         didSet { persistSelectedGroups() }
     }
 
@@ -24,6 +24,10 @@ final class CalendarStore {
     }
 
     private let service = CalendarService()
+
+    init() {
+        selectedGroups = CalendarStore.loadSelectedGroups()
+    }
 
     var now: Date {
         simulationEnabled ? Date().addingTimeInterval(simulationOffset) : Date()
@@ -113,7 +117,10 @@ final class CalendarStore {
 
     private func persistSelectedGroups() {
         let normalized = selectedGroups.isEmpty ? [StudentGroup(name: "MMI1-A1")] : selectedGroups
-        if selectedGroups.isEmpty { selectedGroups = normalized; return }
+        if selectedGroups.isEmpty {
+            selectedGroups = normalized
+            return
+        }
         UserDefaults.standard.set(normalized.map(\.name), forKey: "selectedGroups")
         UserDefaults.standard.set(normalized.first?.name, forKey: "selectedGroup")
     }
