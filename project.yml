@@ -14,6 +14,7 @@ targets:
     platform: iOS
     sources:
       - path: Coursly
+      - path: Shared
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: fr.bastiannoel.coursly
@@ -23,9 +24,33 @@ targets:
         MARKETING_VERSION: 0.1.0
         CURRENT_PROJECT_VERSION: 1
         CODE_SIGN_STYLE: Manual
+        INFOPLIST_KEY_NSSupportsLiveActivities: YES
+    dependencies:
+      - target: CourslyLiveActivity
     scheme:
       testTargets: []
-      gatherCoverageData: false
+      gatherCoverageData: true
+  CourslyLiveActivity:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: CourslyLiveActivity
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: fr.bastiannoel.coursly.liveactivity
+        PRODUCT_NAME: CourslyLiveActivity
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Coursly
+        INFOPLIST_KEY_NSExtension_NSExtensionPointIdentifier: com.apple.widgetkit-extension
+        SKIP_INSTALL: YES
+  CourslyTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: CourslyTests
+    dependencies:
+      - target: Coursly
 schemes:
   Coursly:
     build:
@@ -35,3 +60,7 @@ schemes:
       config: Debug
     archive:
       config: Release
+    test:
+      config: Debug
+      targets:
+        - CourslyTests

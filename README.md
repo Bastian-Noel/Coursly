@@ -20,13 +20,13 @@ Le MVP prévoit notamment les vues Aujourd'hui et Semaine, le détail d'un cours
 
 | Élément | État |
 | --- | --- |
-| Application SwiftUI native | Socle initial |
+| Application SwiftUI native | V1 implémentée |
 | Cible iPhone / iOS 26 | Configurée |
 | Génération du projet avec XcodeGen | Configurée |
 | Build et empaquetage d'une IPA non signée | Configurés dans GitHub Actions |
-| Modèles, clients CELCAT et parsers Swift | À venir |
-| Interfaces Aujourd'hui, Semaine et Recherche | À venir |
-| Live Activity sur l'écran verrouillé | À venir |
+| Modèles, clients CELCAT et parsers Swift | Implémentés |
+| Interfaces Aujourd'hui, Semaine et Recherche | Implémentées |
+| Live Activity sur l'écran verrouillé | Implémentée |
 
 Consultez [`docs/PLAN.md`](docs/PLAN.md) pour l'ordre de réalisation retenu.
 
