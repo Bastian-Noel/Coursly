@@ -17,6 +17,6 @@ enum LiveActivityManager {
         let state = CourslyActivityAttributes.ContentState(status: status, title: event.title, room: event.room, type: event.type?.rawValue, start: event.start, end: event.end, nextTitle: now >= event.start ? next?.title : nil)
         let content = ActivityContent(state: state, staleDate: event.end)
         if let activity = Activity<CourslyActivityAttributes>.activities.first { await activity.update(content) }
-        else { _ = try? Activity.request(attributes: .init(eventID: event.id), content: content, pushType: nil) }
+        else { _ = try? Activity<CourslyActivityAttributes>.request(attributes: CourslyActivityAttributes(eventID: event.id), content: content, pushType: nil) }
     }
 }
