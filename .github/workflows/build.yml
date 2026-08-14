@@ -29,7 +29,6 @@ jobs:
 
       - name: Build iPhone app without code signing
         run: |
-          VERSION="0.1.${GITHUB_RUN_NUMBER}"
           xcodebuild \
             -project Coursly.xcodeproj \
             -scheme Coursly \
@@ -37,7 +36,6 @@ jobs:
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
             -derivedDataPath build \
-            MARKETING_VERSION="$VERSION" \
             CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" \
             CODE_SIGN_IDENTITY='' \
             CODE_SIGNING_REQUIRED=NO \
@@ -114,7 +112,6 @@ jobs:
           })
           app['versions'] = versions[:20]
 
-          # Champs explicites pour les lecteurs qui n'utilisent pas uniquement versions[0].
           app['version'] = version
           app['buildVersion'] = build
           app['marketingVersion'] = f'{version} ({build})'
