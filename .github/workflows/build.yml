@@ -29,6 +29,7 @@ jobs:
 
       - name: Build iPhone app without code signing
         run: |
+          VERSION="0.1.${GITHUB_RUN_NUMBER}"
           xcodebuild \
             -project Coursly.xcodeproj \
             -scheme Coursly \
@@ -36,6 +37,7 @@ jobs:
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
             -derivedDataPath build \
+            MARKETING_VERSION="$VERSION" \
             CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" \
             CODE_SIGN_IDENTITY='' \
             CODE_SIGNING_REQUIRED=NO \
@@ -71,7 +73,7 @@ jobs:
         run: |
           gh release create "${{ steps.meta.outputs.tag }}" Coursly.ipa \
             --repo "$GITHUB_REPOSITORY" \
-            --title "Coursly build ${{ steps.meta.outputs.build }}" \
+            --title "Coursly ${{ steps.meta.outputs.version }} (build ${{ steps.meta.outputs.build }})" \
             --notes "Build de développement destinée à être signée sur l’appareil." \
             --prerelease
 
@@ -137,12 +139,12 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add source.json latest.json
-          git commit -m "Publish Coursly build $BUILD"
+          git commit -m "Publish Coursly $VERSION build $BUILD"
           git push origin HEAD:site
 
       - name: Upload CI artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Coursly-${{ steps.meta.outputs.build }}
+          name: Coursly-${{ steps.meta.outputs.version }}-${{ steps.meta.outputs.build }}
           path: Coursly.ipa
           retention-days: 14
