@@ -26,6 +26,16 @@ struct CourslyLiveActivityWidget: Widget {
             }
             .padding().activityBackgroundTint(.gray.opacity(0.18)).activitySystemActionForegroundColor(.accentColor)
             .widgetURL(URL(string: "coursly://event/\(context.attributes.eventID)"))
+        } dynamicIsland: { _ in
+            DynamicIsland {
+                DynamicIslandExpandedRegion(.center) { EmptyView() }
+            } compactLeading: {
+                EmptyView()
+            } compactTrailing: {
+                EmptyView()
+            } minimal: {
+                EmptyView()
+            }
         }
     }
 }
