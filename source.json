@@ -18,6 +18,17 @@
       "category": "utilities",
       "versions": [
         {
+          "version": "0.1.30",
+          "buildVersion": "30",
+          "marketingVersion": "0.1.30 (30)",
+          "date": "2026-08-14T08:53:20Z",
+          "localizedDescription": "Coursly 0.1.30 — build 30",
+          "downloadURL": "https://github.com/Bastian-Noel/Coursly/releases/download/build-30/Coursly.ipa",
+          "size": 346242,
+          "sha256": "3a498dff4eb5f81cd1a2c51511eebb757045528a733e3ddd2c2eda10ae6b39d0",
+          "minOSVersion": "26.0"
+        },
+        {
           "version": "0.1.29",
           "buildVersion": "29",
           "marketingVersion": "0.1.29 (29)",
@@ -210,26 +221,16 @@
           "size": 10415,
           "sha256": "3c7e926b6550710cb72dbce63742afb52b51abba2d9ee580c4c87cda5ee13989",
           "minOSVersion": "26.0"
-        },
-        {
-          "version": "0.1.0",
-          "buildVersion": "4",
-          "date": "2026-08-13T21:08:39Z",
-          "localizedDescription": "Build de développement Coursly",
-          "downloadURL": "https://github.com/Bastian-Noel/Coursly/releases/download/build-4/Coursly.ipa",
-          "size": 10416,
-          "sha256": "15c8de2f81b931c4cbb7ea03b25e9afbbc4f06031272411342432c22c10f5460",
-          "minOSVersion": "26.0"
         }
       ],
-      "version": "0.1.29",
-      "versionDate": "2026-08-14T08:46:11Z",
-      "size": 346135,
-      "downloadURL": "https://github.com/Bastian-Noel/Coursly/releases/download/build-29/Coursly.ipa",
+      "version": "0.1.30",
+      "versionDate": "2026-08-14T08:53:20Z",
+      "size": 346242,
+      "downloadURL": "https://github.com/Bastian-Noel/Coursly/releases/download/build-30/Coursly.ipa",
       "appPermissions": {},
-      "buildVersion": "29",
-      "marketingVersion": "0.1.29 (29)",
-      "sha256": "4fd6fb0220900b5146e39b5267f3b8bc0bcd1a15cff8237c25620026740fdd7f"
+      "buildVersion": "30",
+      "marketingVersion": "0.1.30 (30)",
+      "sha256": "3a498dff4eb5f81cd1a2c51511eebb757045528a733e3ddd2c2eda10ae6b39d0"
     }
   ],
   "news": []
