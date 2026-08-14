@@ -104,8 +104,9 @@ jobs:
           versions.insert(0, {
               'version': version,
               'buildVersion': build,
+              'marketingVersion': f'{version} ({build})',
               'date': date,
-              'localizedDescription': 'Build de développement Coursly',
+              'localizedDescription': f'Coursly {version} — build {build}',
               'downloadURL': download,
               'size': int(size),
               'sha256': sha256,
@@ -113,11 +114,14 @@ jobs:
           })
           app['versions'] = versions[:20]
 
-          # Champs de compatibilité utilisés par certains parseurs de sources.
+          # Champs explicites pour les lecteurs qui n'utilisent pas uniquement versions[0].
           app['version'] = version
+          app['buildVersion'] = build
+          app['marketingVersion'] = f'{version} ({build})'
           app['versionDate'] = date
           app['downloadURL'] = download
           app['size'] = int(size)
+          app['sha256'] = sha256
           app.setdefault('appPermissions', {})
 
           source_path.write_text(json.dumps(source, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
@@ -127,6 +131,7 @@ jobs:
               'bundleIdentifier': 'fr.bastiannoel.coursly',
               'version': version,
               'buildVersion': build,
+              'marketingVersion': f'{version} ({build})',
               'date': date,
               'downloadURL': download,
               'size': int(size),
