@@ -18,6 +18,17 @@
       "category": "utilities",
       "versions": [
         {
+          "version": "0.1.27",
+          "buildVersion": "27",
+          "marketingVersion": "0.1.27 (27)",
+          "date": "2026-08-14T08:11:27Z",
+          "localizedDescription": "Coursly 0.1.27 — build 27",
+          "downloadURL": "https://github.com/Bastian-Noel/Coursly/releases/download/build-27/Coursly.ipa",
+          "size": 250322,
+          "sha256": "0e2fdc7bff50c0aaa6c3b8aa988dfd3f3b64772bcbed26e19ccd808fb98316b0",
+          "minOSVersion": "26.0"
+        },
+        {
           "version": "0.1.26",
           "buildVersion": "26",
           "marketingVersion": "0.1.26 (26)",
@@ -207,26 +218,16 @@
           "size": 10415,
           "sha256": "b1e8bb6508d755e3203b51eca0c1ce31ed296b9c074f7c97421b13dfccdda5d0",
           "minOSVersion": "26.0"
-        },
-        {
-          "version": "0.1.0",
-          "buildVersion": "1",
-          "date": "2026-08-13T20:47:30Z",
-          "localizedDescription": "Build de développement Coursly",
-          "downloadURL": "https://github.com/Bastian-Noel/Coursly/releases/download/build-1/Coursly.ipa",
-          "size": 10415,
-          "sha256": "9b274ef8a4e2c818a9307c83644fbc4f6531f046b547812ae791fc18593efc18",
-          "minOSVersion": "26.0"
         }
       ],
-      "version": "0.1.26",
-      "versionDate": "2026-08-14T07:39:13Z",
-      "size": 250271,
-      "downloadURL": "https://github.com/Bastian-Noel/Coursly/releases/download/build-26/Coursly.ipa",
+      "version": "0.1.27",
+      "versionDate": "2026-08-14T08:11:27Z",
+      "size": 250322,
+      "downloadURL": "https://github.com/Bastian-Noel/Coursly/releases/download/build-27/Coursly.ipa",
       "appPermissions": {},
-      "buildVersion": "26",
-      "marketingVersion": "0.1.26 (26)",
-      "sha256": "49074c3c45edfd3faf2bb87ecea385c071c51555fd99bb246d813be8c66770d8"
+      "buildVersion": "27",
+      "marketingVersion": "0.1.27 (27)",
+      "sha256": "0e2fdc7bff50c0aaa6c3b8aa988dfd3f3b64772bcbed26e19ccd808fb98316b0"
     }
   ],
   "news": []
