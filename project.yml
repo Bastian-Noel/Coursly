@@ -35,14 +35,17 @@ targets:
     platform: iOS
     sources:
       - path: CourslyLiveActivity
+        excludes:
+          - Info.plist
       - path: Shared
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: fr.bastiannoel.coursly.liveactivity
         PRODUCT_NAME: CourslyLiveActivity
-        GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: Coursly
-        INFOPLIST_KEY_NSExtension_NSExtensionPointIdentifier: com.apple.widgetkit-extension
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: CourslyLiveActivity/Info.plist
+        MARKETING_VERSION: 0.1.0
+        CURRENT_PROJECT_VERSION: 1
         SKIP_INSTALL: YES
   CourslyTests:
     type: bundle.unit-test
