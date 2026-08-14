@@ -10,24 +10,46 @@ struct SettingsView: View {
             CourslyBackdrop()
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 18) {
                     settingsHeader
 
-                    SettingsGlassSection(title: "EMPLOI DU TEMPS", systemImage: "calendar") {
-                        Picker("Groupe", selection: $store.selectedGroup) {
+                    SettingsGlassSection(title: "GROUPES AFFICHÉS", systemImage: "person.3") {
+                        VStack(spacing: 10) {
                             ForEach(StudentGroup.all) { group in
-                                Text(group.name).tag(group)
+                                Toggle(
+                                    group.name,
+                                    isOn: Binding(
+                                        get: { store.isGroupSelected(group) },
+                                        set: { enabled in
+                                            store.setGroup(group, enabled: enabled)
+                                            Task { await store.load() }
+                                        }
+                                    )
+                                )
+                                .font(.subheadline.weight(.medium))
                             }
                         }
-                        .pickerStyle(.menu)
-                        .onChange(of: store.selectedGroup) {
-                            Task { await store.load() }
+
+                        Text("Au moins un groupe reste toujours sélectionné. Les cours identiques sont fusionnés visuellement ; les conflits restent côte à côte dans la grille.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    SettingsGlassSection(title: "AFFICHAGE DE LA GRILLE", systemImage: "calendar.day.timeline.left") {
+                        VStack(spacing: 12) {
+                            Stepper("Début : \(store.firstVisibleHour) h", value: $store.firstVisibleHour, in: 0...max(0, store.lastVisibleHour - 1))
+                            Stepper("Fin : \(store.lastVisibleHour) h", value: $store.lastVisibleHour, in: min(24, store.firstVisibleHour + 1)...24)
                         }
+                        .font(.subheadline)
+
+                        Text("La ligne rouge indique l’heure actuelle, ou l’heure simulée lorsque la simulation est active.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
 
                     SettingsGlassSection(title: "SIMULATION TEMPORELLE", systemImage: "clock.arrow.2.circlepath") {
                         VStack(alignment: .leading, spacing: 16) {
-                            Toggle("Simuler une autre date", isOn: $store.simulationEnabled)
+                            Toggle("Simuler une autre date et heure", isOn: $store.simulationEnabled)
                                 .font(.body.weight(.medium))
                                 .onChange(of: store.simulationEnabled) {
                                     store.weekOffset = 0
@@ -38,43 +60,32 @@ struct SettingsView: View {
                             if store.simulationEnabled {
                                 Divider().opacity(0.35)
 
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Text("Date et heure simulées")
-                                        .font(.caption.weight(.semibold))
-                                        .foregroundStyle(.secondary)
-
-                                    DatePicker(
-                                        "Date et heure simulées",
-                                        selection: Binding(
-                                            get: { store.now },
-                                            set: { newValue in
-                                                store.simulationDate = newValue
-                                                store.weekOffset = 0
-                                                store.selectedDate = newValue
-                                            }
-                                        ),
-                                        displayedComponents: [.date, .hourAndMinute]
-                                    )
-                                    .labelsHidden()
-                                    .datePickerStyle(.compact)
-                                    .onChange(of: store.simulationOffset) {
-                                        Task { await store.load() }
-                                    }
+                                DatePicker(
+                                    "Date et heure simulées",
+                                    selection: Binding(
+                                        get: { store.now },
+                                        set: { newValue in
+                                            store.simulationDate = newValue
+                                            store.weekOffset = 0
+                                            store.selectedDate = newValue
+                                        }
+                                    ),
+                                    displayedComponents: [.date, .hourAndMinute]
+                                )
+                                .datePickerStyle(.compact)
+                                .onChange(of: store.simulationOffset) {
+                                    Task { await store.load() }
                                 }
 
-                                HStack {
-                                    Image(systemName: "waveform.path.ecg")
-                                        .foregroundStyle(.orange)
-                                    Text("L’horloge continue d’avancer normalement à partir de ce décalage.")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
+                                Text("L’horloge simulée continue ensuite d’avancer normalement.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
 
                                 Button {
                                     store.resetSimulation()
                                     Task { await store.load() }
                                 } label: {
-                                    Label("Revenir à maintenant", systemImage: "arrow.counterclockwise")
+                                    Label("Revenir à la date et l’heure réelles", systemImage: "arrow.counterclockwise")
                                         .frame(maxWidth: .infinity)
                                 }
                                 .buttonStyle(.glass)
@@ -82,7 +93,7 @@ struct SettingsView: View {
                         }
                     }
 
-                    SettingsGlassSection(title: "LIVE ACTIVITY", systemImage: "iphone") {
+                    SettingsGlassSection(title: "ACTIVITÉ EN DIRECT", systemImage: "iphone") {
                         HStack(spacing: 12) {
                             Image(systemName: "lock.display")
                                 .font(.title3)
@@ -90,7 +101,7 @@ struct SettingsView: View {
                             VStack(alignment: .leading, spacing: 3) {
                                 Text("Écran verrouillé uniquement")
                                     .font(.body.weight(.medium))
-                                Text("Pas de Dynamic Island dans la V2.")
+                                Text("Aucune Dynamic Island dans cette version.")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
@@ -98,12 +109,8 @@ struct SettingsView: View {
                     }
 
                     SettingsGlassSection(title: "À PROPOS", systemImage: "info.circle") {
-                        HStack {
-                            Text("Version")
-                            Spacer()
-                            Text("0.2.0")
-                                .foregroundStyle(.secondary)
-                        }
+                        LabeledContent("Version", value: versionLabel)
+                        LabeledContent("Application", value: "Coursly")
                     }
                 }
                 .padding(.horizontal, 16)
@@ -116,11 +123,15 @@ struct SettingsView: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 
+    private var versionLabel: String {
+        (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "—"
+    }
+
     private var settingsHeader: some View {
         VStack(alignment: .leading, spacing: 5) {
             Text("Coursly")
                 .font(.system(size: 34, weight: .bold, design: .rounded))
-            Text("Personnalise ton emploi du temps et simule n’importe quel moment pour tester l’app.")
+            Text("Choisis tes groupes, ajuste la grille et simule une autre date pour tester l’emploi du temps.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
@@ -149,7 +160,7 @@ private struct SettingsGlassSection<Content: View>: View {
             content
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(18)
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .padding(17)
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
 }

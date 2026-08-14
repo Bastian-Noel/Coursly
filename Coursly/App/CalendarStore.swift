@@ -3,8 +3,8 @@ import Observation
 
 @MainActor @Observable
 final class CalendarStore {
-    var selectedGroup = StudentGroup(name: UserDefaults.standard.string(forKey: "selectedGroup") ?? "MMI1-A1") {
-        didSet { UserDefaults.standard.set(selectedGroup.name, forKey: "selectedGroup") }
+    var selectedGroups: [StudentGroup] = Self.loadSelectedGroups() {
+        didSet { persistSelectedGroups() }
     }
 
     var events: [CalendarEvent] = []
@@ -25,8 +25,6 @@ final class CalendarStore {
 
     private let service = CalendarService()
 
-    /// Horloge métier de l'app. En mode simulation, elle continue d'avancer en temps réel
-    /// à partir du décalage choisi dans Réglages.
     var now: Date {
         simulationEnabled ? Date().addingTimeInterval(simulationOffset) : Date()
     }
@@ -36,6 +34,30 @@ final class CalendarStore {
         set {
             simulationOffset = newValue.timeIntervalSinceNow
             simulationEnabled = true
+        }
+    }
+
+    var selectedGroupsLabel: String {
+        switch selectedGroups.count {
+        case 0: return "Aucun groupe"
+        case 1: return selectedGroups[0].name
+        default: return "\(selectedGroups.count) groupes"
+        }
+    }
+
+    func isGroupSelected(_ group: StudentGroup) -> Bool {
+        selectedGroups.contains(group)
+    }
+
+    func setGroup(_ group: StudentGroup, enabled: Bool) {
+        if enabled {
+            if !selectedGroups.contains(group) {
+                selectedGroups.append(group)
+                selectedGroups.sort { $0.name < $1.name }
+            }
+        } else {
+            guard selectedGroups.count > 1 else { return }
+            selectedGroups.removeAll { $0 == group }
         }
     }
 
@@ -52,7 +74,7 @@ final class CalendarStore {
         defer { isLoading = false }
 
         do {
-            events = try await service.events(for: selectedGroup, interval: displayedInterval)
+            events = try await service.events(for: selectedGroups, interval: displayedInterval)
             await LiveActivityManager.update(events: events(on: now))
         } catch {
             errorMessage = error.localizedDescription
@@ -70,5 +92,29 @@ final class CalendarStore {
         events
             .filter { Calendar.current.isDate($0.start, inSameDayAs: date) }
             .sorted { $0.start < $1.start }
+    }
+
+    private static func loadSelectedGroups() -> [StudentGroup] {
+        let defaults = UserDefaults.standard
+
+        if let names = defaults.stringArray(forKey: "selectedGroups"), !names.isEmpty {
+            let groups = names.map(StudentGroup.init(name:))
+            let valid = groups.filter { StudentGroup.all.contains($0) }
+            if !valid.isEmpty { return valid }
+        }
+
+        if let legacy = defaults.string(forKey: "selectedGroup") {
+            let group = StudentGroup(name: legacy)
+            if StudentGroup.all.contains(group) { return [group] }
+        }
+
+        return [StudentGroup(name: "MMI1-A1")]
+    }
+
+    private func persistSelectedGroups() {
+        let normalized = selectedGroups.isEmpty ? [StudentGroup(name: "MMI1-A1")] : selectedGroups
+        if selectedGroups.isEmpty { selectedGroups = normalized; return }
+        UserDefaults.standard.set(normalized.map(\.name), forKey: "selectedGroups")
+        UserDefaults.standard.set(normalized.first?.name, forKey: "selectedGroup")
     }
 }
