@@ -18,6 +18,17 @@
       "category": "utilities",
       "versions": [
         {
+          "version": "0.2.0",
+          "buildVersion": "31",
+          "marketingVersion": "0.2.0 (31)",
+          "date": "2026-08-14T08:53:42Z",
+          "localizedDescription": "Coursly 0.2.0 — build 31",
+          "downloadURL": "https://github.com/Bastian-Noel/Coursly/releases/download/build-31/Coursly.ipa",
+          "size": 346236,
+          "sha256": "e487c0f9d53e821d8702c83d38ec3939244926a82033567de9990617f04c2e70",
+          "minOSVersion": "26.0"
+        },
+        {
           "version": "0.1.30",
           "buildVersion": "30",
           "marketingVersion": "0.1.30 (30)",
@@ -211,26 +222,16 @@
           "size": 10415,
           "sha256": "654ccf8e5c2784bd76e758133f8f106b235ec174e29eb4d6e5d42e3e2d715dca",
           "minOSVersion": "26.0"
-        },
-        {
-          "version": "0.1.0",
-          "buildVersion": "5",
-          "date": "2026-08-13T21:08:58Z",
-          "localizedDescription": "Build de développement Coursly",
-          "downloadURL": "https://github.com/Bastian-Noel/Coursly/releases/download/build-5/Coursly.ipa",
-          "size": 10415,
-          "sha256": "3c7e926b6550710cb72dbce63742afb52b51abba2d9ee580c4c87cda5ee13989",
-          "minOSVersion": "26.0"
         }
       ],
-      "version": "0.1.30",
-      "versionDate": "2026-08-14T08:53:20Z",
-      "size": 346242,
-      "downloadURL": "https://github.com/Bastian-Noel/Coursly/releases/download/build-30/Coursly.ipa",
+      "version": "0.2.0",
+      "versionDate": "2026-08-14T08:53:42Z",
+      "size": 346236,
+      "downloadURL": "https://github.com/Bastian-Noel/Coursly/releases/download/build-31/Coursly.ipa",
       "appPermissions": {},
-      "buildVersion": "30",
-      "marketingVersion": "0.1.30 (30)",
-      "sha256": "3a498dff4eb5f81cd1a2c51511eebb757045528a733e3ddd2c2eda10ae6b39d0"
+      "buildVersion": "31",
+      "marketingVersion": "0.2.0 (31)",
+      "sha256": "e487c0f9d53e821d8702c83d38ec3939244926a82033567de9990617f04c2e70"
     }
   ],
   "news": []
