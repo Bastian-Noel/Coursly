@@ -13,6 +13,11 @@ on:
 permissions:
   contents: write
 
+# Serialize releases so two close pushes cannot choose the same semantic build number.
+concurrency:
+  group: coursly-release-main
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: macos-26
@@ -20,6 +25,40 @@ jobs:
     steps:
       - name: Checkout main
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve Coursly version
+        id: version
+        run: |
+          set -euo pipefail
+
+          # project.yml stores the release line as 0.<version>.0.
+          BASE_VERSION=$(awk '/MARKETING_VERSION:/ { gsub(/"/, "", $2); print $2; exit }' project.yml)
+          SERIES=$(echo "$BASE_VERSION" | awk -F. '{ print $1 "." $2 }')
+
+          # Releases produced by this versioning scheme are tagged v0.<version>.<build>.
+          LAST_BUILD=$(git tag -l "v${SERIES}.*" \
+            | sed -E "s/^v${SERIES//./\\.}\.([0-9]+)$/\\1/" \
+            | grep -E '^[0-9]+$' \
+            | sort -n \
+            | tail -1 || true)
+
+          if [ -z "$LAST_BUILD" ]; then
+            BUILD=1
+          else
+            BUILD=$((LAST_BUILD + 1))
+          fi
+
+          VERSION="${SERIES}.${BUILD}"
+          TAG="v${VERSION}"
+
+          echo "series=$SERIES" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "build=$BUILD" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+          echo "Coursly version: $VERSION"
 
       - name: Install XcodeGen
         run: brew install xcodegen
@@ -28,8 +67,10 @@ jobs:
         run: xcodegen generate
 
       - name: Build iPhone app without code signing
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          BUILD: ${{ steps.version.outputs.build }}
         run: |
-          VERSION="0.2.${GITHUB_RUN_NUMBER}"
           xcodebuild \
             -project Coursly.xcodeproj \
             -scheme Coursly \
@@ -38,7 +79,7 @@ jobs:
             -destination 'generic/platform=iOS' \
             -derivedDataPath build \
             MARKETING_VERSION="$VERSION" \
-            CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" \
+            CURRENT_PROJECT_VERSION="$BUILD" \
             CODE_SIGN_IDENTITY='' \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
@@ -46,12 +87,15 @@ jobs:
 
       - name: Package IPA
         run: |
+          rm -rf Payload Coursly.ipa
           mkdir -p Payload
           cp -R build/Build/Products/Release-iphoneos/Coursly.app Payload/Coursly.app
           zip -qry Coursly.ipa Payload
 
       - name: Read build metadata
         id: meta
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
         run: |
           APP='build/Build/Products/Release-iphoneos/Coursly.app'
           VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Info.plist")
@@ -59,7 +103,7 @@ jobs:
           SIZE=$(stat -f%z Coursly.ipa)
           SHA256=$(shasum -a 256 Coursly.ipa | awk '{print $1}')
           DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          TAG="build-${BUILD}"
+
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "build=$BUILD" >> "$GITHUB_OUTPUT"
           echo "size=$SIZE" >> "$GITHUB_OUTPUT"
@@ -74,7 +118,7 @@ jobs:
           gh release create "${{ steps.meta.outputs.tag }}" Coursly.ipa \
             --repo "$GITHUB_REPOSITORY" \
             --title "Coursly ${{ steps.meta.outputs.version }}" \
-            --notes "Build de développement destinée à être signée sur l’appareil. Build interne ${{ steps.meta.outputs.build }}." \
+            --notes "Build de développement destinée à être signée sur l’appareil." \
             --prerelease
 
       - name: Update site metadata
@@ -93,6 +137,7 @@ jobs:
           python3 - "$VERSION" "$BUILD" "$SIZE" "$SHA256" "$DATE" "$DOWNLOAD" <<'PY'
           import json
           import pathlib
+          import re
           import sys
 
           version, build, size, sha256, date, download = sys.argv[1:]
@@ -100,7 +145,13 @@ jobs:
           source = json.loads(source_path.read_text(encoding='utf-8'))
           app = source['apps'][0]
 
-          versions = [v for v in app.get('versions', []) if str(v.get('buildVersion')) != build]
+          # Drop legacy build-N entries from the broken global-run-number scheme.
+          # From now on only semantic v0.x.y releases are kept in the public source.
+          versions = [
+              v for v in app.get('versions', [])
+              if re.search(r'/releases/download/v0\.\d+\.\d+/', str(v.get('downloadURL', '')))
+          ]
+          versions = [v for v in versions if v.get('version') != version]
           versions.insert(0, {
               'version': version,
               'buildVersion': build,
@@ -119,6 +170,7 @@ jobs:
           app['downloadURL'] = download
           app['size'] = int(size)
           app['sha256'] = sha256
+          app.pop('marketingVersion', None)
           app.setdefault('appPermissions', {})
 
           source_path.write_text(json.dumps(source, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
