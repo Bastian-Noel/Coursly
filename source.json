@@ -19,6 +19,16 @@
       "versions": [
         {
           "version": "0.1.0",
+          "buildVersion": "24",
+          "date": "2026-08-14T07:24:15Z",
+          "localizedDescription": "Build de développement Coursly",
+          "downloadURL": "https://github.com/Bastian-Noel/Coursly/releases/download/build-24/Coursly.ipa",
+          "size": 250241,
+          "sha256": "94199c03223332697c30303f2d7fb574743e5929b6b05019cb54c4941c031666",
+          "minOSVersion": "26.0"
+        },
+        {
+          "version": "0.1.0",
           "buildVersion": "23",
           "date": "2026-08-14T05:15:05Z",
           "localizedDescription": "Build de développement Coursly",
@@ -189,9 +199,9 @@
         }
       ],
       "version": "0.1.0",
-      "versionDate": "2026-08-14T05:15:05Z",
+      "versionDate": "2026-08-14T07:24:15Z",
       "size": 250241,
-      "downloadURL": "https://github.com/Bastian-Noel/Coursly/releases/download/build-23/Coursly.ipa",
+      "downloadURL": "https://github.com/Bastian-Noel/Coursly/releases/download/build-24/Coursly.ipa",
       "appPermissions": {}
     }
   ],
