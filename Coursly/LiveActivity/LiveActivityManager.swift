@@ -32,7 +32,7 @@ enum LiveActivityManager {
         func displayDate(_ date: Date) -> Date { date.addingTimeInterval(displayOffset) }
         func accentHex(for event: CalendarEvent) -> String {
             guard let type = event.type else { return "#6E6E73" }
-            return typeColors[type.rawValue] ?? defaultColorHex(for: type)
+            return typeColors[type.rawValue] ?? CourseTypeColorPreferences.hex(for: type)
         }
 
         if let currentIndex = ordered.firstIndex(where: { $0.start <= now && now < $0.end }) {
@@ -150,19 +150,6 @@ enum LiveActivityManager {
         let content = ActivityContent(state: state, staleDate: systemNow)
         for activity in Activity<CourslyActivityAttributes>.activities {
             await activity.end(content, dismissalPolicy: .after(systemNow.addingTimeInterval(15 * 60)))
-        }
-    }
-
-    private static func defaultColorHex(for type: CourseType) -> String {
-        switch type {
-        case .cm: return "#0A84FF"
-        case .td: return "#5E5CE6"
-        case .tp: return "#30D158"
-        case .project: return "#FF9F0A"
-        case .integration: return "#64D2FF"
-        case .meeting: return "#BF5AF2"
-        case .test: return "#FF453A"
-        case .exam: return "#FF375F"
         }
     }
 }
