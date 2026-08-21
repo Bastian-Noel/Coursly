@@ -1,10 +1,10 @@
 {
   "name": "Coursly",
   "bundleIdentifier": "fr.bastiannoel.coursly",
-  "version": "0.3.5",
-  "buildVersion": "5",
-  "date": "2026-08-21T17:39:48Z",
-  "downloadURL": "https://github.com/Bastian-Noel/Coursly/releases/download/v0.3.5/Coursly.ipa",
-  "size": 835774,
-  "sha256": "cab964437cd421026d7c799816dd2a4d82da62e7e842c152f2412f60f6bf5962"
+  "version": "0.3.6",
+  "buildVersion": "6",
+  "date": "2026-08-21T18:13:25Z",
+  "downloadURL": "https://github.com/Bastian-Noel/Coursly/releases/download/v0.3.6/Coursly.ipa",
+  "size": 852201,
+  "sha256": "467f8388c07b26b97bf4ce7d50c7d0c592fb23f22de924d44099117afbefcf3f"
 }
