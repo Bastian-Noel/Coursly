@@ -17,13 +17,16 @@ struct RootView: View {
         ZStack(alignment: .bottom) {
             CourslyBackdrop()
             CalendarScene(selectedEvent: $selectedEvent, panel: $panel)
+                .zIndex(0)
+
             if let panel {
                 panelView(panel)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .zIndex(3)
+                    .zIndex(10)
             }
+
             FloatingControlDock(activePanel: $panel, showSettings: $showSettings, showNewEvent: $showNewEvent)
-                .zIndex(4)
+                .zIndex(20)
         }
         .animation(.snappy(duration: 0.24), value: panel)
         .sheet(item: $selectedEvent) { event in
@@ -112,7 +115,7 @@ struct CalendarScene: View {
             }
             .environment(store)
         }
-        .safeAreaPadding(.bottom, 76)
+        .safeAreaPadding(.bottom, 82)
         .simultaneousGesture(
             MagnifyGesture(minimumScaleDelta: 0.14)
                 .onEnded { value in
@@ -135,7 +138,8 @@ struct CalendarScene: View {
                     )
                     .font(.caption.weight(.semibold))
                     .padding(.horizontal, 12)
-                    .padding(.vertical, 7)
+                    .frame(minHeight: 44)
+                    .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
                 .glassEffect(.regular.tint(.orange.opacity(0.16)).interactive(), in: Capsule())
@@ -162,9 +166,11 @@ struct CalendarHeader: View {
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(.secondary)
                 }
+                .frame(minHeight: 48, alignment: .leading)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Choisir une date")
 
             Spacer()
 
@@ -179,15 +185,18 @@ struct CalendarHeader: View {
             }
 
             if store.isLoading {
-                ProgressView().controlSize(.small)
+                ProgressView()
+                    .controlSize(.small)
+                    .frame(width: 48, height: 48)
             } else {
                 Button {
-                    Task { await store.refresh() }
                     HapticService.fire(.selection, enabled: store.hapticsEnabled)
+                    Task { await store.refresh() }
                 } label: {
                     Image(systemName: "arrow.clockwise")
                         .font(.subheadline.weight(.semibold))
-                        .frame(width: 34, height: 34)
+                        .frame(width: 48, height: 48)
+                        .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
                 .glassEffect(.regular.interactive(), in: Circle())
@@ -208,33 +217,40 @@ struct FloatingControlDock: View {
     }
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 7) {
             dockButton(
-                title: store.displayMode == .day ? "Aujourd’hui" : "Maintenant",
+                title: "Aujourd’hui",
                 icon: "scope",
                 active: !isOnToday
             ) {
+                activePanel = nil
                 store.goToToday()
                 Task { await store.ensureLoaded(around: store.focusedDate) }
             }
+
             dockButton(
-                title: store.displayMode == .day ? "1J" : "5J",
-                icon: store.displayMode == .day ? "rectangle.split.1x2" : "calendar"
+                title: store.displayMode == .day ? "Semaine" : "Jour",
+                icon: store.displayMode == .day ? "calendar" : "rectangle.split.1x2"
             ) {
+                activePanel = nil
                 store.setDisplayMode(store.displayMode == .day ? .week : .day)
             }
-            dockButton(title: "Recherche", icon: "magnifyingglass", active: activePanel == .search) {
+
+            dockButton(title: "Chercher", icon: "magnifyingglass", active: activePanel == .search) {
                 toggle(.search)
             }
-            dockButton(title: "\(store.selectedGroups.count)", icon: "person.2.fill", active: activePanel == .groups) {
+
+            dockButton(title: "Groupes", icon: "person.2.fill", active: activePanel == .groups, badge: store.selectedGroups.count) {
                 toggle(.groups)
             }
+
             dockButton(title: "Plus", icon: "ellipsis", active: activePanel == .more || activePanel == .changes) {
                 toggle(.more)
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.bottom, 6)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .safeAreaPadding(.bottom, 2)
     }
 
     private func toggle(_ panel: FloatingPanel) {
@@ -246,23 +262,41 @@ struct FloatingControlDock: View {
         title: String,
         icon: String,
         active: Bool = false,
+        badge: Int? = nil,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            HStack(spacing: 5) {
-                Image(systemName: icon).font(.subheadline.weight(.semibold))
-                if active || title.count <= 3 {
-                    Text(title).font(.caption.weight(.semibold)).lineLimit(1)
+            VStack(spacing: 3) {
+                ZStack(alignment: .topTrailing) {
+                    Image(systemName: icon)
+                        .font(.system(size: 16, weight: .semibold))
+                        .frame(width: 24, height: 22)
+
+                    if let badge, badge > 0 {
+                        Text(String(badge))
+                            .font(.system(size: 8, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white)
+                            .frame(minWidth: 14, minHeight: 14)
+                            .background(Color.accentColor, in: Circle())
+                            .offset(x: 7, y: -5)
+                    }
                 }
+
+                Text(title)
+                    .font(.system(size: 9.5, weight: .semibold, design: .rounded))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
             }
-            .frame(minWidth: 34, minHeight: 40)
-            .padding(.horizontal, active ? 10 : 5)
+            .frame(minWidth: 54, minHeight: 52)
+            .padding(.horizontal, 4)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .glassEffect(
             active ? .regular.tint(Color.accentColor.opacity(0.18)).interactive() : .regular.interactive(),
-            in: Capsule()
+            in: RoundedRectangle(cornerRadius: 18, style: .continuous)
         )
         .accessibilityLabel(title)
+        .accessibilityAddTraits(active ? .isSelected : [])
     }
 }
