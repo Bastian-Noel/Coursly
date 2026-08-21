@@ -15,6 +15,7 @@ final class CalendarStore {
     var focusedDate: Date = Calendar.current.startOfDay(for: Date())
     var displayMode: CalendarDisplayMode = .day
     var highlightedEventID: String?
+    var timelineRecenterToken = UUID()
     var weekendPolicy: WeekendDisplayPolicy { didSet { UserDefaults.standard.set(weekendPolicy.rawValue, forKey: "v3.weekendPolicy") } }
     var hourHeight: Double { didSet { UserDefaults.standard.set(hourHeight, forKey: "v3.hourHeight") } }
     var simulationEnabled: Bool { didSet { UserDefaults.standard.set(simulationEnabled, forKey: "simulationEnabled") } }
@@ -73,9 +74,17 @@ final class CalendarStore {
         else { guard selectedGroups.count > 1 else { return }; selectedGroups.removeAll { $0 == group } }
         HapticService.fire(.selection, enabled: hapticsEnabled)
     }
+
+    func setSelectedGroups(_ groups: [StudentGroup]) {
+        let valid = Array(Set(groups.filter { StudentGroup.all.contains($0) })).sorted { $0.name < $1.name }
+        guard !valid.isEmpty else { return }
+        selectedGroups = valid
+        HapticService.fire(.selection, enabled: hapticsEnabled)
+    }
+
     func setNotificationKind(_ kind: CalendarChangeKind, enabled: Bool) { if enabled { notificationChangeKinds.insert(kind) } else { notificationChangeKinds.remove(kind) }; HapticService.fire(.selection, enabled: hapticsEnabled) }
-    func resetSimulation() { simulationEnabled = false; simulationOffset = 0; focusedDate = Calendar.current.startOfDay(for: Date()) }
-    func setSimulationEnabled(_ enabled: Bool) { simulationEnabled = enabled; if !enabled { simulationOffset = 0; focusedDate = Calendar.current.startOfDay(for: Date()) } else { focusedDate = Calendar.current.startOfDay(for: now) } }
+    func resetSimulation() { simulationEnabled = false; simulationOffset = 0; focusedDate = Calendar.current.startOfDay(for: Date()); timelineRecenterToken = UUID() }
+    func setSimulationEnabled(_ enabled: Bool) { simulationEnabled = enabled; if !enabled { simulationOffset = 0; focusedDate = Calendar.current.startOfDay(for: Date()) } else { focusedDate = Calendar.current.startOfDay(for: now) }; timelineRecenterToken = UUID() }
 
     func load(around date: Date? = nil, force: Bool = false) async {
         let center = date ?? focusedDate; let interval = makeLoadInterval(around: center)
@@ -98,10 +107,11 @@ final class CalendarStore {
     func ensureLoaded(around date: Date) async { if let loadedInterval, loadedInterval.contains(date) { return }; await load(around: date, force: true) }
     func events(on date: Date) -> [CalendarEvent] { events.filter { Calendar.current.isDate($0.start, inSameDayAs: date) }.sorted { $0.start == $1.start ? $0.end < $1.end : $0.start < $1.start } }
     func hasEvents(on date: Date) -> Bool { !events(on: date).isEmpty }
+    func adjacentVisibleDate(from date: Date? = nil, direction: Int) -> Date { nextVisibleDate(from: date ?? focusedDate, direction: direction) }
     func moveDay(_ direction: Int) { guard direction != 0 else { return }; focusedDate = Calendar.current.startOfDay(for: nextVisibleDate(from: focusedDate, direction: direction)); highlightedEventID = nil; HapticService.fire(.dayChanged, enabled: hapticsEnabled) }
-    func goToToday() { focusedDate = Calendar.current.startOfDay(for: now); displayMode = .day; highlightedEventID = nil; HapticService.fire(.returnedToNow, enabled: hapticsEnabled) }
-    func goTo(event: CalendarEvent) { focusedDate = Calendar.current.startOfDay(for: event.start); displayMode = .day; highlightedEventID = event.id; HapticService.fire(.selection, enabled: hapticsEnabled) }
-    func setDisplayMode(_ mode: CalendarDisplayMode) { guard displayMode != mode else { return }; displayMode = mode; HapticService.fire(.displayModeChanged, enabled: hapticsEnabled) }
+    func goToToday() { focusedDate = Calendar.current.startOfDay(for: now); displayMode = .day; highlightedEventID = nil; timelineRecenterToken = UUID(); HapticService.fire(.returnedToNow, enabled: hapticsEnabled) }
+    func goTo(event: CalendarEvent) { focusedDate = Calendar.current.startOfDay(for: event.start); displayMode = .day; highlightedEventID = event.id; timelineRecenterToken = UUID(); HapticService.fire(.selection, enabled: hapticsEnabled) }
+    func setDisplayMode(_ mode: CalendarDisplayMode) { guard displayMode != mode else { return }; displayMode = mode; timelineRecenterToken = UUID(); HapticService.fire(.displayModeChanged, enabled: hapticsEnabled) }
     func visibleWeekDays(containing date: Date) -> [Date] {
         let iso = Calendar(identifier: .iso8601); guard let week = iso.dateInterval(of: .weekOfYear, for: date) else { return [date] }
         return (0..<7).compactMap { iso.date(byAdding: .day, value: $0, to: week.start) }.filter { day in
