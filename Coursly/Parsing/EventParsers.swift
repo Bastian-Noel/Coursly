@@ -36,11 +36,18 @@ struct DirectEventParser: Sendable {
                 ? Array(parts[(groupIndex + 1)..<(groupIndex + 1 + siteCount)]).map(cleanRoom) : []
             let teachers = groupIndex > 0 ? Array(parts[..<groupIndex]) : []
             return CalendarEvent(
-                id: payload.id?.value ?? UUID().uuidString, title: title.isEmpty ? "Sans titre" : title,
-                type: courseType(payload.eventCategory), start: try parseDate(payload.start),
-                end: try parseDate(payload.end ?? payload.start), rooms: rooms,
-                teachers: teachers, groups: [group], moduleCode: payload.modules?.first,
-                moduleName: module, source: .directPOST
+                id: payload.id?.value ?? UUID().uuidString,
+                title: title.isEmpty ? "Sans titre" : title,
+                type: courseType(payload.eventCategory),
+                categoryLabel: cleanCategory(payload.eventCategory),
+                start: try parseDate(payload.start),
+                end: try parseDate(payload.end ?? payload.start),
+                rooms: rooms,
+                teachers: teachers,
+                groups: [group],
+                moduleCode: payload.modules?.first,
+                moduleName: module,
+                source: .directPOST
             )
         }
     }
@@ -55,6 +62,11 @@ struct DirectEventParser: Sendable {
     }
     private func cleanRoom(_ value: String) -> String {
         value.replacingOccurrences(of: #"\s+-\s+(VEL|VELIZY|VÉLIZY)$"#, with: "", options: [.regularExpression, .caseInsensitive])
+    }
+    private func cleanCategory(_ category: String?) -> String? {
+        guard let category else { return nil }
+        let value = decodeHTML(category).trimmingCharacters(in: .whitespacesAndNewlines)
+        return value.isEmpty ? nil : value
     }
     private func courseType(_ category: String?) -> CourseType? {
         let text = category?.folding(options: .diacriticInsensitive, locale: .current).lowercased() ?? ""
