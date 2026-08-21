@@ -7,7 +7,7 @@ struct CourslyActivityAttributes: ActivityAttributes {
         let title: String
         let room: String
         let teachers: String
-        let group: String
+        let groups: String
         let type: String?
         let accentHex: String
 
@@ -15,8 +15,7 @@ struct CourslyActivityAttributes: ActivityAttributes {
         let start: Date
         let end: Date
 
-        // Dates translatées uniquement pour permettre aux timers ActivityKit
-        // de fonctionner avec l'horloge système, notamment en simulation.
+        // Dates translatées uniquement pour les timers ActivityKit.
         let timerStart: Date
         let timerEnd: Date
 
