@@ -12,7 +12,7 @@ final class CalendarStore {
     var failedGroups: [StudentGroup] = []
     var loadedInterval: DateInterval?
     var lastSyncDate: Date?
-    var focusedDate: Date
+    var focusedDate: Date = Calendar.current.startOfDay(for: Date())
     var displayMode: CalendarDisplayMode = .day
     var highlightedEventID: String?
     var weekendPolicy: WeekendDisplayPolicy { didSet { UserDefaults.standard.set(weekendPolicy.rawValue, forKey: "v3.weekendPolicy") } }
