@@ -11,14 +11,20 @@ struct CourslyLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: CourslyActivityAttributes.self) { context in
             lockScreen(context)
-                .activityBackgroundTint(accentColor(context.state).opacity(0.16))
+                .activityBackgroundTint(.clear)
                 .activitySystemActionForegroundColor(.primary)
         } dynamicIsland: { context in
+            let accent = accentColor(context.state)
+            let contrast = contrastColor(context.state)
+
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
                     Text(context.state.type ?? "Cours")
                         .font(.caption.bold())
-                        .foregroundStyle(accentColor(context.state))
+                        .foregroundStyle(contrast)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 4)
+                        .background(accent, in: Capsule())
                 }
                 DynamicIslandExpandedRegion(.center) {
                     Text(context.state.title).font(.headline).lineLimit(1)
@@ -26,7 +32,7 @@ struct CourslyLiveActivityWidget: Widget {
                 DynamicIslandExpandedRegion(.trailing) {
                     countdown(context.state)
                         .font(.caption.monospacedDigit().weight(.semibold))
-                        .foregroundStyle(accentColor(context.state))
+                        .foregroundStyle(accent)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     HStack {
@@ -37,29 +43,31 @@ struct CourslyLiveActivityWidget: Widget {
                     .font(.caption)
                 }
             } compactLeading: {
-                Text(context.state.type ?? "C")
-                    .font(.caption2.bold())
-                    .foregroundStyle(accentColor(context.state))
+                Circle()
+                    .fill(accent)
+                    .frame(width: 10, height: 10)
             } compactTrailing: {
                 countdown(context.state)
                     .font(.caption2.monospacedDigit())
-                    .foregroundStyle(accentColor(context.state))
+                    .foregroundStyle(accent)
             } minimal: {
-                Image(systemName: context.state.dayFinished ? "checkmark" : "calendar")
-                    .foregroundStyle(accentColor(context.state))
+                Circle()
+                    .fill(accent)
+                    .frame(width: 12, height: 12)
             }
-            .keylineTint(accentColor(context.state))
+            .keylineTint(accent)
         }
     }
 
     @ViewBuilder
     private func lockScreen(_ context: ActivityViewContext<CourslyActivityAttributes>) -> some View {
         let accent = accentColor(context.state)
+        let contrast = contrastColor(context.state)
 
         HStack(spacing: 12) {
-            RoundedRectangle(cornerRadius: 3, style: .continuous)
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
                 .fill(accent)
-                .frame(width: 5)
+                .frame(width: 7)
 
             VStack(alignment: .leading, spacing: 9) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -99,8 +107,8 @@ struct CourslyLiveActivityWidget: Widget {
                         if let type = context.state.type {
                             Text(type)
                                 .font(.caption.weight(.heavy))
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 9)
+                                .foregroundStyle(contrast)
+                                .padding(.horizontal, 10)
                                 .padding(.vertical, 5)
                                 .background(accent, in: Capsule())
                         }
@@ -151,6 +159,10 @@ struct CourslyLiveActivityWidget: Widget {
         state.dayFinished ? .green : Color(hex: state.accentHex)
     }
 
+    private func contrastColor(_ state: CourslyActivityAttributes.ContentState) -> Color {
+        Color.contrast(forHex: state.dayFinished ? "#34C759" : state.accentHex)
+    }
+
     @ViewBuilder
     private func countdown(_ state: CourslyActivityAttributes.ContentState) -> some View {
         if state.dayFinished {
@@ -165,20 +177,25 @@ struct CourslyLiveActivityWidget: Widget {
 
 private extension Color {
     init(hex: String) {
+        let components = Self.rgb(fromHex: hex)
+        self.init(red: components.red, green: components.green, blue: components.blue)
+    }
+
+    static func contrast(forHex hex: String) -> Color {
+        let rgb = rgb(fromHex: hex)
+        let luminance = 0.2126 * rgb.red + 0.7152 * rgb.green + 0.0722 * rgb.blue
+        return luminance > 0.62 ? .black : .white
+    }
+
+    static func rgb(fromHex hex: String) -> (red: Double, green: Double, blue: Double) {
         let cleaned = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
         var value: UInt64 = 0
         Scanner(string: cleaned).scanHexInt64(&value)
-
-        let red, green, blue: Double
-        if cleaned.count == 6 {
-            red = Double((value >> 16) & 0xFF) / 255
-            green = Double((value >> 8) & 0xFF) / 255
-            blue = Double(value & 0xFF) / 255
-        } else {
-            red = 0.04
-            green = 0.52
-            blue = 1.0
-        }
-        self.init(red: red, green: green, blue: blue)
+        guard cleaned.count == 6 else { return (0.0, 0.48, 1.0) }
+        return (
+            Double((value >> 16) & 0xFF) / 255,
+            Double((value >> 8) & 0xFF) / 255,
+            Double(value & 0xFF) / 255
+        )
     }
 }
