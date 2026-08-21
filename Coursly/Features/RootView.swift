@@ -54,7 +54,7 @@ struct RootView: View {
                 onClose: { self.panel = nil }
             ).environment(store)
         case .groups:
-            GroupPanel(onClose: { self.panel = nil }).environment(store)
+            HierarchicalGroupPanel(onClose: { self.panel = nil }).environment(store)
         case .date:
             DatePanel(onClose: { self.panel = nil }).environment(store)
         case .more:
@@ -184,7 +184,7 @@ struct CalendarHeader: View {
                 HapticService.fire(.panelOpened, enabled: store.hapticsEnabled)
             } label: {
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(store.focusedDate.formatted(.dateTime.weekday(.wide)))
+                    Text(store.focusedDate.formatted(.dateTime.weekday(.wide)).capitalized)
                         .font(.title2.weight(.bold))
                     Text(store.focusedDate.formatted(.dateTime.day().month(.wide)))
                         .font(.subheadline.weight(.medium))
