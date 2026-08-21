@@ -63,6 +63,13 @@ struct SettingsSheet: View {
                     ))
                     LabeledContent("Autorisation iOS", value: store.liveActivitiesAuthorized ? "Autorisée" : "Désactivée")
                     LabeledContent("État", value: store.liveActivityIsActive ? "Active" : "Aucune activité")
+
+                    NavigationLink {
+                        LiveActivityColorSettingsView().environment(store)
+                    } label: {
+                        Label("Couleurs des types de cours", systemImage: "paintpalette.fill")
+                    }
+
                     Button {
                         Task { await store.restartLiveActivity() }
                     } label: {
