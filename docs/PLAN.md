@@ -2,23 +2,33 @@
 
 La V3 est la direction active de Coursly. Voir `docs/V3.md`.
 
-## Implémentation
+## État d’implémentation
 
-1. Modèles V3 : changements, états d'affichage, politique week-end.
-2. CalendarService enrichi avec provenance par groupe et snapshots POST directs.
-3. CalendarStore unique : calendrier, simulation, groupes, cache local, recherche, changements, notifications et Live Activity.
-4. Timeline 24 h, ligne rouge, centrage sur maintenant et navigation horizontale entre jours.
-5. Layout adaptatif des cours et gestion des chevauchements.
-6. Mode semaine comme état de la même CalendarScene.
-7. Contrôles Liquid Glass flottants et panneaux contextuels.
-8. Recherche à facettes dynamique.
-9. Nouveau détail de cours.
-10. Événements personnels locaux.
-11. ChangeDetectionService : ajouté / supprimé / déplacé / modifié.
-12. Notifications locales configurables, horizon 7 jours par défaut.
-13. Live Activity V3, toggle global, réaffichage et fin manuelle.
-14. Haptics et accessibilité.
-15. Tests métier et validation sur iPhone réel.
+Les blocs fonctionnels V3 sont désormais implémentés dans `main` :
+
+- [x] modèles V3 : changements, mode Jour/Semaine, politique week-end ;
+- [x] CalendarService enrichi avec provenance par groupe et snapshots POST directs ;
+- [x] CalendarStore unique : calendrier, simulation, groupes, recherche, changements, notifications et activité en direct ;
+- [x] timeline 24 h, ligne rouge, centrage sur maintenant et navigation horizontale entre jours ;
+- [x] layout adaptatif des cours et gestion des chevauchements ;
+- [x] mode Semaine comme état de la même `CalendarScene` ;
+- [x] contrôles Liquid Glass flottants et panneaux contextuels ;
+- [x] recherche à facettes dynamique : matières, profs, salles, groupes, types, modules ;
+- [x] nouveau détail de cours ;
+- [x] événements personnels locaux ;
+- [x] `ChangeDetectionService` : ajouté / supprimé / déplacé / modifié ;
+- [x] notifications locales avec horizon configurable et sélection des types de changement ;
+- [x] activité en direct V3 : Premier cours / Pause / En cours / Dernier cours / Journée terminée ;
+- [x] activation globale et bouton de réaffichage de l’activité en direct ;
+- [x] haptics centraux ;
+- [x] tests parser, fallback, matching de changement et recherche ;
+- [x] CI : tests avant compilation et publication uniquement depuis `main`.
+
+## Validation restante
+
+La validation finale est matérielle : installer l’IPA `0.3.x` sur un iPhone iOS 26 et vérifier le rendu réel du Liquid Glass, les gestes, les haptics, les notifications et l’activité en direct sur le Lock Screen.
+
+Les corrections issues de ce test réel restent dans la série `0.3.x`.
 
 ## Règle CI
 
