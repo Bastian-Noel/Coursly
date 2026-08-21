@@ -17,7 +17,7 @@ struct CourslyLiveActivityWidget: Widget {
             let accent = accentColor(context.state)
             let contrast = contrastColor(context.state)
 
-            DynamicIsland {
+            return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
                     Text(context.state.type ?? "Cours")
                         .font(.caption.bold())
