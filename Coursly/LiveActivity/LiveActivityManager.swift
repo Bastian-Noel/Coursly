@@ -6,7 +6,12 @@ enum LiveActivityManager {
     static var areActivitiesEnabled: Bool { ActivityAuthorizationInfo().areActivitiesEnabled }
     static var hasActiveActivity: Bool { !Activity<CourslyActivityAttributes>.activities.isEmpty }
 
-    static func update(events: [CalendarEvent], now: Date = .now, enabled: Bool) async {
+    static func update(
+        events: [CalendarEvent],
+        now: Date = .now,
+        enabled: Bool,
+        typeColors: [String: String] = [:]
+    ) async {
         guard enabled else {
             await endAll(now: now)
             return
@@ -25,6 +30,10 @@ enum LiveActivityManager {
         let systemNow = Date()
         let displayOffset = systemNow.timeIntervalSince(now)
         func displayDate(_ date: Date) -> Date { date.addingTimeInterval(displayOffset) }
+        func accentHex(for event: CalendarEvent) -> String {
+            guard let type = event.type else { return "#6E6E73" }
+            return typeColors[type.rawValue] ?? defaultColorHex(for: type)
+        }
 
         if let currentIndex = ordered.firstIndex(where: { $0.start <= now && now < $0.end }) {
             let current = ordered[currentIndex]
@@ -40,6 +49,7 @@ enum LiveActivityManager {
                 title: current.title,
                 room: current.room,
                 type: current.type?.rawValue,
+                accentHex: accentHex(for: current),
                 start: displayStart,
                 end: displayEnd,
                 nextTitle: showNext ? next?.title : nil,
@@ -62,6 +72,7 @@ enum LiveActivityManager {
                 title: upcoming.title,
                 room: upcoming.room,
                 type: upcoming.type?.rawValue,
+                accentHex: accentHex(for: upcoming),
                 start: displayStart,
                 end: displayEnd,
                 nextTitle: nil,
@@ -77,9 +88,13 @@ enum LiveActivityManager {
         await finishDay(now: now)
     }
 
-    static func restart(events: [CalendarEvent], now: Date = .now) async {
+    static func restart(
+        events: [CalendarEvent],
+        now: Date = .now,
+        typeColors: [String: String] = [:]
+    ) async {
         await endAll(now: now, immediate: true)
-        await update(events: events, now: now, enabled: true)
+        await update(events: events, now: now, enabled: true, typeColors: typeColors)
     }
 
     static func endAll(now: Date = .now, immediate: Bool = false) async {
@@ -123,6 +138,7 @@ enum LiveActivityManager {
             title: "Cours terminés",
             room: "",
             type: nil,
+            accentHex: "#34C759",
             start: systemNow,
             end: systemNow,
             nextTitle: nil,
@@ -134,6 +150,19 @@ enum LiveActivityManager {
         let content = ActivityContent(state: state, staleDate: systemNow)
         for activity in Activity<CourslyActivityAttributes>.activities {
             await activity.end(content, dismissalPolicy: .after(systemNow.addingTimeInterval(15 * 60)))
+        }
+    }
+
+    private static func defaultColorHex(for type: CourseType) -> String {
+        switch type {
+        case .cm: return "#0A84FF"
+        case .td: return "#5E5CE6"
+        case .tp: return "#30D158"
+        case .project: return "#FF9F0A"
+        case .integration: return "#64D2FF"
+        case .meeting: return "#BF5AF2"
+        case .test: return "#FF453A"
+        case .exam: return "#FF375F"
         }
     }
 }
