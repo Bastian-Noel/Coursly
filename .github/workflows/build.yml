@@ -2,7 +2,7 @@ name: Build and publish Coursly
 
 on:
   push:
-    branches: [main, v3-finalize]
+    branches: [main]
     paths-ignore:
       - 'docs/**'
       - 'AGENTS.md'
