@@ -28,8 +28,8 @@ enum LiveActivityManager {
         }
 
         let systemNow = Date()
-        let displayOffset = systemNow.timeIntervalSince(now)
-        func displayDate(_ date: Date) -> Date { date.addingTimeInterval(displayOffset) }
+        let timerOffset = systemNow.timeIntervalSince(now)
+        func timerDate(_ date: Date) -> Date { date.addingTimeInterval(timerOffset) }
         func accentHex(for event: CalendarEvent) -> String {
             guard let label = event.displayTypeLabel else { return "#6E6E73" }
             return typeColors[label] ?? CourseTypeColorPreferences.hex(for: label)
@@ -47,9 +47,9 @@ enum LiveActivityManager {
             let isLast = next == nil
             let remaining = current.end.timeIntervalSince(now)
             let showNext = remaining <= 30 * 60
+            let timerStart = timerDate(current.start)
+            let timerEnd = timerDate(current.end)
 
-            let displayStart = displayDate(current.start)
-            let displayEnd = displayDate(current.end)
             let state = CourslyActivityAttributes.ContentState(
                 status: isLast ? "DERNIER COURS" : "EN COURS",
                 title: current.title,
@@ -58,23 +58,25 @@ enum LiveActivityManager {
                 groups: groups(for: current),
                 type: current.displayTypeLabel,
                 accentHex: accentHex(for: current),
-                start: displayStart,
-                end: displayEnd,
+                start: current.start,
+                end: current.end,
+                timerStart: timerStart,
+                timerEnd: timerEnd,
                 nextTitle: showNext ? next?.title : nil,
                 nextRoom: showNext ? next?.room : nil,
-                nextStart: showNext ? next.map { displayDate($0.start) } : nil,
+                nextStart: showNext ? next?.start : nil,
                 isInProgress: true,
                 dayFinished: false
             )
-            await publish(state: state, dayDate: current.start, staleDate: displayEnd)
+            await publish(state: state, dayDate: current.start, staleDate: timerEnd)
             return
         }
 
         if let upcomingIndex = ordered.firstIndex(where: { $0.start > now }) {
             let upcoming = ordered[upcomingIndex]
             let hasCompletedCourseBefore = ordered[..<upcomingIndex].contains { $0.end <= now }
-            let displayStart = displayDate(upcoming.start)
-            let displayEnd = displayDate(upcoming.end)
+            let timerStart = timerDate(upcoming.start)
+            let timerEnd = timerDate(upcoming.end)
             let state = CourslyActivityAttributes.ContentState(
                 status: hasCompletedCourseBefore ? "PAUSE" : "PREMIER COURS",
                 title: upcoming.title,
@@ -83,15 +85,17 @@ enum LiveActivityManager {
                 groups: groups(for: upcoming),
                 type: upcoming.displayTypeLabel,
                 accentHex: accentHex(for: upcoming),
-                start: displayStart,
-                end: displayEnd,
+                start: upcoming.start,
+                end: upcoming.end,
+                timerStart: timerStart,
+                timerEnd: timerEnd,
                 nextTitle: nil,
                 nextRoom: nil,
                 nextStart: nil,
                 isInProgress: false,
                 dayFinished: false
             )
-            await publish(state: state, dayDate: upcoming.start, staleDate: displayStart)
+            await publish(state: state, dayDate: upcoming.start, staleDate: timerStart)
             return
         }
 
@@ -151,8 +155,10 @@ enum LiveActivityManager {
             groups: "",
             type: nil,
             accentHex: "#34C759",
-            start: systemNow,
-            end: systemNow,
+            start: now,
+            end: now,
+            timerStart: systemNow,
+            timerEnd: systemNow,
             nextTitle: nil,
             nextRoom: nil,
             nextStart: nil,
