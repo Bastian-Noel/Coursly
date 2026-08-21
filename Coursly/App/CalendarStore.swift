@@ -21,6 +21,9 @@ final class CalendarStore {
     var simulationOffset: TimeInterval { didSet { UserDefaults.standard.set(simulationOffset, forKey: "simulationOffset") } }
     var notificationsEnabled: Bool { didSet { UserDefaults.standard.set(notificationsEnabled, forKey: "v3.notificationsEnabled") } }
     var notificationHorizonDays: Int { didSet { UserDefaults.standard.set(notificationHorizonDays, forKey: "v3.notificationHorizonDays") } }
+    var notificationChangeKinds: Set<CalendarChangeKind> {
+        didSet { UserDefaults.standard.set(notificationChangeKinds.map(\.rawValue).sorted(), forKey: "v3.notificationChangeKinds") }
+    }
     var liveActivityEnabled: Bool { didSet { UserDefaults.standard.set(liveActivityEnabled, forKey: "v3.liveActivityEnabled") } }
     var hapticsEnabled: Bool { didSet { UserDefaults.standard.set(hapticsEnabled, forKey: "v3.hapticsEnabled") } }
     var recentChanges: [CalendarChange] = []
@@ -40,6 +43,11 @@ final class CalendarStore {
         simulationOffset = defaults.double(forKey: "simulationOffset")
         notificationsEnabled = defaults.object(forKey: "v3.notificationsEnabled") as? Bool ?? true
         notificationHorizonDays = max(1, defaults.integer(forKey: "v3.notificationHorizonDays") == 0 ? 7 : defaults.integer(forKey: "v3.notificationHorizonDays"))
+        if let storedKinds = defaults.stringArray(forKey: "v3.notificationChangeKinds") {
+            notificationChangeKinds = Set(storedKinds.compactMap(CalendarChangeKind.init(rawValue:)))
+        } else {
+            notificationChangeKinds = Set(CalendarChangeKind.allCases)
+        }
         liveActivityEnabled = defaults.object(forKey: "v3.liveActivityEnabled") as? Bool ?? true
         hapticsEnabled = defaults.object(forKey: "v3.hapticsEnabled") as? Bool ?? true
         hourHeight = defaults.double(forKey: "v3.hourHeight") == 0 ? 88 : defaults.double(forKey: "v3.hourHeight")
@@ -63,6 +71,7 @@ final class CalendarStore {
     var liveActivitiesAuthorized: Bool { LiveActivityManager.areActivitiesEnabled }
     func search(_ filters: SearchFilters) -> [CalendarEvent] { searchEngine.results(in: events, filters: filters) }
     func isGroupSelected(_ group: StudentGroup) -> Bool { selectedGroups.contains(group) }
+    func isNotificationKindEnabled(_ kind: CalendarChangeKind) -> Bool { notificationChangeKinds.contains(kind) }
 
     func setGroup(_ group: StudentGroup, enabled: Bool) {
         if enabled {
@@ -70,6 +79,12 @@ final class CalendarStore {
         } else {
             guard selectedGroups.count > 1 else { return }; selectedGroups.removeAll { $0 == group }
         }
+        HapticService.fire(.selection, enabled: hapticsEnabled)
+    }
+
+    func setNotificationKind(_ kind: CalendarChangeKind, enabled: Bool) {
+        if enabled { notificationChangeKinds.insert(kind) }
+        else { notificationChangeKinds.remove(kind) }
         HapticService.fire(.selection, enabled: hapticsEnabled)
     }
 
@@ -131,6 +146,13 @@ final class CalendarStore {
     func endLiveActivity() async { await LiveActivityManager.endAll(now: now) }
     func clearChangeHistory() { historyStore.clear(); recentChanges = [] }
 
+    func recentChangeKind(for event: CalendarEvent) -> CalendarChangeKind? {
+        let cutoff = now.addingTimeInterval(-48 * 60 * 60)
+        return recentChanges.first(where: { change in
+            change.detectedAt >= cutoff && (change.newEvent?.id == event.id || change.oldEvent?.id == event.id)
+        })?.kind
+    }
+
     private func processDirectSnapshots(_ snapshots: [StudentGroup: [CalendarEvent]], interval: DateInterval) -> [CalendarChange] {
         var changes: [CalendarChange] = []
         for (group, newEvents) in snapshots {
@@ -142,7 +164,10 @@ final class CalendarStore {
     }
     private func changesWithinNotificationHorizon(_ changes: [CalendarChange]) -> [CalendarChange] {
         let lower = now; let upper = Calendar.current.date(byAdding: .day, value: notificationHorizonDays, to: lower) ?? lower
-        return changes.filter { guard let date = $0.relevantDate else { return false }; return date >= lower && date <= upper }
+        return changes.filter { change in
+            guard notificationChangeKinds.contains(change.kind), let date = change.relevantDate else { return false }
+            return date >= lower && date <= upper
+        }
     }
     private func refreshCombinedEvents() { events = (remoteEvents + localEventStore.all()).sorted { $0.start == $1.start ? $0.title < $1.title : $0.start < $1.start } }
     private func makeLoadInterval(around date: Date) -> DateInterval {
