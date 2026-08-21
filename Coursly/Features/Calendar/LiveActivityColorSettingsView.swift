@@ -5,43 +5,58 @@ struct LiveActivityColorSettingsView: View {
     @Environment(CalendarStore.self) private var store
     @State private var refreshToken = UUID()
 
+    private var detectedTypes: [String] { store.observedCourseTypeLabels }
+
     var body: some View {
         List {
             Section {
-                ForEach(CourseType.allCases, id: \.rawValue) { type in
-                    ColorPicker(
-                        selection: Binding(
-                            get: { Color(hexString: CourseTypeColorPreferences.hex(for: type)) },
-                            set: { newColor in
-                                CourseTypeColorPreferences.setHex(newColor.hexString, for: type)
-                                refreshToken = UUID()
-                                Task { await store.restartLiveActivity() }
+                if detectedTypes.isEmpty {
+                    ContentUnavailableView(
+                        "Aucun type détecté",
+                        systemImage: "paintpalette",
+                        description: Text("Actualise l’emploi du temps : les catégories renvoyées par CELCAT apparaîtront ici automatiquement.")
+                    )
+                } else {
+                    ForEach(detectedTypes, id: \.self) { label in
+                        ColorPicker(
+                            selection: Binding(
+                                get: { Color(hexString: CourseTypeColorPreferences.hex(for: label)) },
+                                set: { newColor in
+                                    CourseTypeColorPreferences.setHex(newColor.hexString, for: label)
+                                    refreshToken = UUID()
+                                    HapticService.fire(.selection, enabled: store.hapticsEnabled)
+                                    Task { await store.restartLiveActivity() }
+                                }
+                            ),
+                            supportsOpacity: false
+                        ) {
+                            HStack(spacing: 12) {
+                                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                    .fill(Color(hexString: CourseTypeColorPreferences.hex(for: label)))
+                                    .frame(width: 24, height: 24)
+                                Text(label)
+                                    .font(.body.weight(.semibold))
+                                    .lineLimit(2)
                             }
-                        ),
-                        supportsOpacity: false
-                    ) {
-                        HStack(spacing: 10) {
-                            Circle()
-                                .fill(Color(hexString: CourseTypeColorPreferences.hex(for: type)))
-                                .frame(width: 12, height: 12)
-                            Text(type.rawValue)
-                                .font(.body.weight(.semibold))
+                            .frame(minHeight: 44)
                         }
+                        .id("\(label)-\(refreshToken.uuidString)")
                     }
-                    .id("\(type.rawValue)-\(refreshToken.uuidString)")
                 }
             } header: {
-                Text("Types de cours")
+                Text("Types détectés dans CELCAT")
             } footer: {
-                Text("Ces couleurs sont utilisées pour rendre le type de cours immédiatement identifiable dans l’Activité en direct.")
+                Text("La liste vient directement des catégories présentes dans les données chargées. Une nouvelle catégorie apparaîtra automatiquement et recevra une couleur par défaut stable, que tu peux remplacer par n’importe quelle couleur exacte.")
             }
 
-            Section {
-                Button("Rétablir les couleurs par défaut") {
-                    CourseTypeColorPreferences.reset()
-                    refreshToken = UUID()
-                    HapticService.fire(.selection, enabled: store.hapticsEnabled)
-                    Task { await store.restartLiveActivity() }
+            if !detectedTypes.isEmpty {
+                Section {
+                    Button("Rétablir les couleurs par défaut") {
+                        CourseTypeColorPreferences.reset(labels: detectedTypes)
+                        refreshToken = UUID()
+                        HapticService.fire(.selection, enabled: store.hapticsEnabled)
+                        Task { await store.restartLiveActivity() }
+                    }
                 }
             }
         }
@@ -74,7 +89,7 @@ private extension Color {
         var alpha: CGFloat = 0
 
         guard color.getRed(&red, green: &green, blue: &blue, alpha: &alpha) else {
-            return "#0A84FF"
+            return "#007AFF"
         }
 
         return String(
