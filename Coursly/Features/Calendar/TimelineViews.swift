@@ -422,7 +422,7 @@ struct WeekTimelineView: View {
             following.append(cursor)
         }
 
-        return previous.reversed() + [center] + following
+        return Array(previous.reversed()) + [center] + following
     }
 
     private func fiveDays(startingAt start: Date) -> [Date] {
