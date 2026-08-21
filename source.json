@@ -18,6 +18,16 @@
       "category": "utilities",
       "versions": [
         {
+          "version": "0.3.3",
+          "buildVersion": "3",
+          "date": "2026-08-21T17:02:08Z",
+          "localizedDescription": "Coursly 0.3.3",
+          "downloadURL": "https://github.com/Bastian-Noel/Coursly/releases/download/v0.3.3/Coursly.ipa",
+          "size": 798118,
+          "sha256": "586178bc233de64a65a8301cdc484fd2d8876ee5c29a1bfeafd66f0547325529",
+          "minOSVersion": "26.0"
+        },
+        {
           "version": "0.3.2",
           "buildVersion": "2",
           "date": "2026-08-21T13:36:40Z",
@@ -58,13 +68,13 @@
           "minOSVersion": "26.0"
         }
       ],
-      "version": "0.3.2",
-      "versionDate": "2026-08-21T13:36:40Z",
-      "size": 725927,
-      "downloadURL": "https://github.com/Bastian-Noel/Coursly/releases/download/v0.3.2/Coursly.ipa",
+      "version": "0.3.3",
+      "versionDate": "2026-08-21T17:02:08Z",
+      "size": 798118,
+      "downloadURL": "https://github.com/Bastian-Noel/Coursly/releases/download/v0.3.3/Coursly.ipa",
       "appPermissions": {},
-      "buildVersion": "2",
-      "sha256": "469f4e51dff1f5abd66593139073bbb47f0a84886e67c77ceb15a86fd5b1746a"
+      "buildVersion": "3",
+      "sha256": "586178bc233de64a65a8301cdc484fd2d8876ee5c29a1bfeafd66f0547325529"
     }
   ],
   "news": []
