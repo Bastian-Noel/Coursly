@@ -90,16 +90,13 @@ struct HierarchicalGroupPanel: View {
 
             Divider().opacity(0.35)
 
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Affichage actuel")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text(store.selectedGroups.map(\.name).joined(separator: " · "))
-                        .font(.subheadline.weight(.semibold))
-                        .lineLimit(2)
-                }
-                Spacer(minLength: 8)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Affichage actuel")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text(store.selectedGroups.map(\.name).joined(separator: " · "))
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(2)
             }
 
             Text("Un groupe final remplace la sélection précédente. « Tous » conserve le multi-groupes et les cours identiques restent fusionnés.")
@@ -181,6 +178,8 @@ struct HierarchicalGroupPanel: View {
 private extension Array where Element == String {
     func starts(with prefix: [String]) -> Bool {
         guard prefix.count <= count else { return false }
-        return zip(self, prefix).allSatisfy(==)
+        return zip(self, prefix).allSatisfy { pair in
+            pair.0 == pair.1
+        }
     }
 }
