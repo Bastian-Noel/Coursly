@@ -11,20 +11,22 @@ struct CourslyLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: CourslyActivityAttributes.self) { context in
             lockScreen(context)
-                .activityBackgroundTint(.clear)
+                .activityBackgroundTint(accentColor(context.state).opacity(0.16))
                 .activitySystemActionForegroundColor(.primary)
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
                     Text(context.state.type ?? "Cours")
                         .font(.caption.bold())
-                        .foregroundStyle(.tint)
+                        .foregroundStyle(accentColor(context.state))
                 }
                 DynamicIslandExpandedRegion(.center) {
                     Text(context.state.title).font(.headline).lineLimit(1)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    countdown(context.state).font(.caption.monospacedDigit())
+                    countdown(context.state)
+                        .font(.caption.monospacedDigit().weight(.semibold))
+                        .foregroundStyle(accentColor(context.state))
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     HStack {
@@ -35,93 +37,108 @@ struct CourslyLiveActivityWidget: Widget {
                     .font(.caption)
                 }
             } compactLeading: {
-                Text(context.state.type ?? "C").font(.caption2.bold())
+                Text(context.state.type ?? "C")
+                    .font(.caption2.bold())
+                    .foregroundStyle(accentColor(context.state))
             } compactTrailing: {
-                countdown(context.state).font(.caption2.monospacedDigit())
+                countdown(context.state)
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(accentColor(context.state))
             } minimal: {
                 Image(systemName: context.state.dayFinished ? "checkmark" : "calendar")
+                    .foregroundStyle(accentColor(context.state))
             }
+            .keylineTint(accentColor(context.state))
         }
     }
 
     @ViewBuilder
     private func lockScreen(_ context: ActivityViewContext<CourslyActivityAttributes>) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(context.state.status)
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(context.state.dayFinished ? Color.green : statusColor(context.state))
-                Spacer()
-                if !context.state.dayFinished {
-                    countdown(context.state)
-                        .font(.subheadline.weight(.semibold).monospacedDigit())
-                }
-            }
+        let accent = accentColor(context.state)
 
-            if context.state.dayFinished {
-                HStack(spacing: 10) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.title2)
-                        .foregroundStyle(.green)
-                    Text("Journée terminée").font(.headline)
-                }
-            } else {
-                if context.state.status == "PAUSE" {
-                    Text("Prochain cours")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                }
+        HStack(spacing: 12) {
+            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                .fill(accent)
+                .frame(width: 5)
 
-                Text(context.state.title)
-                    .font(.title3.weight(.semibold))
-                    .lineLimit(2)
+            VStack(alignment: .leading, spacing: 9) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(context.state.status)
+                        .font(.caption.weight(.heavy))
+                        .foregroundStyle(context.state.dayFinished ? Color.green : accent)
 
-                HStack(spacing: 10) {
-                    if let type = context.state.type {
-                        Text(type)
-                            .font(.caption.bold())
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(.tint.opacity(0.16), in: Capsule())
+                    Spacer(minLength: 8)
+
+                    if !context.state.dayFinished {
+                        countdown(context.state)
+                            .font(.headline.monospacedDigit().weight(.bold))
+                            .foregroundStyle(accent)
+                            .contentTransition(.numericText())
                     }
-                    Label(
-                        context.state.room.isEmpty ? "Salle à confirmer" : context.state.room,
-                        systemImage: "mappin.and.ellipse"
-                    )
-                    .font(.subheadline)
-                    .lineLimit(1)
                 }
 
-                HStack {
-                    Text(context.state.start, style: .time)
-                    Spacer()
-                    Text(context.state.end, style: .time)
-                }
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(.secondary)
-
-                if context.state.isInProgress, context.state.end > context.state.start {
-                    ProgressView(
-                        timerInterval: context.state.start...context.state.end,
-                        countsDown: false
-                    )
-                    .tint(Color.accentColor)
-                }
-
-                if let nextTitle = context.state.nextTitle, let nextStart = context.state.nextStart {
-                    Divider().opacity(0.45)
-                    HStack(spacing: 6) {
-                        Text("Ensuite")
+                if context.state.dayFinished {
+                    HStack(spacing: 10) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.title2)
+                            .foregroundStyle(.green)
+                        Text("Journée terminée").font(.headline)
+                    }
+                } else {
+                    if context.state.status == "PAUSE" {
+                        Text("Prochain cours")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
-                        Text(nextTitle).font(.caption.weight(.medium)).lineLimit(1)
-                        Spacer(minLength: 6)
-                        Text(nextStart, style: .time).font(.caption.monospacedDigit())
-                        if let room = context.state.nextRoom, !room.isEmpty {
-                            Text("· \(room)")
-                                .font(.caption)
+                    }
+
+                    Text(context.state.title)
+                        .font(.title3.weight(.bold))
+                        .lineLimit(2)
+
+                    HStack(spacing: 8) {
+                        if let type = context.state.type {
+                            Text(type)
+                                .font(.caption.weight(.heavy))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 9)
+                                .padding(.vertical, 5)
+                                .background(accent, in: Capsule())
+                        }
+
+                        Label(
+                            context.state.room.isEmpty ? "Salle à confirmer" : context.state.room,
+                            systemImage: "mappin.and.ellipse"
+                        )
+                        .font(.subheadline.weight(.medium))
+                        .lineLimit(1)
+                    }
+
+                    HStack(spacing: 6) {
+                        Image(systemName: "clock")
+                            .foregroundStyle(accent)
+                        Text(context.state.start, style: .time)
+                        Text("→")
+                            .foregroundStyle(.tertiary)
+                        Text(context.state.end, style: .time)
+                    }
+                    .font(.caption.monospacedDigit().weight(.semibold))
+                    .foregroundStyle(.secondary)
+
+                    if let nextTitle = context.state.nextTitle, let nextStart = context.state.nextStart {
+                        Divider().opacity(0.4)
+                        HStack(spacing: 6) {
+                            Text("Ensuite")
+                                .font(.caption.weight(.semibold))
                                 .foregroundStyle(.secondary)
-                                .lineLimit(1)
+                            Text(nextTitle).font(.caption.weight(.medium)).lineLimit(1)
+                            Spacer(minLength: 6)
+                            Text(nextStart, style: .time).font(.caption.monospacedDigit())
+                            if let room = context.state.nextRoom, !room.isEmpty {
+                                Text("· \(room)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
                         }
                     }
                 }
@@ -130,8 +147,8 @@ struct CourslyLiveActivityWidget: Widget {
         .padding(16)
     }
 
-    private func statusColor(_ state: CourslyActivityAttributes.ContentState) -> Color {
-        state.status == "PAUSE" ? .orange : .accentColor
+    private func accentColor(_ state: CourslyActivityAttributes.ContentState) -> Color {
+        state.dayFinished ? .green : Color(hex: state.accentHex)
     }
 
     @ViewBuilder
@@ -143,5 +160,25 @@ struct CourslyLiveActivityWidget: Widget {
         } else {
             Text(timerInterval: Date.now...state.start, countsDown: true)
         }
+    }
+}
+
+private extension Color {
+    init(hex: String) {
+        let cleaned = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var value: UInt64 = 0
+        Scanner(string: cleaned).scanHexInt64(&value)
+
+        let red, green, blue: Double
+        if cleaned.count == 6 {
+            red = Double((value >> 16) & 0xFF) / 255
+            green = Double((value >> 8) & 0xFF) / 255
+            blue = Double(value & 0xFF) / 255
+        } else {
+            red = 0.04
+            green = 0.52
+            blue = 1.0
+        }
+        self.init(red: red, green: green, blue: blue)
     }
 }
