@@ -92,6 +92,10 @@ struct CalendarScene: View {
     @Binding var selectedEvent: CalendarEvent?
     @Binding var panel: FloatingPanel?
 
+    private var isOnToday: Bool {
+        Calendar.current.isDate(store.focusedDate, inSameDayAs: store.now)
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             CalendarHeader(panel: $panel)
@@ -146,6 +150,26 @@ struct CalendarScene: View {
                 .padding(.top, 58)
             }
         }
+        .overlay(alignment: .bottomLeading) {
+            if !isOnToday, panel == nil {
+                Button {
+                    store.goToToday()
+                    Task { await store.ensureLoaded(around: store.focusedDate) }
+                } label: {
+                    Label("Aujourd’hui", systemImage: "scope")
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, 14)
+                        .frame(minHeight: 48)
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .glassEffect(.regular.tint(Color.accentColor.opacity(0.16)).interactive(), in: Capsule())
+                .padding(.leading, 14)
+                .padding(.bottom, 88)
+                .transition(.move(edge: .bottom).combined(with: .opacity).combined(with: .scale(scale: 0.92)))
+            }
+        }
+        .animation(.snappy(duration: 0.24), value: isOnToday)
     }
 }
 
@@ -212,22 +236,8 @@ struct FloatingControlDock: View {
     @Binding var showSettings: Bool
     @Binding var showNewEvent: Bool
 
-    private var isOnToday: Bool {
-        Calendar.current.isDate(store.focusedDate, inSameDayAs: store.now)
-    }
-
     var body: some View {
-        HStack(spacing: 7) {
-            dockButton(
-                title: "Aujourd’hui",
-                icon: "scope",
-                active: !isOnToday
-            ) {
-                activePanel = nil
-                store.goToToday()
-                Task { await store.ensureLoaded(around: store.focusedDate) }
-            }
-
+        HStack(spacing: 8) {
             dockButton(
                 title: store.displayMode == .day ? "Semaine" : "Jour",
                 icon: store.displayMode == .day ? "calendar" : "rectangle.split.1x2"
@@ -287,7 +297,7 @@ struct FloatingControlDock: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
             }
-            .frame(minWidth: 54, minHeight: 52)
+            .frame(minWidth: 62, minHeight: 52)
             .padding(.horizontal, 4)
             .contentShape(Rectangle())
         }
