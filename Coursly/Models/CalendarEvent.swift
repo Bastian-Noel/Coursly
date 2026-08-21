@@ -1,10 +1,20 @@
 import Foundation
 
-enum EventSource: String, Codable, Sendable { case directPOST, iCalFallback, local }
+enum EventSource: String, Codable, Sendable {
+    case directPOST
+    case iCalFallback
+    case local
+}
 
 enum CourseType: String, Codable, CaseIterable, Sendable {
-    case cm = "CM", td = "TD", tp = "TP", project = "PROJET"
-    case integration = "INT", meeting = "RÉUNION", test = "DS", exam = "EXAM"
+    case cm = "CM"
+    case td = "TD"
+    case tp = "TP"
+    case project = "PROJET"
+    case integration = "INT"
+    case meeting = "RÉUNION"
+    case test = "DS"
+    case exam = "EXAM"
 }
 
 struct StudentGroup: Identifiable, Hashable, Codable, Sendable {
@@ -33,5 +43,35 @@ struct CalendarEvent: Identifiable, Hashable, Codable, Sendable {
     let source: EventSource
 
     var room: String { rooms.joined(separator: " / ") }
-    var duration: TimeInterval { end.timeIntervalSince(start) }
+    var duration: TimeInterval { max(0, end.timeIntervalSince(start)) }
+
+    var searchableText: String {
+        [
+            title,
+            type?.rawValue ?? "",
+            rooms.joined(separator: " "),
+            teachers.joined(separator: " "),
+            groups.map(\.name).joined(separator: " "),
+            moduleCode ?? "",
+            moduleName ?? ""
+        ]
+        .joined(separator: " ")
+        .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+    }
+
+    func isSameVisualCourse(as other: CalendarEvent) -> Bool {
+        normalized(title) == normalized(other.title)
+            && start == other.start
+            && end == other.end
+            && rooms.sorted() == other.rooms.sorted()
+            && teachers.sorted() == other.teachers.sorted()
+            && type == other.type
+            && moduleCode == other.moduleCode
+            && moduleName == other.moduleName
+    }
+
+    private func normalized(_ value: String) -> String {
+        value.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
 }

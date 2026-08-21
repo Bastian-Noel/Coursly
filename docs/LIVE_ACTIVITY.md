@@ -1,22 +1,26 @@
-# Live Activity — V1
+# Activité en direct — V3
 
-La V1 de Coursly utilise uniquement la Live Activity du Lock Screen. Ne pas implémenter la Dynamic Island.
+L'Activité en direct représente la journée et reçoit uniquement des `CalendarEvent` normalisés. Elle n'appelle jamais CELCAT.
 
-Priorités : matière, salle, horaires, état temporel, type de cours, prochain cours seulement si utile.
-
-États :
+## États
 
 - `PREMIER COURS` avant le premier cours ;
 - `PROCHAIN COURS` entre deux cours ;
 - `EN COURS` pendant un cours ;
-- afficher `Ensuite` en fin de cours si un prochain cours existe ;
+- `BIENTÔT TERMINÉ` dans les 20 dernières minutes si un cours suit ;
 - `DERNIER COURS` pour le dernier cours ;
-- `Journée terminée` à la fin avant fermeture de l'activité.
+- `JOURNÉE TERMINÉE` avant la fermeture.
 
-La Live Activity reçoit uniquement des événements normalisés. Elle ne doit jamais appeler CELCAT directement et ne doit connaître ni le POST, ni l'iCal, ni les IDs `G1-...`.
+## Lock Screen
 
-Le temps restant et la progression doivent être dérivés des dates autant que possible, pas stockés comme valeurs statiques.
+Priorités : état, compte à rebours, matière, type, salle, horaires, progression, puis prochain cours seulement si utile.
 
-Interaction V1 : tap sur l'activité pour ouvrir Coursly, idéalement sur le détail du cours.
+## Contrôles
 
-Règle de design : `MAINTENANT + TEMPS + OÙ + APRÈS seulement quand utile`.
+Réglages contient : activation globale, état autorisé/actif, `Réafficher l'activité`, `Terminer l'activité actuelle`.
+
+Si l'utilisateur retire l'activité, Coursly peut en demander une nouvelle lorsqu'il est ouvert et qu'ActivityKit l'autorise.
+
+## Dynamic Island
+
+Le design produit reste centré sur le Lock Screen. Une présentation minimale est fournie pour les surfaces système où iOS décide d'afficher la Live Activity.

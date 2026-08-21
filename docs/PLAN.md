@@ -1,16 +1,25 @@
-# Plan de réalisation
+# Plan de réalisation — V3
 
-1. Fondation iOS 26, tests, CI et IPA non signée.
-2. Modèles Swift : groupes, types de cours, événements, sources.
-3. Portage du POST CELCAT depuis `docs/reference/direct-celcat-reference.mjs`.
-4. Tests du parser direct et du normalizer.
-5. Ajout du client/parser iCal comme fallback strict.
-6. Vue Aujourd'hui.
-7. Vue Semaine.
-8. Multi-groupes, fusion visuelle et conflits.
-9. Recherche et filtres.
-10. Événements locaux.
-11. Live Activity Lock Screen uniquement.
-12. Accessibilité, cache, performance et tests iPhone réel.
+La V3 est la direction active de Coursly. Voir `docs/V3.md`.
 
-Règle : ne pas commencer une UI complexe tant que les données et tests métier ne sont pas fiables.
+## Implémentation
+
+1. Modèles V3 : changements, états d'affichage, politique week-end.
+2. CalendarService enrichi avec provenance par groupe et snapshots POST directs.
+3. CalendarStore unique : calendrier, simulation, groupes, cache local, recherche, changements, notifications et Live Activity.
+4. Timeline 24 h, ligne rouge, centrage sur maintenant et navigation horizontale entre jours.
+5. Layout adaptatif des cours et gestion des chevauchements.
+6. Mode semaine comme état de la même CalendarScene.
+7. Contrôles Liquid Glass flottants et panneaux contextuels.
+8. Recherche à facettes dynamique.
+9. Nouveau détail de cours.
+10. Événements personnels locaux.
+11. ChangeDetectionService : ajouté / supprimé / déplacé / modifié.
+12. Notifications locales configurables, horizon 7 jours par défaut.
+13. Live Activity V3, toggle global, réaffichage et fin manuelle.
+14. Haptics et accessibilité.
+15. Tests métier et validation sur iPhone réel.
+
+## Règle CI
+
+`project.yml` porte la série `0.3.0`. La CI produit ensuite `0.3.1`, `0.3.2`, etc. Le compteur repartira à 1 pour `0.4.0`.

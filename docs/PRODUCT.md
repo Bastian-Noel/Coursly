@@ -1,89 +1,34 @@
-# Vision produit — Coursly
+# Vision produit — Coursly V3
 
-## Objectif
+Coursly est une app iPhone native d'emploi du temps étudiant pour l'IUT de Vélizy / UVSQ. La V3 optimise le geste quotidien : ouvrir l'app et comprendre immédiatement le présent et la suite.
 
-Créer une app iPhone native d'emploi du temps étudiant pour l'IUT de Vélizy / UVSQ, rapide à consulter au quotidien mais assez puissante pour comparer plusieurs groupes, rechercher des cours et suivre une semaine complète.
-
-Questions prioritaires :
+## Questions prioritaires
 
 1. Qu'est-ce que j'ai maintenant ?
 2. Qu'est-ce que j'ai ensuite ?
-3. Dans quelle salle ?
-4. À quoi ressemble ma journée / ma semaine ?
+3. Où dois-je aller ?
+4. Qu'est-ce qui a changé ?
+5. À quoi ressemble ma journée ou ma semaine ?
 
-## Navigation principale
+## Expérience
 
-- Aujourd'hui
-- Semaine
-- Recherche
-- Réglages
+Une seule timeline plein écran. Swipe pour changer de jour. Jour/Semaine est un niveau de zoom. Recherche, groupes, date et actions sont des panneaux flottants. Les détails et réglages sont des sheets.
 
-## Fonctionnalités cibles
+## Fonctions V3
 
-### Aujourd'hui
+- multi-groupes ;
+- fusion des cours identiques ;
+- conflits côte à côte ;
+- recherche texte et facettes dynamiques ;
+- événements personnels ;
+- simulation temporelle ;
+- détection ajout/suppression/déplacement/modification ;
+- notifications configurables sur les prochains jours ;
+- historique des changements ;
+- Activité en direct de la journée ;
+- retours haptiques ;
+- cache local et diagnostic de synchronisation.
 
-- cours actuel ;
-- prochain cours ;
-- timeline ;
-- marqueur d'heure actuelle ;
-- périodes libres ;
-- conflits ;
-- événements locaux.
+## Source de vérité
 
-### Semaine
-
-- grille lisible ;
-- navigation semaine précédente/suivante ;
-- blocs de cours ;
-- conflits ;
-- groupes actifs.
-
-### Détail d'un cours
-
-Priorité : matière, type, horaires, salle, groupes. Puis enseignant, module/code et autres métadonnées utiles.
-
-### Recherche
-
-Recherche par matière, enseignant, groupe, salle, type et code. Filtres temporels : aujourd'hui, semaine, mois, plage personnalisée.
-
-### Multi-groupes
-
-L'utilisateur peut afficher plusieurs groupes simultanément. Les cours réellement identiques peuvent être fusionnés visuellement après normalisation, en agrégeant les groupes concernés.
-
-### Conflits
-
-Deux événements incompatibles sur le même créneau restent distincts et doivent être signalés clairement.
-
-### Événements locaux
-
-L'utilisateur pourra créer devoirs, rappels, rendez-vous, réunions ou blocs personnels. Ces événements restent séparés des données CELCAT.
-
-### Live Activity
-
-Lock Screen uniquement pour la V1. Elle ne remplace pas l'app complète.
-
-## Périmètre MVP
-
-- sélection d'un groupe ;
-- récupération CELCAT fiable ;
-- vue Aujourd'hui ;
-- vue Semaine ;
-- détail d'un cours ;
-- recherche simple ;
-- fallback iCal strict ;
-- normalisation des données ;
-- Live Activity Lock Screen ;
-- build automatique d'une IPA non signée via GitHub Actions.
-
-## Hors périmètre initial
-
-- Dynamic Island ;
-- itinéraires vers les salles ;
-- comptes utilisateurs ;
-- synchronisation cloud des événements locaux ;
-- push serveur ActivityKit ;
-- backend complexe si l'accès direct iOS suffit.
-
-## Critère de réussite
-
-En ouvrant Coursly, un étudiant doit comprendre son prochain déplacement en quelques secondes.
+Le POST CELCAT reste la source de vérité. iCal est uniquement un fallback lorsqu'il échoue et n'est jamais utilisé comme complément ou comme référence de détection de changement.

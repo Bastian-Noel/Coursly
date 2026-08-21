@@ -10,6 +10,10 @@ struct CourslyActivityAttributes: ActivityAttributes {
         let start: Date
         let end: Date
         let nextTitle: String?
+        let nextRoom: String?
+        let nextStart: Date?
+        let isInProgress: Bool
+        let dayFinished: Bool
     }
-    let eventID: String
+    let dayID: String
 }

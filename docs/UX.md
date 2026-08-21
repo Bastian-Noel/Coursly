@@ -1,70 +1,38 @@
-# UX Coursly
+# UX Coursly V3
 
-Navigation principale : Aujourd’hui, Semaine, Recherche, Réglages.
+Voir `docs/V3.md` pour le contrat complet.
 
-## Langue
+## Surface unique
 
-L’interface utilisateur est en français. Les termes techniques internes peuvent rester en anglais dans le code, mais les libellés visibles doivent être français.
+Coursly utilise une seule CalendarScene plein écran. Il n'existe plus de navigation principale Aujourd'hui / Semaine / Recherche / Réglages sous forme d'onglets.
 
-## Aujourd’hui
+## Timeline
 
-Doit répondre immédiatement à : qu’est-ce que j’ai maintenant, ensuite, où et quand ?
+- 00:00 → 00:00 ;
+- centrée sur maintenant à l'ouverture ;
+- trait rouge pour maintenant ;
+- swipe gauche/droite pour changer de jour ;
+- week-ends intelligents ;
+- Jour et Semaine sont deux états de la même vue.
 
-La vue principale est une vraie grille d’emploi du temps, pas une pile de grosses cartes :
+## Blocs de cours
 
-- axe vertical avec les heures ;
-- événements positionnés selon leur heure réelle de début et de fin ;
-- hauteur proportionnelle à la durée ;
-- trait rouge horizontal indiquant l’heure actuelle ;
-- en mode simulation, le trait rouge suit l’heure simulée ;
-- un tap sur un cours ouvre son détail.
+Début en haut à gauche, fin en bas à gauche. La matière, le type et la salle sont prioritaires. Prof, groupes et module apparaissent quand la largeur/hauteur le permet.
 
-Le bandeau supérieur reste compact : date, état actuel/prochain cours et groupes actifs.
+Les chevauchements sont disposés côte à côte. CM/TD/TP restent textuels : la couleur n'est jamais la seule information.
 
-## Semaine
+## Contrôles
 
-Afficher une grille hebdomadaire traditionnelle avec les jours en colonnes et les heures en lignes.
-
-Sur iPhone, la grille peut défiler horizontalement pour conserver une largeur lisible par journée. Les contrôles de semaine doivent rester compacts et utiliser les composants système iOS.
-
-## Cours simultanés et conflits
-
-Deux événements qui se chevauchent ne doivent jamais se masquer.
-
-Ils sont disposés côte à côte dans le même créneau, avec une largeur partagée. Le titre, le type et la salle restent lisibles autant que possible.
-
-Les cours réellement identiques peuvent être fusionnés visuellement après normalisation. Les événements incompatibles restent distincts.
-
-## Multi-groupes
-
-L’utilisateur peut activer plusieurs groupes simultanément dans Réglages.
-
-Toujours afficher les noms lisibles `MMI...`. Les IDs `G1-...` sont interdits dans l’interface.
-
-Fusion visuelle autorisée uniquement après normalisation si matière, début, fin, salle, enseignant et type sont compatibles. Les groupes concernés sont alors agrégés dans l’événement affiché.
-
-## Détail
-
-Afficher matière, type, date, début, fin, durée, salle(s), enseignant(s), groupe(s) et module/code si disponibles.
-
-La provenance réseau n’est pas une information principale ; elle peut être visible en debug.
+Liquid Glass est réservé aux contrôles flottants et surfaces interactives. La grille reste structurée et lisible.
 
 ## Recherche
 
-Rechercher dans titre, module, enseignant, salle, groupe, type et code. Prévoir filtres par période et groupe.
+Recherche texte + facettes dynamiques : matière, professeur, salle, groupe, type et module. Tap sur un résultat ramène la timeline au bon jour et met en évidence le cours.
 
-Les résultats de recherche doivent être compacts : éviter de réutiliser les grosses cartes de l’ancienne interface.
+## Détail
 
-## États vides et erreurs
+Sheet contextuelle avec matière, type, date, horaires, durée, salle, prof, groupes et module. La provenance réseau reste en diagnostic uniquement.
 
-Une réponse POST valide sans cours doit afficher un état normal comme `Journée libre`, jamais une erreur réseau.
+## Français et accessibilité
 
-Si iCal a pris le relais, l’app reste utilisable sans alerte intrusive. Si les deux sources échouent, utiliser le cache précédent si disponible et indiquer qu’il peut être ancien.
-
-## Style iOS 26
-
-Interface très iOS, plein écran, typographie hiérarchisée et densité adaptée à un emploi du temps.
-
-Le Liquid Glass est surtout utilisé pour les contrôles, barres, capsules et surfaces interactives. La grille elle-même reste lisible et structurée ; elle ne doit pas devenir une succession de grands panneaux décoratifs.
-
-Toujours écrire CM/TD/TP : la couleur ne doit jamais être la seule information. La ligne de temps actuelle est rouge par convention visuelle explicite.
+Tous les libellés visibles sont français. VoiceOver doit pouvoir lire type, matière, horaires, salle, professeur et groupes. Respecter Dynamic Type et Réduire les animations.

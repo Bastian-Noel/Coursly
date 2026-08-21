@@ -2,88 +2,87 @@
 
 ## Mission
 
-Construire **Coursly**, une application iPhone native Swift/SwiftUI pour iOS 26 dédiée à l'emploi du temps étudiant de l'IUT de Vélizy / UVSQ.
+Construire **Coursly**, application iPhone native Swift/SwiftUI iOS 26 pour l'emploi du temps de l'IUT de Vélizy / UVSQ.
 
-Avant toute modification importante, lire ce fichier puis les documents pertinents dans `docs/`.
+La direction active est **Coursly V3**. Avant une modification importante, lire ce fichier puis `docs/V3.md`.
 
 ## Ordre de priorité
 
 1. `docs/DECISIONS.md` — décisions non négociables.
-2. `docs/DATA_SOURCES.md` — règles CELCAT, POST principal et fallback iCal.
-3. `docs/ARCHITECTURE.md` — architecture Swift attendue.
-4. `docs/PRODUCT.md` — vision produit et fonctionnalités.
-5. `docs/UX.md` — règles d'interface.
-6. `docs/LIVE_ACTIVITY.md` — Live Activity Lock Screen uniquement.
-7. `docs/PLAN.md` — ordre de réalisation.
-8. `docs/DISTRIBUTION.md` — build, Releases et branche `site`.
-9. `docs/CODEX_WORKFLOW.md` — façon de découper les tâches.
-10. `docs/reference/README.md` et les fichiers `.mjs` — référence JavaScript du prototype à porter en Swift.
+2. `docs/DATA_SOURCES.md` — POST source de vérité, iCal fallback.
+3. `docs/V3.md` — contrat produit/UX actif.
+4. `docs/ARCHITECTURE.md` — architecture Swift V3.
+5. `docs/PRODUCT.md` — vision produit.
+6. `docs/UX.md` — règles d'interface.
+7. `docs/LIVE_ACTIVITY.md` — Activité en direct V3.
+8. `docs/PLAN.md` — ordre de réalisation.
+9. `docs/DISTRIBUTION.md` et `docs/CODEX_WORKFLOW.md`.
+10. `docs/reference/README.md` et les `.mjs` — référence JavaScript du comportement CELCAT à porter en Swift.
 
-En cas de contradiction, `docs/DECISIONS.md` prévaut.
+En cas de contradiction sur les sources de données, `docs/DECISIONS.md` et `docs/DATA_SOURCES.md` prévalent. Pour l'UX, `docs/V3.md` prévaut sur les anciennes descriptions V1/V2.
 
 ## Règles absolues sur les données
 
-- Le **POST CELCAT direct** est la source de vérité.
-- Le flux **iCal est uniquement un fallback** en cas d'échec réel du POST.
-- Ne jamais fusionner, compléter ou corriger les données POST avec iCal.
-- Une réponse POST valide contenant `[]` est une journée vide valide et ne déclenche pas le fallback.
-- Les noms lisibles comme `MMI1-A1` sont les identifiants publics de l'app.
-- Les identifiants `G1-...` sont internes au fallback iCal et ne doivent jamais apparaître dans l'UI.
+- **POST CELCAT direct = source de vérité.**
+- **iCal = fallback strict**, seulement si le POST échoue réellement.
+- Ne jamais fusionner ou compléter POST avec iCal.
+- Un POST valide `[]` est un succès et peut signifier zéro cours.
+- Les noms `MMI...` sont publics ; les IDs `G1-...` sont internes et interdits dans l'UI.
+- La détection de changements compare uniquement des snapshots POST directs.
+- Un groupe en fallback iCal peut être affiché mais son snapshot POST précédent ne doit pas être écrasé.
 
 ## Référence de portage Swift
 
-Le dossier `docs/reference/` contient le prototype Node/JavaScript de référence pour le portage iOS.
+`docs/reference/` contient les `.mjs` de référence. Conserver le comportement métier mais utiliser les APIs Swift/Foundation adaptées : `URLSession`, `Codable`, `Date`, `ISO8601DateFormatter`, `async/await`.
 
-Lors du portage :
+Réseau, parsing, normalisation, synchronisation et UI restent séparés.
 
-- conserver le comportement métier ;
-- ne pas traduire mécaniquement ligne par ligne si Foundation offre une meilleure API ;
-- écrire des tests Swift autour des parsers ;
-- conserver les cas limites documentés ;
-- utiliser `URLSession`, `Codable`, `Date`, `ISO8601DateFormatter` et les API Foundation appropriées ;
-- garder réseau, parsing et normalisation séparés.
-
-## Architecture
-
-Les Views SwiftUI ne doivent jamais parser CELCAT ni iCal directement.
+## Architecture V3
 
 ```text
-View
-  ↓
-ViewModel / Store
-  ↓
+CalendarScene
+   ↓
+CalendarStore
+   ↓
 CalendarService
-  ├── CelcatDirectClient
-  └── CelcatICalClient (fallback uniquement)
-        ↓
-Parsers
-        ↓
-EventNormalizer
-        ↓
-CalendarEvent
+   ├── CelcatDirectClient
+   └── CelcatICalClient (fallback uniquement)
+   ↓
+Parsers / modèles normalisés
+   ↓
+Cache / snapshots / change engine / notifications / Live Activity
 ```
 
-## Live Activity
+Les Views ne parsèrent jamais CELCAT et n'appellent jamais les clients réseau directement.
 
-Pour la V1 : **Lock Screen uniquement**. Ne pas implémenter Dynamic Island compact, minimal ou expanded.
+## UI V3
 
-## UI
+- une seule CalendarScene plein écran ;
+- timeline 00:00 → 00:00 ;
+- swipe jour précédent/suivant ;
+- week-ends intelligents ;
+- Jour/Semaine = états de la même vue ;
+- heure actuelle en rouge ;
+- cours simultanés côte à côte ;
+- carte adaptative avec début en haut à gauche et fin en bas à gauche ;
+- recherche à facettes dynamique ;
+- contrôles Liquid Glass flottants ;
+- interface visible en français ;
+- haptics significatifs et accessibilité.
 
-Priorité : matière, salle, horaires, type CM/TD/TP/Examen, groupe, puis enseignant en information secondaire.
+## Activité en direct
+
+Le design principal reste le Lock Screen et représente la journée. Réglages doit permettre activation globale, réaffichage et fin manuelle. Une présentation Dynamic Island minimale peut exister car iOS peut afficher une Live Activity sur ses surfaces système ; ne pas en faire une seconde expérience complexe.
 
 ## Build et distribution
 
-- `main` = code de développement et documentation.
-- `site` = GitHub Pages et métadonnées de distribution uniquement.
-- Un changement de code sur `main` doit produire une IPA iPhone non signée via GitHub Actions.
-- L'IPA est publiée dans GitHub Releases.
-- `site/source.json` et `site/latest.json` sont mis à jour automatiquement.
-- La signature finale est faite sur l'iPhone par le sideloader.
+- `main` = code et docs ;
+- `site` = GitHub Pages et métadonnées ;
+- push de code sur `main` → IPA non signée via GitHub Actions ;
+- version source `0.<version>.0`, build publié `0.<version>.<build>` ;
+- `0.3.0` produit `0.3.1`, `0.3.2`, etc. ;
+- ne jamais committer `.p12`, mot de passe ou provisioning profile privé.
 
-Ne jamais committer de certificat `.p12`, mot de passe ou `.mobileprovision` privé.
+## Avant de terminer
 
-## Avant de terminer une tâche
-
-Vérifier autant que possible : compilation, tests, absence de régression POST-first, aucune exposition de `G1-...` dans l'UI, aucune Dynamic Island ajoutée, documentation mise à jour si une décision change.
-
-Si Xcode ou un iPhone réel n'est pas disponible, l'indiquer clairement dans le compte-rendu.
+Vérifier : compilation CI, absence de régression POST-first, POST `[]`, multi-groupes, fallback strict, aucune exposition `G1-...`, recherche dynamique, changements sans faux diff iCal, versioning et docs à jour.
