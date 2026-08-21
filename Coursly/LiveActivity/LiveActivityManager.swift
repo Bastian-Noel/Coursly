@@ -34,6 +34,12 @@ enum LiveActivityManager {
             guard let label = event.displayTypeLabel else { return "#6E6E73" }
             return typeColors[label] ?? CourseTypeColorPreferences.hex(for: label)
         }
+        func teachers(for event: CalendarEvent) -> String {
+            event.teachers.joined(separator: " · ")
+        }
+        func groups(for event: CalendarEvent) -> String {
+            event.groups.map(\.name).joined(separator: " · ")
+        }
 
         if let currentIndex = ordered.firstIndex(where: { $0.start <= now && now < $0.end }) {
             let current = ordered[currentIndex]
@@ -48,6 +54,8 @@ enum LiveActivityManager {
                 status: isLast ? "DERNIER COURS" : "EN COURS",
                 title: current.title,
                 room: current.room,
+                teachers: teachers(for: current),
+                groups: groups(for: current),
                 type: current.displayTypeLabel,
                 accentHex: accentHex(for: current),
                 start: displayStart,
@@ -71,6 +79,8 @@ enum LiveActivityManager {
                 status: hasCompletedCourseBefore ? "PAUSE" : "PREMIER COURS",
                 title: upcoming.title,
                 room: upcoming.room,
+                teachers: teachers(for: upcoming),
+                groups: groups(for: upcoming),
                 type: upcoming.displayTypeLabel,
                 accentHex: accentHex(for: upcoming),
                 start: displayStart,
@@ -137,6 +147,8 @@ enum LiveActivityManager {
             status: "JOURNÉE TERMINÉE",
             title: "Cours terminés",
             room: "",
+            teachers: "",
+            groups: "",
             type: nil,
             accentHex: "#34C759",
             start: systemNow,
