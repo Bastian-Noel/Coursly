@@ -35,12 +35,17 @@ struct CourslyLiveActivityWidget: Widget {
                         .foregroundStyle(accent)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    HStack {
-                        Label(context.state.room.isEmpty ? "Salle à confirmer" : context.state.room, systemImage: "mappin.and.ellipse")
-                        Spacer()
-                        Text(context.state.status.capitalized)
+                    VStack(spacing: 5) {
+                        HStack {
+                            Text(context.state.room.isEmpty ? "Salle à confirmer" : context.state.room)
+                            Spacer()
+                            if !context.state.teachers.isEmpty {
+                                Text(context.state.teachers).lineLimit(1)
+                            }
+                        }
+                        .font(.caption)
+                        progressBar(context.state, accent: accent)
                     }
-                    .font(.caption)
                 }
             } compactLeading: {
                 Circle()
@@ -65,11 +70,11 @@ struct CourslyLiveActivityWidget: Widget {
         let contrast = contrastColor(context.state)
 
         HStack(spacing: 12) {
-            RoundedRectangle(cornerRadius: 4, style: .continuous)
+            Rectangle()
                 .fill(accent)
-                .frame(width: 7)
+                .frame(width: 6)
 
-            VStack(alignment: .leading, spacing: 9) {
+            VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(context.state.status)
                         .font(.caption.weight(.heavy))
@@ -104,21 +109,43 @@ struct CourslyLiveActivityWidget: Widget {
                         .lineLimit(2)
 
                     HStack(spacing: 8) {
-                        if let type = context.state.type {
+                        if let type = context.state.type, !type.isEmpty {
                             Text(type)
                                 .font(.caption.weight(.heavy))
                                 .foregroundStyle(contrast)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 5)
+                                .padding(.horizontal, 9)
+                                .padding(.vertical, 4)
                                 .background(accent, in: Capsule())
                         }
 
+                        Spacer(minLength: 6)
+
+                        if !context.state.groups.isEmpty {
+                            Text(context.state.groups)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.75)
+                        }
+                    }
+
+                    HStack(spacing: 8) {
                         Label(
                             context.state.room.isEmpty ? "Salle à confirmer" : context.state.room,
                             systemImage: "mappin.and.ellipse"
                         )
                         .font(.subheadline.weight(.medium))
                         .lineLimit(1)
+
+                        Spacer(minLength: 6)
+
+                        if !context.state.teachers.isEmpty {
+                            Label(context.state.teachers, systemImage: "person.fill")
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.7)
+                        }
                     }
 
                     HStack(spacing: 6) {
@@ -133,7 +160,6 @@ struct CourslyLiveActivityWidget: Widget {
                     .foregroundStyle(.secondary)
 
                     if let nextTitle = context.state.nextTitle, let nextStart = context.state.nextStart {
-                        Divider().opacity(0.4)
                         HStack(spacing: 6) {
                             Text("Ensuite")
                                 .font(.caption.weight(.semibold))
@@ -149,10 +175,35 @@ struct CourslyLiveActivityWidget: Widget {
                             }
                         }
                     }
+
+                    progressBar(context.state, accent: accent)
                 }
             }
         }
-        .padding(16)
+        .padding(.vertical, 14)
+        .padding(.trailing, 16)
+    }
+
+    @ViewBuilder
+    private func progressBar(_ state: CourslyActivityAttributes.ContentState, accent: Color) -> some View {
+        TimelineView(.periodic(from: .now, by: 20)) { context in
+            let total = max(1, state.end.timeIntervalSince(state.start))
+            let elapsed = context.date.timeIntervalSince(state.start)
+            let progress = max(0, min(1, elapsed / total))
+
+            GeometryReader { proxy in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(accent.opacity(0.16))
+                    Capsule()
+                        .fill(accent)
+                        .frame(width: max(0, proxy.size.width * progress))
+                }
+            }
+            .frame(height: 5)
+            .accessibilityLabel("Avancement du cours")
+            .accessibilityValue("\(Int(progress * 100)) pour cent")
+        }
     }
 
     private func accentColor(_ state: CourslyActivityAttributes.ContentState) -> Color {
