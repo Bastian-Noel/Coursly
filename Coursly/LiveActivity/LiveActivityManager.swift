@@ -31,8 +31,8 @@ enum LiveActivityManager {
         let displayOffset = systemNow.timeIntervalSince(now)
         func displayDate(_ date: Date) -> Date { date.addingTimeInterval(displayOffset) }
         func accentHex(for event: CalendarEvent) -> String {
-            guard let type = event.type else { return "#6E6E73" }
-            return typeColors[type.rawValue] ?? CourseTypeColorPreferences.hex(for: type)
+            guard let label = event.displayTypeLabel else { return "#6E6E73" }
+            return typeColors[label] ?? CourseTypeColorPreferences.hex(for: label)
         }
 
         if let currentIndex = ordered.firstIndex(where: { $0.start <= now && now < $0.end }) {
@@ -48,7 +48,7 @@ enum LiveActivityManager {
                 status: isLast ? "DERNIER COURS" : "EN COURS",
                 title: current.title,
                 room: current.room,
-                type: current.type?.rawValue,
+                type: current.displayTypeLabel,
                 accentHex: accentHex(for: current),
                 start: displayStart,
                 end: displayEnd,
@@ -71,7 +71,7 @@ enum LiveActivityManager {
                 status: hasCompletedCourseBefore ? "PAUSE" : "PREMIER COURS",
                 title: upcoming.title,
                 room: upcoming.room,
-                type: upcoming.type?.rawValue,
+                type: upcoming.displayTypeLabel,
                 accentHex: accentHex(for: upcoming),
                 start: displayStart,
                 end: displayEnd,
