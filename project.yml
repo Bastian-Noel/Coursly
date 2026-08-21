@@ -29,9 +29,6 @@ targets:
         INFOPLIST_KEY_NSSupportsLiveActivities: YES
     dependencies:
       - target: CourslyLiveActivity
-    scheme:
-      testTargets: []
-      gatherCoverageData: true
   CourslyLiveActivity:
     type: app-extension
     platform: iOS
@@ -61,11 +58,13 @@ schemes:
     build:
       targets:
         Coursly: all
+        CourslyTests: [test]
     run:
       config: Debug
     archive:
       config: Release
     test:
       config: Debug
+      gatherCoverageData: true
       targets:
-        - CourslyTests
+        - name: CourslyTests
