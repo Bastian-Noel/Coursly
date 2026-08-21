@@ -33,6 +33,7 @@ struct CalendarEvent: Identifiable, Hashable, Codable, Sendable {
     let id: String
     let title: String
     let type: CourseType?
+    var categoryLabel: String? = nil
     let start: Date
     let end: Date
     let rooms: [String]
@@ -44,11 +45,16 @@ struct CalendarEvent: Identifiable, Hashable, Codable, Sendable {
 
     var room: String { rooms.joined(separator: " / ") }
     var duration: TimeInterval { max(0, end.timeIntervalSince(start)) }
+    var displayTypeLabel: String? {
+        let raw = categoryLabel?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let raw, !raw.isEmpty { return raw }
+        return type?.rawValue
+    }
 
     var searchableText: String {
         [
             title,
-            type?.rawValue ?? "",
+            displayTypeLabel ?? "",
             rooms.joined(separator: " "),
             teachers.joined(separator: " "),
             groups.map(\.name).joined(separator: " "),
@@ -65,7 +71,7 @@ struct CalendarEvent: Identifiable, Hashable, Codable, Sendable {
             && end == other.end
             && rooms.sorted() == other.rooms.sorted()
             && teachers.sorted() == other.teachers.sorted()
-            && type == other.type
+            && normalized(displayTypeLabel ?? "") == normalized(other.displayTypeLabel ?? "")
             && moduleCode == other.moduleCode
             && moduleName == other.moduleName
     }
