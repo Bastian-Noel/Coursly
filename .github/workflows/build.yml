@@ -66,6 +66,33 @@ jobs:
       - name: Generate Xcode project
         run: xcodegen generate
 
+      - name: Run V3 unit tests
+        run: |
+          set -euo pipefail
+          SIMULATOR_ID=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          payload = json.load(sys.stdin)
+          for runtime_devices in payload.get("devices", {}).values():
+              for device in runtime_devices:
+                  if device.get("isAvailable") and str(device.get("name", "")).startswith("iPhone"):
+                      print(device["udid"])
+                      raise SystemExit
+          ')
+
+          if [ -z "$SIMULATOR_ID" ]; then
+            echo "Aucun simulateur iPhone disponible sur le runner macOS."
+            exit 1
+          fi
+
+          xcodebuild test \
+            -project Coursly.xcodeproj \
+            -scheme Coursly \
+            -configuration Debug \
+            -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
+            -derivedDataPath build-tests \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
       - name: Build iPhone app without code signing
         env:
           VERSION: ${{ steps.version.outputs.version }}
