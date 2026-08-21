@@ -22,6 +22,10 @@ enum LiveActivityManager {
             return
         }
 
+        let systemNow = Date()
+        let displayOffset = systemNow.timeIntervalSince(now)
+        func displayDate(_ date: Date) -> Date { date.addingTimeInterval(displayOffset) }
+
         if let currentIndex = ordered.firstIndex(where: { $0.start <= now && now < $0.end }) {
             let current = ordered[currentIndex]
             let next = ordered.dropFirst(currentIndex + 1).first
@@ -29,40 +33,44 @@ enum LiveActivityManager {
             let remaining = current.end.timeIntervalSince(now)
             let showNext = remaining <= 30 * 60
 
+            let displayStart = displayDate(current.start)
+            let displayEnd = displayDate(current.end)
             let state = CourslyActivityAttributes.ContentState(
                 status: isLast ? "DERNIER COURS" : "EN COURS",
                 title: current.title,
                 room: current.room,
                 type: current.type?.rawValue,
-                start: current.start,
-                end: current.end,
+                start: displayStart,
+                end: displayEnd,
                 nextTitle: showNext ? next?.title : nil,
                 nextRoom: showNext ? next?.room : nil,
-                nextStart: showNext ? next?.start : nil,
+                nextStart: showNext ? next.map { displayDate($0.start) } : nil,
                 isInProgress: true,
                 dayFinished: false
             )
-            await publish(state: state, dayDate: current.start, staleDate: current.end)
+            await publish(state: state, dayDate: current.start, staleDate: displayEnd)
             return
         }
 
         if let upcomingIndex = ordered.firstIndex(where: { $0.start > now }) {
             let upcoming = ordered[upcomingIndex]
             let hasCompletedCourseBefore = ordered[..<upcomingIndex].contains { $0.end <= now }
+            let displayStart = displayDate(upcoming.start)
+            let displayEnd = displayDate(upcoming.end)
             let state = CourslyActivityAttributes.ContentState(
                 status: hasCompletedCourseBefore ? "PAUSE" : "PREMIER COURS",
                 title: upcoming.title,
                 room: upcoming.room,
                 type: upcoming.type?.rawValue,
-                start: upcoming.start,
-                end: upcoming.end,
+                start: displayStart,
+                end: displayEnd,
                 nextTitle: nil,
                 nextRoom: nil,
                 nextStart: nil,
                 isInProgress: false,
                 dayFinished: false
             )
-            await publish(state: state, dayDate: upcoming.start, staleDate: upcoming.start)
+            await publish(state: state, dayDate: upcoming.start, staleDate: displayStart)
             return
         }
 
@@ -75,7 +83,8 @@ enum LiveActivityManager {
     }
 
     static func endAll(now: Date = .now, immediate: Bool = false) async {
-        let policy: ActivityUIDismissalPolicy = immediate ? .immediate : .after(now.addingTimeInterval(60))
+        let systemNow = Date()
+        let policy: ActivityUIDismissalPolicy = immediate ? .immediate : .after(systemNow.addingTimeInterval(60))
         for activity in Activity<CourslyActivityAttributes>.activities {
             await activity.end(nil, dismissalPolicy: policy)
         }
@@ -108,22 +117,23 @@ enum LiveActivityManager {
 
     private static func finishDay(now: Date) async {
         guard !Activity<CourslyActivityAttributes>.activities.isEmpty else { return }
+        let systemNow = Date()
         let state = CourslyActivityAttributes.ContentState(
             status: "JOURNÉE TERMINÉE",
             title: "Cours terminés",
             room: "",
             type: nil,
-            start: now,
-            end: now,
+            start: systemNow,
+            end: systemNow,
             nextTitle: nil,
             nextRoom: nil,
             nextStart: nil,
             isInProgress: false,
             dayFinished: true
         )
-        let content = ActivityContent(state: state, staleDate: now)
+        let content = ActivityContent(state: state, staleDate: systemNow)
         for activity in Activity<CourslyActivityAttributes>.activities {
-            await activity.end(content, dismissalPolicy: .after(now.addingTimeInterval(15 * 60)))
+            await activity.end(content, dismissalPolicy: .after(systemNow.addingTimeInterval(15 * 60)))
         }
     }
 }
