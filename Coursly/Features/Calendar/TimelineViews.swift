@@ -1,6 +1,7 @@
 import SwiftUI
 
 private let timelineTimeWidth: CGFloat = 52
+private let eventGap: CGFloat = 3
 
 private struct TimelineScrollOffsetKey: PreferenceKey {
     static let defaultValue: CGFloat = 0
@@ -69,7 +70,7 @@ struct DayTimelineView: View {
     let onSelect: (CalendarEvent) -> Void
 
     @State private var hasCentered = false
-    @State private var settledHorizontalOffset: CGFloat = 0
+    @State private var pageOffset: CGFloat = 0
     @State private var isChangingDay = false
     @State private var lastScrollOffset: CGFloat?
     @GestureState private var liveHorizontalDrag: CGFloat = 0
@@ -78,13 +79,16 @@ struct DayTimelineView: View {
         GeometryReader { viewport in
             ScrollViewReader { proxy in
                 ScrollView(.vertical, showsIndicators: false) {
-                    DayTimelineCanvas(
-                        date: store.focusedDate,
-                        events: store.events(on: store.focusedDate),
-                        hourHeight: CGFloat(store.hourHeight),
-                        highlightedEventID: store.highlightedEventID,
-                        onSelect: onSelect
-                    )
+                    let previousDate = store.adjacentVisibleDate(direction: -1)
+                    let nextDate = store.adjacentVisibleDate(direction: 1)
+
+                    HStack(spacing: 0) {
+                        timelinePage(for: previousDate, width: viewport.size.width)
+                        timelinePage(for: store.focusedDate, width: viewport.size.width)
+                        timelinePage(for: nextDate, width: viewport.size.width)
+                    }
+                    .frame(width: viewport.size.width * 3, alignment: .leading)
+                    .offset(x: -viewport.size.width + pageOffset + liveHorizontalDrag)
                     .background {
                         GeometryReader { geometry in
                             Color.clear.preference(
@@ -97,7 +101,7 @@ struct DayTimelineView: View {
                 .coordinateSpace(name: "day-timeline-scroll")
                 .scrollBounceBehavior(.basedOnSize)
                 .contentShape(Rectangle())
-                .offset(x: settledHorizontalOffset + liveHorizontalDrag)
+                .clipped()
                 .simultaneousGesture(daySwipeGesture(width: viewport.size.width))
                 .onPreferenceChange(TimelineScrollOffsetKey.self) { minY in
                     handleScrollFeedback(offset: max(0, -minY))
@@ -106,6 +110,9 @@ struct DayTimelineView: View {
                     guard !hasCentered else { return }
                     hasCentered = true
                     scrollToRelevantHour(proxy: proxy, animated: false)
+                }
+                .onChange(of: store.timelineRecenterToken) { _, _ in
+                    scrollToRelevantHour(proxy: proxy, animated: true, forceNow: true)
                 }
                 .onChange(of: store.highlightedEventID) { _, newValue in
                     guard newValue != nil else { return }
@@ -116,13 +123,24 @@ struct DayTimelineView: View {
         }
     }
 
+    private func timelinePage(for date: Date, width: CGFloat) -> some View {
+        DayTimelineCanvas(
+            date: date,
+            events: store.events(on: date),
+            hourHeight: CGFloat(store.hourHeight),
+            highlightedEventID: Calendar.current.isDate(date, inSameDayAs: store.focusedDate) ? store.highlightedEventID : nil,
+            onSelect: onSelect
+        )
+        .frame(width: width)
+    }
+
     private func daySwipeGesture(width: CGFloat) -> some Gesture {
         DragGesture(minimumDistance: 12)
             .updating($liveHorizontalDrag) { value, state, _ in
                 let horizontal = value.translation.width
                 let vertical = value.translation.height
-                guard abs(horizontal) > abs(vertical) * 1.05 else { return }
-                state = horizontal
+                guard abs(horizontal) > abs(vertical) * 1.08 else { return }
+                state = max(-width, min(width, horizontal))
             }
             .onEnded { value in
                 guard !isChangingDay else { return }
@@ -132,37 +150,36 @@ struct DayTimelineView: View {
                 let predicted = value.predictedEndTranslation.width
                 let effective = abs(predicted) > abs(horizontal) ? predicted : horizontal
 
-                guard abs(effective) > 58, abs(horizontal) > abs(vertical) * 1.05 else {
-                    withAnimation(.snappy(duration: 0.18)) {
-                        settledHorizontalOffset = 0
-                    }
+                guard abs(effective) > 58, abs(horizontal) > abs(vertical) * 1.08 else {
+                    withAnimation(.snappy(duration: 0.18)) { pageOffset = 0 }
                     return
                 }
 
                 let direction = effective < 0 ? 1 : -1
                 isChangingDay = true
 
-                withAnimation(.snappy(duration: 0.16)) {
-                    settledHorizontalOffset = direction > 0 ? -width : width
+                var transaction = Transaction()
+                transaction.disablesAnimations = true
+                withTransaction(transaction) {
+                    pageOffset = max(-width, min(width, horizontal))
+                }
+
+                withAnimation(.snappy(duration: 0.20)) {
+                    pageOffset = direction > 0 ? -width : width
                 }
 
                 Task { @MainActor in
-                    try? await Task.sleep(for: .milliseconds(155))
+                    try? await Task.sleep(for: .milliseconds(190))
                     store.moveDay(direction)
-                    await store.ensureLoaded(around: store.focusedDate)
                     lastScrollOffset = nil
 
-                    var transaction = Transaction()
-                    transaction.disablesAnimations = true
-                    withTransaction(transaction) {
-                        settledHorizontalOffset = direction > 0 ? width : -width
-                    }
+                    var reset = Transaction()
+                    reset.disablesAnimations = true
+                    withTransaction(reset) { pageOffset = 0 }
 
-                    withAnimation(.snappy(duration: 0.22)) {
-                        settledHorizontalOffset = 0
-                    }
-                    try? await Task.sleep(for: .milliseconds(220))
                     isChangingDay = false
+                    let preloadDate = store.adjacentVisibleDate(direction: direction)
+                    await store.ensureLoaded(around: preloadDate)
                 }
             }
     }
@@ -208,20 +225,25 @@ struct DayTimelineView: View {
         }
     }
 
-    private func scrollToRelevantHour(proxy: ScrollViewProxy, animated: Bool) {
-        let event = store.highlightedEventID.flatMap { id in
+    private func scrollToRelevantHour(
+        proxy: ScrollViewProxy,
+        animated: Bool,
+        forceNow: Bool = false
+    ) {
+        let event = forceNow ? nil : store.highlightedEventID.flatMap { id in
             store.events.first(where: { $0.id == id })
         }
         let targetDate = event?.start ?? store.now
-        let shouldUseNow = event != nil || Calendar.current.isDate(store.focusedDate, inSameDayAs: store.now)
-        let hour = shouldUseNow ? max(0, Calendar.current.component(.hour, from: targetDate) - 1) : 8
+        let useTarget = forceNow || event != nil || Calendar.current.isDate(store.focusedDate, inSameDayAs: store.now)
+        let hour = useTarget ? Calendar.current.component(.hour, from: targetDate) : 8
+        let target = "day-hour-\(max(0, min(23, hour)))"
 
         if animated {
-            withAnimation(.snappy(duration: 0.35)) {
-                proxy.scrollTo("day-hour-\(hour)", anchor: .top)
+            withAnimation(.snappy(duration: 0.38)) {
+                proxy.scrollTo(target, anchor: .center)
             }
         } else {
-            proxy.scrollTo("day-hour-\(hour)", anchor: .top)
+            proxy.scrollTo(target, anchor: .center)
         }
     }
 }
@@ -240,31 +262,37 @@ struct DayTimelineCanvas: View {
     var body: some View {
         GeometryReader { proxy in
             let placements = engine.placements(for: events)
-            let contentWidth = max(1, proxy.size.width - timelineTimeWidth - 8)
+            let contentWidth = max(1, proxy.size.width - timelineTimeWidth)
 
             ZStack(alignment: .topLeading) {
                 hourGrid
 
                 ForEach(placements) { placement in
-                    let width = contentWidth / CGFloat(placement.columnCount)
-                    let x = CGFloat(placement.column) * width + 2
+                    let totalGaps = eventGap * CGFloat(max(0, placement.columnCount - 1))
+                    let laneWidth = max(1, (contentWidth - 4 - totalGaps) / CGFloat(placement.columnCount))
+                    let x = timelineTimeWidth + 2 + CGFloat(placement.column) * (laneWidth + eventGap)
                     let y = yPosition(for: placement.event.start)
                     let exactHeight = yPosition(for: placement.event.end) - y
                     let height = max(1, exactHeight)
 
                     CourseBlock(
                         event: placement.event,
-                        availableWidth: max(36, width - 4),
+                        availableWidth: laneWidth,
                         height: height,
                         highlighted: highlightedEventID == placement.event.id
                     )
-                    .frame(width: max(36, width - 4), height: height)
+                    .frame(width: laneWidth, height: height)
+                    .padding(.vertical, 1)
                     .offset(x: x, y: y)
                     .onTapGesture { onSelect(placement.event) }
                 }
 
                 if Calendar.current.isDate(date, inSameDayAs: store.now) {
-                    CurrentTimeIndicator(hourHeight: hourHeight, x: 0, width: contentWidth)
+                    CurrentTimeIndicator(
+                        hourHeight: hourHeight,
+                        x: timelineTimeWidth,
+                        width: contentWidth
+                    )
                 }
             }
             .frame(height: hourHeight * 24 + 28, alignment: .top)
@@ -279,14 +307,14 @@ struct DayTimelineCanvas: View {
                     .id("day-hour-\(hour)")
             }
 
-            HStack(spacing: 6) {
-                Rectangle()
-                    .fill(Color.secondary.opacity(0.18))
-                    .frame(height: 0.5)
+            HStack(spacing: 4) {
                 Text("00:00")
                     .font(.caption2.monospacedDigit())
                     .foregroundStyle(.secondary)
-                    .frame(width: timelineTimeWidth - 7, alignment: .leading)
+                    .frame(width: timelineTimeWidth - 6, alignment: .trailing)
+                Rectangle()
+                    .fill(Color.secondary.opacity(0.18))
+                    .frame(height: 0.5)
             }
             .frame(height: 28, alignment: .top)
         }
@@ -307,13 +335,13 @@ struct WeekTimelineView: View {
     @State private var lastScrollOffset: CGFloat?
 
     var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView(.vertical, showsIndicators: false) {
-                GeometryReader { geometry in
+        GeometryReader { viewport in
+            ScrollViewReader { proxy in
+                ScrollView(.vertical, showsIndicators: false) {
                     let days = store.visibleWeekDays(containing: store.focusedDate)
                     let naturalWidth = max(
-                        geometry.size.width,
-                        CGFloat(days.count) * 104 + timelineTimeWidth + 8
+                        viewport.size.width,
+                        timelineTimeWidth + CGFloat(max(1, days.count)) * 108
                     )
 
                     ScrollView(.horizontal, showsIndicators: false) {
@@ -327,28 +355,41 @@ struct WeekTimelineView: View {
                         )
                         .frame(width: naturalWidth)
                     }
-                }
-                .frame(height: CGFloat(store.hourHeight) * 24 + 76)
-                .background {
-                    GeometryReader { geometry in
-                        Color.clear.preference(
-                            key: TimelineScrollOffsetKey.self,
-                            value: geometry.frame(in: .named("week-timeline-scroll")).minY
-                        )
+                    .frame(width: viewport.size.width, alignment: .leading)
+                    .background {
+                        GeometryReader { geometry in
+                            Color.clear.preference(
+                                key: TimelineScrollOffsetKey.self,
+                                value: geometry.frame(in: .named("week-timeline-scroll")).minY
+                            )
+                        }
                     }
                 }
+                .coordinateSpace(name: "week-timeline-scroll")
+                .onPreferenceChange(TimelineScrollOffsetKey.self) { minY in
+                    handleScrollFeedback(offset: max(0, -minY))
+                }
+                .onAppear {
+                    guard !hasCentered else { return }
+                    hasCentered = true
+                    scrollToCurrentHour(proxy: proxy, animated: false)
+                }
+                .onChange(of: store.timelineRecenterToken) { _, _ in
+                    scrollToCurrentHour(proxy: proxy, animated: true)
+                }
+                .refreshable { await store.refresh() }
             }
-            .coordinateSpace(name: "week-timeline-scroll")
-            .onPreferenceChange(TimelineScrollOffsetKey.self) { minY in
-                handleScrollFeedback(offset: max(0, -minY))
+        }
+    }
+
+    private func scrollToCurrentHour(proxy: ScrollViewProxy, animated: Bool) {
+        let hour = max(0, min(23, Calendar.current.component(.hour, from: store.now)))
+        if animated {
+            withAnimation(.snappy(duration: 0.38)) {
+                proxy.scrollTo("week-hour-\(hour)", anchor: .center)
             }
-            .onAppear {
-                guard !hasCentered else { return }
-                hasCentered = true
-                let hour = max(0, Calendar.current.component(.hour, from: store.now) - 1)
-                proxy.scrollTo("week-hour-\(hour)", anchor: .top)
-            }
-            .refreshable { await store.refresh() }
+        } else {
+            proxy.scrollTo("week-hour-\(hour)", anchor: .center)
         }
     }
 
@@ -387,11 +428,11 @@ struct WeekTimelineCanvas: View {
     let width: CGFloat
     let onSelect: (CalendarEvent) -> Void
 
-    private let headerHeight: CGFloat = 48
+    private let headerHeight: CGFloat = 50
     private let engine = EventLayoutEngine()
 
     var body: some View {
-        let dayWidth = max(92, (width - timelineTimeWidth - 8) / CGFloat(max(days.count, 1)))
+        let dayWidth = max(96, (width - timelineTimeWidth) / CGFloat(max(days.count, 1)))
 
         ZStack(alignment: .topLeading) {
             weekGrid(dayWidth: dayWidth)
@@ -401,8 +442,9 @@ struct WeekTimelineCanvas: View {
                 let placements = engine.placements(for: dayEvents)
 
                 ForEach(placements) { placement in
-                    let laneWidth = dayWidth / CGFloat(placement.columnCount)
-                    let x = CGFloat(dayIndex) * dayWidth + CGFloat(placement.column) * laneWidth + 2
+                    let totalGaps = eventGap * CGFloat(max(0, placement.columnCount - 1))
+                    let laneWidth = max(1, (dayWidth - 4 - totalGaps) / CGFloat(placement.columnCount))
+                    let x = timelineTimeWidth + 2 + CGFloat(dayIndex) * dayWidth + CGFloat(placement.column) * (laneWidth + eventGap)
                     let y = headerHeight + yPosition(for: placement.event.start, day: day)
                     let exactHeight = yPosition(for: placement.event.end, day: day)
                         - yPosition(for: placement.event.start, day: day)
@@ -410,12 +452,13 @@ struct WeekTimelineCanvas: View {
 
                     CourseBlock(
                         event: placement.event,
-                        availableWidth: max(36, laneWidth - 4),
+                        availableWidth: laneWidth,
                         height: height,
                         highlighted: store.highlightedEventID == placement.event.id,
                         forceCompact: true
                     )
-                    .frame(width: max(36, laneWidth - 4), height: height)
+                    .frame(width: laneWidth, height: height)
+                    .padding(.vertical, 1)
                     .offset(x: x, y: y)
                     .onTapGesture { onSelect(placement.event) }
                 }
@@ -423,7 +466,7 @@ struct WeekTimelineCanvas: View {
                 if Calendar.current.isDate(day, inSameDayAs: now) {
                     WeekCurrentTimeIndicator(
                         y: headerHeight + yPosition(for: now, day: day),
-                        x: CGFloat(dayIndex) * dayWidth,
+                        x: timelineTimeWidth + CGFloat(dayIndex) * dayWidth,
                         width: dayWidth
                     )
                 }
@@ -435,15 +478,16 @@ struct WeekTimelineCanvas: View {
     private func weekGrid(dayWidth: CGFloat) -> some View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
+                Color.clear.frame(width: timelineTimeWidth, height: headerHeight)
+
                 ForEach(days, id: \.self) { day in
                     Button {
                         store.focusedDate = Calendar.current.startOfDay(for: day)
                         store.setDisplayMode(.day)
                     } label: {
                         VStack(spacing: 2) {
-                            Text(day.formatted(.dateTime.weekday(.abbreviated)))
+                            Text(day.formatted(.dateTime.weekday(.abbreviated)).capitalized)
                                 .font(.caption.weight(.semibold))
-                                .textCase(.uppercase)
                             Text(day.formatted(.dateTime.day()))
                                 .font(.headline.monospacedDigit())
                         }
@@ -457,13 +501,17 @@ struct WeekTimelineCanvas: View {
                     .buttonStyle(.plain)
                     .frame(width: dayWidth, height: headerHeight)
                 }
-
-                Color.clear.frame(width: timelineTimeWidth, height: headerHeight)
             }
 
             ForEach(0..<24, id: \.self) { hour in
-                HStack(spacing: 6) {
-                    ZStack {
+                HStack(spacing: 0) {
+                    Text(String(format: "%02d:00", hour))
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .frame(width: timelineTimeWidth - 6, alignment: .trailing)
+                        .padding(.trailing, 6)
+
+                    ZStack(alignment: .leading) {
                         Rectangle()
                             .fill(Color.secondary.opacity(0.18))
                             .frame(height: 0.5)
@@ -477,11 +525,6 @@ struct WeekTimelineCanvas: View {
                             }
                         }
                     }
-
-                    Text(String(format: "%02d:00", hour))
-                        .font(.caption2.monospacedDigit())
-                        .foregroundStyle(.secondary)
-                        .frame(width: timelineTimeWidth - 6, alignment: .leading)
                 }
                 .frame(height: hourHeight, alignment: .top)
                 .id("week-hour-\(hour)")
@@ -501,15 +544,15 @@ struct HourRow: View {
     let height: CGFloat
 
     var body: some View {
-        HStack(spacing: 6) {
-            Rectangle()
-                .fill(Color.secondary.opacity(0.18))
-                .frame(height: 0.5)
-
+        HStack(spacing: 4) {
             Text(String(format: "%02d:00", hour))
                 .font(.caption2.monospacedDigit())
                 .foregroundStyle(.secondary)
-                .frame(width: timelineTimeWidth - 7, alignment: .leading)
+                .frame(width: timelineTimeWidth - 6, alignment: .trailing)
+
+            Rectangle()
+                .fill(Color.secondary.opacity(0.18))
+                .frame(height: 0.5)
         }
         .frame(height: height, alignment: .top)
     }
@@ -564,42 +607,28 @@ struct CourseBlock: View {
     var forceCompact = false
 
     var body: some View {
-        HStack(spacing: 5) {
-            VStack(alignment: .trailing, spacing: 0) {
-                Text(event.start, style: .time)
-                Spacer(minLength: 0)
-                Text(event.end, style: .time)
-            }
-            .font(
-                .system(
-                    size: availableWidth < 115 ? 8 : 9,
-                    weight: .semibold,
-                    design: .rounded
-                )
-                .monospacedDigit()
-            )
-            .foregroundStyle(.secondary)
-            .frame(width: availableWidth < 105 ? 28 : 35, alignment: .trailing)
-            .padding(.vertical, min(6, max(1, height * 0.08)))
-
+        HStack(spacing: 0) {
             Rectangle()
-                .fill(eventColor.opacity(0.58))
-                .frame(width: 2)
-                .padding(.vertical, min(5, max(1, height * 0.08)))
+                .fill(eventColor)
+                .frame(width: 3)
 
             VStack(alignment: .leading, spacing: availableWidth > 190 ? 4 : 2) {
-                HStack(spacing: 4) {
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
                     if let label = event.displayTypeLabel, !label.isEmpty {
                         Text(label)
                             .font(.system(size: forceCompact ? 8 : 9, weight: .bold))
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 2)
-                            .background(eventColor.opacity(0.17), in: Capsule())
+                            .foregroundStyle(eventColor)
+                            .lineLimit(1)
                     } else if event.source == .local {
                         Image(systemName: "person.crop.circle")
                             .font(.caption2)
                     }
-                    Spacer(minLength: 0)
+
+                    Spacer(minLength: 4)
+
+                    Text(event.start, style: .time)
+                        .font(timeFont)
+                        .foregroundStyle(.secondary)
                 }
 
                 Text(event.title)
@@ -608,49 +637,47 @@ struct CourseBlock: View {
                     .minimumScaleFactor(0.72)
 
                 if height > 48, !event.room.isEmpty {
-                    Label(event.room, systemImage: "mappin")
+                    Text(event.room)
                         .font(metadataFont)
-                        .lineLimit(1)
-                }
-
-                if !forceCompact, availableWidth >= 150, height > 70, !event.teachers.isEmpty {
-                    Label(event.teachers.joined(separator: ", "), systemImage: "person")
-                        .font(metadataFont)
-                        .lineLimit(1)
-                }
-
-                if !forceCompact, availableWidth >= 180, height > 88, !event.groups.isEmpty {
-                    Text(event.groups.map(\.name).joined(separator: " · "))
-                        .font(.caption2.weight(.medium))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
 
-                if !forceCompact, availableWidth >= 210, height > 106, let module = event.moduleCode {
-                    Text(module)
-                        .font(.caption2.monospaced())
+                if !forceCompact, availableWidth >= 145, height > 68, !event.teachers.isEmpty {
+                    Text(event.teachers.joined(separator: ", "))
+                        .font(metadataFont)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+
+                if !forceCompact, availableWidth >= 170, height > 84, !event.groups.isEmpty {
+                    Text(event.groups.map(\.name).joined(separator: " · "))
+                        .font(.caption2.weight(.medium))
                         .foregroundStyle(.tertiary)
                         .lineLimit(1)
                 }
 
                 Spacer(minLength: 0)
+
+                HStack {
+                    Spacer(minLength: 0)
+                    Text(event.end, style: .time)
+                        .font(timeFont)
+                        .foregroundStyle(.secondary)
+                }
             }
-            .padding(.vertical, min(6, max(1, height * 0.08)))
-            .padding(.trailing, 6)
+            .padding(.leading, 6)
+            .padding(.trailing, 5)
+            .padding(.vertical, min(6, max(2, height * 0.06)))
         }
         .clipped()
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(eventColor.opacity(event.source == .local ? 0.10 : 0.13))
-        )
+        .background(Rectangle().fill(eventColor.opacity(event.source == .local ? 0.09 : 0.12)))
         .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(
-                    highlighted ? Color.accentColor : eventColor.opacity(0.38),
-                    lineWidth: highlighted ? 2.5 : 0.8
-                )
+            if highlighted {
+                Rectangle().stroke(Color.accentColor, lineWidth: 2.5)
+            }
         }
-        .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .contentShape(Rectangle())
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityText)
     }
@@ -663,6 +690,10 @@ struct CourseBlock: View {
 
     private var metadataFont: Font {
         forceCompact || availableWidth < 140 ? .caption2 : .caption
+    }
+
+    private var timeFont: Font {
+        .system(size: forceCompact || availableWidth < 120 ? 8 : 9, weight: .semibold, design: .rounded).monospacedDigit()
     }
 
     private var eventColor: Color {
