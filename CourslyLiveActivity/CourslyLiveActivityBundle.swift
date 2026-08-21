@@ -8,9 +8,13 @@ struct CourslyLiveActivityBundle: WidgetBundle {
 }
 
 struct CourslyLiveActivityWidget: Widget {
+    private let parisTimeZone = TimeZone(identifier: "Europe/Paris")!
+
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: CourslyActivityAttributes.self) { context in
             lockScreen(context)
+                .environment(\.timeZone, parisTimeZone)
+                .environment(\.locale, Locale(identifier: "fr_FR"))
                 .activityBackgroundTint(.clear)
                 .activitySystemActionForegroundColor(.primary)
         } dynamicIsland: { context in
@@ -48,17 +52,13 @@ struct CourslyLiveActivityWidget: Widget {
                     }
                 }
             } compactLeading: {
-                Circle()
-                    .fill(accent)
-                    .frame(width: 10, height: 10)
+                Circle().fill(accent).frame(width: 10, height: 10)
             } compactTrailing: {
                 countdown(context.state)
                     .font(.caption2.monospacedDigit())
                     .foregroundStyle(accent)
             } minimal: {
-                Circle()
-                    .fill(accent)
-                    .frame(width: 12, height: 12)
+                Circle().fill(accent).frame(width: 12, height: 12)
             }
             .keylineTint(accent)
         }
@@ -187,14 +187,13 @@ struct CourslyLiveActivityWidget: Widget {
     @ViewBuilder
     private func progressBar(_ state: CourslyActivityAttributes.ContentState, accent: Color) -> some View {
         TimelineView(.periodic(from: .now, by: 20)) { context in
-            let total = max(1, state.end.timeIntervalSince(state.start))
-            let elapsed = context.date.timeIntervalSince(state.start)
+            let total = max(1, state.timerEnd.timeIntervalSince(state.timerStart))
+            let elapsed = context.date.timeIntervalSince(state.timerStart)
             let progress = max(0, min(1, elapsed / total))
 
             GeometryReader { proxy in
                 ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(accent.opacity(0.16))
+                    Capsule().fill(accent.opacity(0.16))
                     Capsule()
                         .fill(accent)
                         .frame(width: max(0, proxy.size.width * progress))
@@ -219,9 +218,9 @@ struct CourslyLiveActivityWidget: Widget {
         if state.dayFinished {
             Text("✓")
         } else if state.isInProgress {
-            Text(timerInterval: Date.now...state.end, countsDown: true)
+            Text(timerInterval: Date.now...state.timerEnd, countsDown: true)
         } else {
-            Text(timerInterval: Date.now...state.start, countsDown: true)
+            Text(timerInterval: Date.now...state.timerStart, countsDown: true)
         }
     }
 }
