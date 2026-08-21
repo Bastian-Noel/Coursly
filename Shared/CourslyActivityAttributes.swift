@@ -7,6 +7,7 @@ struct CourslyActivityAttributes: ActivityAttributes {
         let title: String
         let room: String
         let type: String?
+        let accentHex: String
         let start: Date
         let end: Date
         let nextTitle: String?
