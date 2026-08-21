@@ -188,6 +188,27 @@ struct CourseBlock: View {
     }
     private var titleFont: Font { if forceCompact || availableWidth < 120 { return .caption2.weight(.bold) }; if availableWidth < 180 { return .caption.weight(.bold) }; return .subheadline.weight(.bold) }
     private var metadataFont: Font { forceCompact || availableWidth < 140 ? .caption2 : .caption }
-    private var eventColor: Color { guard let type = event.type else { return event.source == .local ? .purple : .accentColor }; switch type { case .cm: .blue; case .td: .indigo; case .tp: .green; case .project: .orange; case .integration: .teal; case .meeting: .purple; case .test, .exam: .red } }
+    private var eventColor: Color {
+        guard let type = event.type else {
+            return event.source == .local ? Color.purple : Color.accentColor
+        }
+
+        switch type {
+        case .cm:
+            return Color.blue
+        case .td:
+            return Color.indigo
+        case .tp:
+            return Color.green
+        case .project:
+            return Color.orange
+        case .integration:
+            return Color.teal
+        case .meeting:
+            return Color.purple
+        case .test, .exam:
+            return Color.red
+        }
+    }
     private var accessibilityText: String { var parts = [event.type?.rawValue, event.title].compactMap { $0 }; parts.append("de \(event.start.formatted(date: .omitted, time: .shortened)) à \(event.end.formatted(date: .omitted, time: .shortened))"); if !event.room.isEmpty { parts.append("salle \(event.room)") }; if !event.teachers.isEmpty { parts.append(event.teachers.joined(separator: ", ")) }; if !event.groups.isEmpty { parts.append(event.groups.map(\.name).joined(separator: ", ")) }; return parts.joined(separator: ", ") }
 }
