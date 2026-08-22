@@ -3,18 +3,10 @@ name: Build and publish Coursly
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - 'docs/**'
-      - 'AGENTS.md'
-      - 'README.md'
-      - '**/*.md'
+    paths-ignore: ['docs/**', 'AGENTS.md', 'README.md', '**/*.md']
   pull_request:
     branches: [main]
-    paths-ignore:
-      - 'docs/**'
-      - 'AGENTS.md'
-      - 'README.md'
-      - '**/*.md'
+    paths-ignore: ['docs/**', 'AGENTS.md', 'README.md', '**/*.md']
   workflow_dispatch:
 
 permissions:
@@ -27,36 +19,29 @@ concurrency:
 jobs:
   build:
     runs-on: macos-26
-
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      - name: Generate app icon
+        run: |
+          set -euo pipefail
+          mkdir -p Coursly/Assets/Assets.xcassets/AppIcon.appiconset
+          base64 -D -i Coursly/Assets/AppIcon.source.b64 -o /tmp/CourslyIcon.png
+          sips -z 1024 1024 /tmp/CourslyIcon.png --out Coursly/Assets/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png >/dev/null
+
       - name: Resolve Coursly version
         id: version
         run: |
           set -euo pipefail
-
           BASE_VERSION=$(awk '/MARKETING_VERSION:/ { gsub(/"/, "", $2); print $2; exit }' project.yml)
           SERIES=$(echo "$BASE_VERSION" | awk -F. '{ print $1 "." $2 }')
-
-          LAST_BUILD=$(git tag -l "v${SERIES}.*" \
-            | sed -E "s/^v${SERIES//./\\.}\.([0-9]+)$/\\1/" \
-            | grep -E '^[0-9]+$' \
-            | sort -n \
-            | tail -1 || true)
-
-          if [ -z "$LAST_BUILD" ]; then
-            BUILD=1
-          else
-            BUILD=$((LAST_BUILD + 1))
-          fi
-
+          LAST_BUILD=$(git tag -l "v${SERIES}.*" | sed -E "s/^v${SERIES//./\\.}\.([0-9]+)$/\\1/" | grep -E '^[0-9]+$' | sort -n | tail -1 || true)
+          if [ -z "$LAST_BUILD" ]; then BUILD=1; else BUILD=$((LAST_BUILD + 1)); fi
           VERSION="${SERIES}.${BUILD}"
           TAG="v${VERSION}"
-
           echo "series=$SERIES" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "build=$BUILD" >> "$GITHUB_OUTPUT"
@@ -81,39 +66,15 @@ jobs:
                       print(device["udid"])
                       raise SystemExit
           ')
-
-          if [ -z "$SIMULATOR_ID" ]; then
-            echo "Aucun simulateur iPhone disponible sur le runner macOS."
-            exit 1
-          fi
-
-          xcodebuild test \
-            -project Coursly.xcodeproj \
-            -scheme Coursly \
-            -configuration Debug \
-            -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
-            -derivedDataPath build-tests \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO
+          if [ -z "$SIMULATOR_ID" ]; then echo "Aucun simulateur iPhone disponible sur le runner macOS."; exit 1; fi
+          xcodebuild test -project Coursly.xcodeproj -scheme Coursly -configuration Debug -destination "platform=iOS Simulator,id=$SIMULATOR_ID" -derivedDataPath build-tests CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
 
       - name: Build iPhone app without code signing
         env:
           VERSION: ${{ steps.version.outputs.version }}
           BUILD: ${{ steps.version.outputs.build }}
         run: |
-          xcodebuild \
-            -project Coursly.xcodeproj \
-            -scheme Coursly \
-            -configuration Release \
-            -sdk iphoneos \
-            -destination 'generic/platform=iOS' \
-            -derivedDataPath build \
-            MARKETING_VERSION="$VERSION" \
-            CURRENT_PROJECT_VERSION="$BUILD" \
-            CODE_SIGN_IDENTITY='' \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
-            clean build
+          xcodebuild -project Coursly.xcodeproj -scheme Coursly -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$BUILD" CODE_SIGN_IDENTITY='' CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO clean build
 
       - name: Package IPA
         run: |
@@ -133,7 +94,6 @@ jobs:
           SIZE=$(stat -f%z Coursly.ipa)
           SHA256=$(shasum -a 256 Coursly.ipa | awk '{print $1}')
           DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "build=$BUILD" >> "$GITHUB_OUTPUT"
           echo "size=$SIZE" >> "$GITHUB_OUTPUT"
@@ -145,12 +105,7 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release create "${{ steps.meta.outputs.tag }}" Coursly.ipa \
-            --repo "$GITHUB_REPOSITORY" \
-            --title "Coursly ${{ steps.meta.outputs.version }}" \
-            --notes "Build de développement destinée à être signée sur l’appareil." \
-            --prerelease
+        run: gh release create "${{ steps.meta.outputs.tag }}" Coursly.ipa --repo "$GITHUB_REPOSITORY" --title "Coursly ${{ steps.meta.outputs.version }}" --notes "Build de développement destinée à être signée sur l’appareil." --prerelease
 
       - name: Update site metadata
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -165,59 +120,22 @@ jobs:
           git fetch origin site
           git worktree add public origin/site
           DOWNLOAD="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/Coursly.ipa"
-
           python3 - "$VERSION" "$BUILD" "$SIZE" "$SHA256" "$DATE" "$DOWNLOAD" <<'PY'
-          import json
-          import pathlib
-          import re
-          import sys
-
+          import json, pathlib, re, sys
           version, build, size, sha256, date, download = sys.argv[1:]
           source_path = pathlib.Path('public/source.json')
           source = json.loads(source_path.read_text(encoding='utf-8'))
           app = source['apps'][0]
-
-          versions = [
-              v for v in app.get('versions', [])
-              if re.search(r'/releases/download/v0\.\d+\.\d+/', str(v.get('downloadURL', '')))
-          ]
+          versions = [v for v in app.get('versions', []) if re.search(r'/releases/download/v0\.\d+\.\d+/', str(v.get('downloadURL', '')))]
           versions = [v for v in versions if v.get('version') != version]
-          versions.insert(0, {
-              'version': version,
-              'buildVersion': build,
-              'date': date,
-              'localizedDescription': f'Coursly {version}',
-              'downloadURL': download,
-              'size': int(size),
-              'sha256': sha256,
-              'minOSVersion': '26.0'
-          })
+          versions.insert(0, {'version': version, 'buildVersion': build, 'date': date, 'localizedDescription': f'Coursly {version}', 'downloadURL': download, 'size': int(size), 'sha256': sha256, 'minOSVersion': '26.0'})
           app['versions'] = versions[:20]
-
-          app['version'] = version
-          app['buildVersion'] = build
-          app['versionDate'] = date
-          app['downloadURL'] = download
-          app['size'] = int(size)
-          app['sha256'] = sha256
-          app.pop('marketingVersion', None)
-          app.setdefault('appPermissions', {})
-
+          app['version'] = version; app['buildVersion'] = build; app['versionDate'] = date; app['downloadURL'] = download; app['size'] = int(size); app['sha256'] = sha256
+          app.pop('marketingVersion', None); app.setdefault('appPermissions', {})
           source_path.write_text(json.dumps(source, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
-
-          latest = {
-              'name': 'Coursly',
-              'bundleIdentifier': 'fr.bastiannoel.coursly',
-              'version': version,
-              'buildVersion': build,
-              'date': date,
-              'downloadURL': download,
-              'size': int(size),
-              'sha256': sha256
-          }
+          latest = {'name': 'Coursly', 'bundleIdentifier': 'fr.bastiannoel.coursly', 'version': version, 'buildVersion': build, 'date': date, 'downloadURL': download, 'size': int(size), 'sha256': sha256}
           pathlib.Path('public/latest.json').write_text(json.dumps(latest, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
           PY
-
           cd public
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
