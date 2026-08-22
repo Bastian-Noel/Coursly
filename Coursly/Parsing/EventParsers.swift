@@ -22,7 +22,7 @@ struct DirectEventParser: Sendable {
         var value: String { if case let .string(value) = self { value } else { "" } }
     }
 
-    func parse(_ data: Data, group: StudentGroup) throws -> [CalendarEvent] {
+    func parse(_ data: Data, group requestedGroup: StudentGroup) throws -> [CalendarEvent] {
         let payloads = try JSONDecoder().decode([Payload].self, from: data)
         return try payloads.filter { $0.allDay != true }.map { payload in
             let parts = htmlLines(payload.description ?? "")
@@ -31,10 +31,16 @@ struct DirectEventParser: Sendable {
             let moduleParts = module.replacingOccurrences(of: #"\s*\[.*?\]\s*$"#, with: "", options: .regularExpression)
                 .components(separatedBy: " - ")
             let title = moduleParts.count > 1 ? moduleParts.dropFirst().joined(separator: " - ") : moduleParts[0]
+
+            // CELCAT POST description order is: teachers, actual group, rooms, module.
+            // Keep the actual group label separate from the federation group used to make the request.
             let groupIndex = max(0, parts.count - siteCount - 2)
+            let actualGroupLine = parts.indices.contains(groupIndex) ? parts[groupIndex] : requestedGroup.name
+            let actualGroupLabels = parseGroupLabels(actualGroupLine)
             let rooms = siteCount > 0 && groupIndex + 1 + siteCount <= parts.count
                 ? Array(parts[(groupIndex + 1)..<(groupIndex + 1 + siteCount)]).map(cleanRoom) : []
             let teachers = groupIndex > 0 ? Array(parts[..<groupIndex]) : []
+
             return CalendarEvent(
                 id: payload.id?.value ?? UUID().uuidString,
                 title: title.isEmpty ? "Sans titre" : title,
@@ -44,7 +50,8 @@ struct DirectEventParser: Sendable {
                 end: try parseDate(payload.end ?? payload.start),
                 rooms: rooms,
                 teachers: teachers,
-                groups: [group],
+                groups: [requestedGroup],
+                rawGroupLabels: actualGroupLabels,
                 moduleCode: payload.modules?.first,
                 moduleName: module,
                 source: .directPOST
@@ -55,8 +62,20 @@ struct DirectEventParser: Sendable {
     private func htmlLines(_ value: String) -> [String] {
         value.replacingOccurrences(of: "\r\n", with: "")
             .replacingOccurrences(of: #"<br\s*/?>"#, with: "\n", options: [.regularExpression, .caseInsensitive])
-            .components(separatedBy: .newlines).map(decodeHTML).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+            .components(separatedBy: .newlines)
+            .map(decodeHTML)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
     }
+
+    private func parseGroupLabels(_ value: String) -> [String] {
+        let cleaned = decodeHTML(value).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleaned.isEmpty else { return [] }
+        let separators = CharacterSet(charactersIn: ";,/|")
+        let split = cleaned.components(separatedBy: separators).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+        return split.isEmpty ? [cleaned] : split
+    }
+
     private func decodeHTML(_ value: String) -> String {
         ["&amp;": "&", "&lt;": "<", "&gt;": ">", "&quot;": "\"", "&#39;": "'", "&nbsp;": " ", "&eacute;": "é", "&egrave;": "è", "&agrave;": "à"].reduce(value) { $0.replacingOccurrences(of: $1.key, with: $1.value) }
     }
@@ -111,7 +130,7 @@ struct ICalParser: Sendable {
             let title = titleParts.count > 1 ? titleParts.dropFirst().joined(separator: " - ") : rawTitle
             return CalendarEvent(id: values["UID"] ?? UUID().uuidString, title: title, type: nil,
                 start: start, end: end, rooms: (values["LOCATION"] ?? "").components(separatedBy: "/").filter { !$0.isEmpty },
-                teachers: [], groups: [group], moduleCode: titleParts.count > 1 ? titleParts[0] : nil,
+                teachers: [], groups: [group], rawGroupLabels: nil, moduleCode: titleParts.count > 1 ? titleParts[0] : nil,
                 moduleName: rawTitle, source: .iCalFallback)
         }.sorted { $0.start < $1.start }
     }

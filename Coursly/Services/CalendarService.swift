@@ -43,8 +43,11 @@ struct CalendarService: Sendable {
         var lastError: Error?, successfulGroupCount = 0
         for group in requestedGroups {
             do {
-                let result = try await fetch(group: group, interval: interval); successfulGroupCount += 1; combined.append(contentsOf: result.events)
-                if result.source == .directPOST { directByGroup[group] = result.events } else if result.source == .iCalFallback { fallbackGroups.append(group) }
+                let result = try await fetch(group: group, interval: interval)
+                successfulGroupCount += 1
+                combined.append(contentsOf: result.events)
+                if result.source == .directPOST { directByGroup[group] = result.events }
+                else if result.source == .iCalFallback { fallbackGroups.append(group) }
             } catch { failedGroups.append(group); lastError = error }
         }
         if successfulGroupCount == 0, let lastError { throw lastError }
@@ -62,13 +65,38 @@ struct CalendarService: Sendable {
         for event in events {
             guard event.source != .local else {
                 let key = Key(title: "local:\(event.id)", start: event.start, end: event.end, rooms: event.rooms, teachers: event.teachers, category: event.displayTypeLabel ?? "", moduleCode: event.moduleCode, moduleName: event.moduleName)
-                merged[key] = event; continue
+                merged[key] = event
+                continue
             }
-            let key = Key(title: event.title.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current), start: event.start, end: event.end, rooms: event.rooms.sorted(), teachers: event.teachers.sorted(), category: event.displayTypeLabel?.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current) ?? "", moduleCode: event.moduleCode, moduleName: event.moduleName)
+            let key = Key(
+                title: event.title.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current),
+                start: event.start,
+                end: event.end,
+                rooms: event.rooms.sorted(),
+                teachers: event.teachers.sorted(),
+                category: event.displayTypeLabel?.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current) ?? "",
+                moduleCode: event.moduleCode,
+                moduleName: event.moduleName
+            )
             if let existing = merged[key] {
-                let groups = Array(Set(existing.groups + event.groups)).sorted { $0.name < $1.name }
+                let requestedGroups = Array(Set(existing.groups + event.groups)).sorted { $0.name < $1.name }
+                let actualLabels = Array(Set((existing.rawGroupLabels ?? []) + (event.rawGroupLabels ?? []))).sorted { $0.localizedStandardCompare($1) == .orderedAscending }
                 let source: EventSource = existing.source == .directPOST || event.source == .directPOST ? .directPOST : existing.source
-                merged[key] = CalendarEvent(id: existing.id, title: existing.title, type: existing.type ?? event.type, categoryLabel: existing.categoryLabel ?? event.categoryLabel, start: existing.start, end: existing.end, rooms: existing.rooms, teachers: existing.teachers, groups: groups, moduleCode: existing.moduleCode, moduleName: existing.moduleName, source: source)
+                merged[key] = CalendarEvent(
+                    id: existing.id,
+                    title: existing.title,
+                    type: existing.type ?? event.type,
+                    categoryLabel: existing.categoryLabel ?? event.categoryLabel,
+                    start: existing.start,
+                    end: existing.end,
+                    rooms: existing.rooms,
+                    teachers: existing.teachers,
+                    groups: requestedGroups,
+                    rawGroupLabels: actualLabels.isEmpty ? nil : actualLabels,
+                    moduleCode: existing.moduleCode,
+                    moduleName: existing.moduleName,
+                    source: source
+                )
             } else { merged[key] = event }
         }
         return merged.values.sorted { $0.start == $1.start ? $0.title < $1.title : $0.start < $1.start }

@@ -35,6 +35,7 @@ final class CalendarStore {
     private let localEventStore = LocalEventStore()
     private let notificationService = NotificationService()
     private static let observedTypesKey = "v3.observedCourseTypeLabels"
+    private var loadedIntervals: [DateInterval] = []
 
     init() {
         let defaults = UserDefaults.standard
@@ -87,38 +88,64 @@ final class CalendarStore {
     func setSimulationEnabled(_ enabled: Bool) { simulationEnabled = enabled; if !enabled { simulationOffset = 0; focusedDate = Calendar.current.startOfDay(for: Date()) } else { focusedDate = Calendar.current.startOfDay(for: now) }; timelineRecenterToken = UUID() }
 
     func load(around date: Date? = nil, force: Bool = false) async {
-        let center = date ?? focusedDate; let interval = makeLoadInterval(around: center)
-        if !force, let loadedInterval, loadedInterval.contains(center) { refreshCombinedEvents(); return }
+        let center = date ?? focusedDate
+        let interval = makeLoadInterval(around: center)
+        if !force, loadedIntervals.contains(where: { $0.contains(center) }) { refreshCombinedEvents(); return }
         isLoading = true; errorMessage = nil; defer { isLoading = false }
         do {
             let result = try await service.load(groups: selectedGroups, interval: interval)
-            remoteEvents = result.events; persistObservedCourseTypes(from: result.events)
-            loadedInterval = interval; fallbackGroups = result.fallbackGroups; failedGroups = result.failedGroups; lastSyncDate = Date()
-            let newChanges = processDirectSnapshots(result.directEventsByGroup, interval: interval); refreshCombinedEvents()
+            if force {
+                remoteEvents = result.events
+                loadedIntervals = [interval]
+            } else {
+                remoteEvents = service.mergeVisualDuplicates(remoteEvents + result.events)
+                loadedIntervals.append(interval)
+            }
+            persistObservedCourseTypes(from: result.events)
+            loadedInterval = encompassingLoadedInterval()
+            fallbackGroups = Array(Set(fallbackGroups + result.fallbackGroups)).sorted { $0.name < $1.name }
+            failedGroups = result.failedGroups
+            lastSyncDate = Date()
+
+            let newChanges = force ? processDirectSnapshots(result.directEventsByGroup, interval: interval) : []
+            refreshCombinedEvents()
             if !newChanges.isEmpty {
-                historyStore.prepend(newChanges, now: now); recentChanges = historyStore.all(); let notifyChanges = changesWithinNotificationHorizon(newChanges)
+                historyStore.prepend(newChanges, now: now)
+                recentChanges = historyStore.all()
+                let notifyChanges = changesWithinNotificationHorizon(newChanges)
                 if notificationsEnabled, !notifyChanges.isEmpty { await notificationService.notify(changes: notifyChanges) }
             } else { recentChanges = historyStore.all() }
-            if liveActivityEnabled { await LiveActivityManager.update(events: events(on: now), now: now, enabled: true) } else { await LiveActivityManager.endAll(now: now) }
-        } catch { errorMessage = error.localizedDescription; HapticService.fire(.error, enabled: hapticsEnabled) }
+            if liveActivityEnabled { await LiveActivityManager.update(events: events(on: now), now: now, enabled: true) }
+            else { await LiveActivityManager.endAll(now: now) }
+        } catch {
+            errorMessage = error.localizedDescription
+            HapticService.fire(.error, enabled: hapticsEnabled)
+        }
     }
 
     func refresh() async { await load(around: focusedDate, force: true) }
-    func ensureLoaded(around date: Date) async { if let loadedInterval, loadedInterval.contains(date) { return }; await load(around: date, force: true) }
+    func ensureLoaded(around date: Date) async {
+        if loadedIntervals.contains(where: { $0.contains(date) }) { return }
+        await load(around: date, force: false)
+    }
     func events(on date: Date) -> [CalendarEvent] { events.filter { Calendar.current.isDate($0.start, inSameDayAs: date) }.sorted { $0.start == $1.start ? $0.end < $1.end : $0.start < $1.start } }
     func hasEvents(on date: Date) -> Bool { !events(on: date).isEmpty }
     func adjacentVisibleDate(from date: Date? = nil, direction: Int) -> Date { nextVisibleDate(from: date ?? focusedDate, direction: direction) }
     func moveDay(_ direction: Int) { guard direction != 0 else { return }; focusedDate = Calendar.current.startOfDay(for: nextVisibleDate(from: focusedDate, direction: direction)); highlightedEventID = nil; HapticService.fire(.dayChanged, enabled: hapticsEnabled) }
-    func goToToday() { focusedDate = Calendar.current.startOfDay(for: now); displayMode = .day; highlightedEventID = nil; timelineRecenterToken = UUID(); HapticService.fire(.returnedToNow, enabled: hapticsEnabled) }
+    func goToToday() { focusedDate = Calendar.current.startOfDay(for: now); highlightedEventID = nil; timelineRecenterToken = UUID(); HapticService.fire(.returnedToNow, enabled: hapticsEnabled) }
     func goTo(event: CalendarEvent) { focusedDate = Calendar.current.startOfDay(for: event.start); displayMode = .day; highlightedEventID = event.id; timelineRecenterToken = UUID(); HapticService.fire(.selection, enabled: hapticsEnabled) }
     func setDisplayMode(_ mode: CalendarDisplayMode) { guard displayMode != mode else { return }; displayMode = mode; timelineRecenterToken = UUID(); HapticService.fire(.displayModeChanged, enabled: hapticsEnabled) }
+
     func visibleWeekDays(containing date: Date) -> [Date] {
-        let iso = Calendar(identifier: .iso8601); guard let week = iso.dateInterval(of: .weekOfYear, for: date) else { return [date] }
+        let iso = Calendar(identifier: .iso8601)
+        guard let week = iso.dateInterval(of: .weekOfYear, for: date) else { return [date] }
         return (0..<7).compactMap { iso.date(byAdding: .day, value: $0, to: week.start) }.filter { day in
-            let weekday = Calendar.current.component(.weekday, from: day); let isWeekend = weekday == 1 || weekday == 7; guard isWeekend else { return true }
+            let weekday = Calendar.current.component(.weekday, from: day); let isWeekend = weekday == 1 || weekday == 7
+            guard isWeekend else { return true }
             switch weekendPolicy { case .always: return true; case .hidden: return false; case .smart: return hasEvents(on: day) }
         }
     }
+
     func addLocalEvent(title: String, start: Date, end: Date, room: String?) {
         let event = CalendarEvent(id: "local-\(UUID().uuidString)", title: title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Événement personnel" : title, type: nil, start: start, end: max(end, start.addingTimeInterval(15 * 60)), rooms: room.map { [$0] } ?? [], teachers: [], groups: [], moduleCode: nil, moduleName: nil, source: .local)
         localEventStore.add(event); refreshCombinedEvents(); HapticService.fire(.success, enabled: hapticsEnabled)
@@ -131,6 +158,12 @@ final class CalendarStore {
     func clearChangeHistory() { historyStore.clear(); recentChanges = [] }
     func recentChangeKind(for event: CalendarEvent) -> CalendarChangeKind? { let cutoff = now.addingTimeInterval(-48 * 60 * 60); return recentChanges.first(where: { $0.detectedAt >= cutoff && ($0.newEvent?.id == event.id || $0.oldEvent?.id == event.id) })?.kind }
 
+    private func encompassingLoadedInterval() -> DateInterval? {
+        guard let first = loadedIntervals.first else { return nil }
+        let start = loadedIntervals.dropFirst().reduce(first.start) { min($0, $1.start) }
+        let end = loadedIntervals.dropFirst().reduce(first.end) { max($0, $1.end) }
+        return DateInterval(start: start, end: end)
+    }
     private func persistObservedCourseTypes(from loadedEvents: [CalendarEvent]) {
         let defaults = UserDefaults.standard
         let previous = defaults.stringArray(forKey: Self.observedTypesKey) ?? []
@@ -140,7 +173,11 @@ final class CalendarStore {
     private static func cleanTypeLabel(_ value: String) -> String { value.trimmingCharacters(in: .whitespacesAndNewlines) }
     private func processDirectSnapshots(_ snapshots: [StudentGroup: [CalendarEvent]], interval: DateInterval) -> [CalendarChange] {
         var changes: [CalendarChange] = []
-        for (group, newEvents) in snapshots { let scopedNew = newEvents.filter { interval.contains($0.start) }; if let oldEvents = snapshotStore.snapshot(for: group) { changes.append(contentsOf: changeDetector.detect(old: oldEvents.filter { interval.contains($0.start) }, new: scopedNew, group: group, detectedAt: Date())) }; snapshotStore.save(scopedNew, for: group) }
+        for (group, newEvents) in snapshots {
+            let scopedNew = newEvents.filter { interval.contains($0.start) }
+            if let oldEvents = snapshotStore.snapshot(for: group) { changes.append(contentsOf: changeDetector.detect(old: oldEvents.filter { interval.contains($0.start) }, new: scopedNew, group: group, detectedAt: Date())) }
+            snapshotStore.save(scopedNew, for: group)
+        }
         return changeDetector.deduplicate(changes)
     }
     private func changesWithinNotificationHorizon(_ changes: [CalendarChange]) -> [CalendarChange] { let lower = now; let upper = Calendar.current.date(byAdding: .day, value: notificationHorizonDays, to: lower) ?? lower; return changes.filter { guard notificationChangeKinds.contains($0.kind), let date = $0.relevantDate else { return false }; return date >= lower && date <= upper } }
