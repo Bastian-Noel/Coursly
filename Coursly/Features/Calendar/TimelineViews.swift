@@ -1,891 +1,348 @@
 import SwiftUI
 
 private let timelineTimeWidth: CGFloat = 44
-private let weekHeaderHeight: CGFloat = 50
+private let weekHeaderHeight: CGFloat = 52
+private let weekPreloadRadius = 90
 
 struct EventPlacement: Identifiable {
     let event: CalendarEvent
     let column: Int
     let columnCount: Int
-
     var id: String { event.id + "-\(column)" }
 }
 
 struct EventLayoutEngine {
     func placements(for events: [CalendarEvent]) -> [EventPlacement] {
-        let ordered = events
-            .filter { $0.end > $0.start }
-            .sorted { lhs, rhs in
-                lhs.start == rhs.start ? lhs.end < rhs.end : lhs.start < rhs.start
-            }
-        guard !ordered.isEmpty else { return [] }
-
+        let ordered = events.filter { $0.end > $0.start }.sorted { $0.start == $1.start ? $0.end < $1.end : $0.start < $1.start }
         var output: [EventPlacement] = []
         var cluster: [CalendarEvent] = []
         var clusterEnd: Date?
-
-        func flushCluster() {
+        func flush() {
             guard !cluster.isEmpty else { return }
-            var columnEnds: [Date] = []
-            var assignments: [(CalendarEvent, Int)] = []
-
+            var ends: [Date] = []
+            var assigned: [(CalendarEvent, Int)] = []
             for event in cluster {
-                if let reusableColumn = columnEnds.firstIndex(where: { $0 <= event.start }) {
-                    columnEnds[reusableColumn] = event.end
-                    assignments.append((event, reusableColumn))
-                } else {
-                    let column = columnEnds.count
-                    columnEnds.append(event.end)
-                    assignments.append((event, column))
-                }
+                if let index = ends.firstIndex(where: { $0 <= event.start }) { ends[index] = event.end; assigned.append((event, index)) }
+                else { assigned.append((event, ends.count)); ends.append(event.end) }
             }
-
-            let columnCount = max(1, columnEnds.count)
-            output.append(contentsOf: assignments.map {
-                EventPlacement(event: $0.0, column: $0.1, columnCount: columnCount)
-            })
-            cluster.removeAll(keepingCapacity: true)
-            clusterEnd = nil
+            let count = max(1, ends.count)
+            output.append(contentsOf: assigned.map { EventPlacement(event: $0.0, column: $0.1, columnCount: count) })
+            cluster.removeAll(keepingCapacity: true); clusterEnd = nil
         }
-
         for event in ordered {
-            if let end = clusterEnd, event.start >= end {
-                flushCluster()
-            }
-            cluster.append(event)
-            clusterEnd = max(clusterEnd ?? event.end, event.end)
+            if let end = clusterEnd, event.start >= end { flush() }
+            cluster.append(event); clusterEnd = max(clusterEnd ?? event.end, event.end)
         }
-        flushCluster()
-        return output
+        flush(); return output
     }
 }
 
 struct DayTimelineView: View {
     @Environment(CalendarStore.self) private var store
     let onSelect: (CalendarEvent) -> Void
-
-    @State private var hasCentered = false
+    @State private var didInitialScroll = false
     @State private var pageOffset: CGFloat = 0
     @State private var isChangingDay = false
-    @GestureState private var liveHorizontalDrag: CGFloat = 0
+    @GestureState private var dragX: CGFloat = 0
 
     var body: some View {
         GeometryReader { viewport in
             ScrollViewReader { proxy in
                 ScrollView(.vertical, showsIndicators: false) {
-                    let previousDate = store.adjacentVisibleDate(direction: -1)
-                    let nextDate = store.adjacentVisibleDate(direction: 1)
-
+                    let previous = store.adjacentVisibleDate(direction: -1)
+                    let next = store.adjacentVisibleDate(direction: 1)
                     HStack(spacing: 0) {
-                        timelinePage(for: previousDate, width: viewport.size.width)
-                        timelinePage(for: store.focusedDate, width: viewport.size.width)
-                        timelinePage(for: nextDate, width: viewport.size.width)
+                        page(previous, viewport.size.width, nil)
+                        page(store.focusedDate, viewport.size.width, store.highlightedEventID)
+                        page(next, viewport.size.width, nil)
                     }
                     .frame(width: viewport.size.width * 3, alignment: .leading)
-                    .offset(x: -viewport.size.width + pageOffset + liveHorizontalDrag)
-                    .overlay(alignment: .topLeading) {
-                        dayScrollAnchors
-                    }
+                    .offset(x: -viewport.size.width + pageOffset + dragX)
+                    .overlay(alignment: .topLeading) { dayAnchors }
                 }
-                .scrollBounceBehavior(.basedOnSize)
-                .contentShape(Rectangle())
-                .clipped()
-                .simultaneousGesture(daySwipeGesture(width: viewport.size.width))
-                .onScrollGeometryChange(for: CGFloat.self) { geometry in
-                    geometry.contentOffset.y
-                } action: { oldValue, newValue in
-                    handleScrollFeedback(from: oldValue, to: newValue)
+                .clipped().contentShape(Rectangle()).simultaneousGesture(daySwipe(width: viewport.size.width))
+                .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y } action: { oldValue, newValue in scrollFeedback(oldValue, newValue) }
+                .task(id: store.focusedDate) {
+                    await store.ensureLoaded(around: store.focusedDate)
+                    await scrollAfterLayout(proxy: proxy, animated: didInitialScroll)
+                    didInitialScroll = true
                 }
-                .onAppear {
-                    guard !hasCentered else { return }
-                    hasCentered = true
-                    scrollToRelevantTime(proxy: proxy, animated: false)
-                    let previousDate = store.adjacentVisibleDate(direction: -1)
-                    let nextDate = store.adjacentVisibleDate(direction: 1)
-                    Task {
-                        await store.ensureLoaded(around: previousDate)
-                        await store.ensureLoaded(around: nextDate)
-                    }
-                }
-                .onChange(of: store.timelineRecenterToken) { _, _ in
-                    scrollToRelevantTime(proxy: proxy, animated: true, forceNow: true)
-                }
-                .onChange(of: store.highlightedEventID) { _, newValue in
-                    guard newValue != nil else { return }
-                    scrollToRelevantTime(proxy: proxy, animated: true)
-                }
+                .onChange(of: store.timelineRecenterToken) { _, _ in Task { @MainActor in await scrollAfterLayout(proxy: proxy, animated: true, forceNow: true) } }
+                .onChange(of: store.highlightedEventID) { _, value in guard value != nil else { return }; Task { @MainActor in await scrollAfterLayout(proxy: proxy, animated: true) } }
                 .refreshable { await store.refresh() }
             }
         }
     }
 
-    @ViewBuilder
-    private var dayScrollAnchors: some View {
+    private func page(_ date: Date, _ width: CGFloat, _ highlight: String?) -> some View {
+        DayTimelineCanvas(date: date, events: store.events(on: date), hourHeight: CGFloat(store.hourHeight), highlightedEventID: highlight, onSelect: onSelect).frame(width: width)
+    }
+
+    private var dayAnchors: some View {
         ZStack(alignment: .topLeading) {
             ForEach(0..<96, id: \.self) { quarter in
-                Color.clear
-                    .frame(width: 1, height: 1)
-                    .offset(y: CGFloat(quarter) * CGFloat(store.hourHeight) / 4)
-                    .id("day-quarter-\(quarter)")
+                Color.clear.frame(width: 1, height: 1).offset(y: CGFloat(quarter) * CGFloat(store.hourHeight) / 4).id("day-quarter-\(quarter)")
             }
-
-            if calendar.isDate(store.focusedDate, inSameDayAs: store.now) {
-                Color.clear
-                    .frame(width: 1, height: 1)
-                    .offset(y: yPosition(for: store.now, hourHeight: CGFloat(store.hourHeight)))
-                    .id("day-current-time-anchor")
-            }
+            Color.clear.frame(width: 1, height: 1).offset(y: yPosition(for: store.now, hourHeight: CGFloat(store.hourHeight))).id("day-now")
         }
     }
 
-    private func timelinePage(for date: Date, width: CGFloat) -> some View {
-        DayTimelineCanvas(
-            date: date,
-            events: store.events(on: date),
-            hourHeight: CGFloat(store.hourHeight),
-            highlightedEventID: calendar.isDate(date, inSameDayAs: store.focusedDate)
-                ? store.highlightedEventID
-                : nil,
-            onSelect: onSelect
-        )
-        .frame(width: width)
-    }
-
-    private func daySwipeGesture(width: CGFloat) -> some Gesture {
-        DragGesture(minimumDistance: 12)
-            .updating($liveHorizontalDrag) { value, state, _ in
-                let horizontal = value.translation.width
-                let vertical = value.translation.height
-                guard abs(horizontal) > abs(vertical) * 1.08 else { return }
-                state = max(-width, min(width, horizontal))
-            }
-            .onEnded { value in
-                guard !isChangingDay else { return }
-                let horizontal = value.translation.width
-                let vertical = value.translation.height
-                let predicted = value.predictedEndTranslation.width
-                let effective = abs(predicted) > abs(horizontal) ? predicted : horizontal
-
-                guard abs(effective) > 58, abs(horizontal) > abs(vertical) * 1.08 else {
-                    withAnimation(.snappy(duration: 0.18)) { pageOffset = 0 }
-                    return
-                }
-
-                let direction = effective < 0 ? 1 : -1
-                isChangingDay = true
-                var capture = Transaction()
-                capture.disablesAnimations = true
-                withTransaction(capture) {
-                    pageOffset = max(-width, min(width, horizontal))
-                }
-
-                withAnimation(.snappy(duration: 0.20)) {
-                    pageOffset = direction > 0 ? -width : width
-                }
-
-                Task { @MainActor in
-                    try? await Task.sleep(for: .milliseconds(190))
-                    store.moveDay(direction)
-                    var reset = Transaction()
-                    reset.disablesAnimations = true
-                    withTransaction(reset) { pageOffset = 0 }
-                    isChangingDay = false
-                    await store.ensureLoaded(around: store.adjacentVisibleDate(direction: direction))
-                }
-            }
-    }
-
-    private func handleScrollFeedback(from oldValue: CGFloat, to newValue: CGFloat) {
-        guard store.hapticsEnabled else { return }
-        let oldOffset = max(0, oldValue)
-        let newOffset = max(0, newValue)
-        guard abs(newOffset - oldOffset) > 0.75 else { return }
-
-        let hourHeight = CGFloat(store.hourHeight)
-        let crossedCourse = crossedCourseBoundary(
-            from: oldOffset,
-            to: newOffset,
-            events: store.events(on: store.focusedDate),
-            hourHeight: hourHeight
-        )
-
-        if crossedCourse {
-            HapticService.fire(.scrollCourse, enabled: true)
-        } else if Int(oldOffset / hourHeight) != Int(newOffset / hourHeight) {
-            HapticService.fire(.scrollHour, enabled: true)
-        }
-    }
-
-    private func crossedCourseBoundary(
-        from oldValue: CGFloat,
-        to newValue: CGFloat,
-        events: [CalendarEvent],
-        hourHeight: CGFloat
-    ) -> Bool {
-        let lower = min(oldValue, newValue)
-        let upper = max(oldValue, newValue)
-        guard upper - lower < hourHeight * 2.5 else { return false }
-        return courseBoundaryOffsets(events: events, hourHeight: hourHeight).contains {
-            $0 > lower && $0 <= upper
-        }
-    }
-
-    private func scrollToRelevantTime(
-        proxy: ScrollViewProxy,
-        animated: Bool,
-        forceNow: Bool = false
-    ) {
+    private func scrollAfterLayout(proxy: ScrollViewProxy, animated: Bool, forceNow: Bool = false) async {
+        await Task.yield(); try? await Task.sleep(for: .milliseconds(100))
         let isToday = calendar.isDate(store.focusedDate, inSameDayAs: store.now)
         if (forceNow || store.highlightedEventID == nil) && isToday {
-            scroll(proxy: proxy, to: "day-current-time-anchor", anchor: .center, animated: animated)
-            return
+            scroll(proxy, "day-now", .center, animated); return
         }
-
-        let event = store.highlightedEventID.flatMap { id in
-            store.events.first(where: { $0.id == id })
-        }
-        let minutes = event.map { minutesSinceMidnight($0.start) } ?? 8 * 60
-        let quarter = max(0, min(95, Int(round(Double(minutes) / 15.0))))
-        scroll(proxy: proxy, to: "day-quarter-\(quarter)", anchor: .center, animated: animated)
+        let event = store.highlightedEventID.flatMap { id in store.events.first(where: { $0.id == id }) }
+        let minutes = event.map { minutesSinceMidnight($0.start) } ?? store.events(on: store.focusedDate).first.map { minutesSinceMidnight($0.start) } ?? 8 * 60
+        scroll(proxy, "day-quarter-\(max(0, min(95, minutes / 15)))", .center, animated)
     }
 
-    private func scroll(
-        proxy: ScrollViewProxy,
-        to id: String,
-        anchor: UnitPoint,
-        animated: Bool
-    ) {
-        if animated {
-            withAnimation(.snappy(duration: 0.38)) {
-                proxy.scrollTo(id, anchor: anchor)
+    private func scroll(_ proxy: ScrollViewProxy, _ id: String, _ anchor: UnitPoint, _ animated: Bool) {
+        if animated { withAnimation(.snappy(duration: 0.38)) { proxy.scrollTo(id, anchor: anchor) } } else { proxy.scrollTo(id, anchor: anchor) }
+    }
+
+    private func daySwipe(width: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: 12)
+            .updating($dragX) { value, state, _ in guard abs(value.translation.width) > abs(value.translation.height) * 1.08 else { return }; state = max(-width, min(width, value.translation.width)) }
+            .onEnded { value in
+                guard !isChangingDay else { return }
+                let horizontal = value.translation.width, vertical = value.translation.height
+                let predicted = value.predictedEndTranslation.width
+                let effective = abs(predicted) > abs(horizontal) ? predicted : horizontal
+                guard abs(effective) > 58, abs(horizontal) > abs(vertical) * 1.08 else { withAnimation(.snappy(duration: 0.18)) { pageOffset = 0 }; return }
+                let direction = effective < 0 ? 1 : -1; isChangingDay = true
+                withAnimation(.snappy(duration: 0.2)) { pageOffset = direction > 0 ? -width : width }
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(190)); store.moveDay(direction)
+                    var transaction = Transaction(); transaction.disablesAnimations = true; withTransaction(transaction) { pageOffset = 0 }; isChangingDay = false
+                    await store.ensureLoaded(around: store.focusedDate)
+                }
             }
-        } else {
-            proxy.scrollTo(id, anchor: anchor)
-        }
+    }
+
+    private func scrollFeedback(_ oldValue: CGFloat, _ newValue: CGFloat) {
+        guard store.hapticsEnabled else { return }
+        let h = CGFloat(store.hourHeight), old = max(0, oldValue), new = max(0, newValue), low = min(old, new), high = max(old, new)
+        if courseBoundaryOffsets(events: store.events(on: store.focusedDate), hourHeight: h).contains(where: { $0 > low && $0 <= high }) { HapticService.fire(.scrollCourse, enabled: true) }
+        else if Int(old / h) != Int(new / h) { HapticService.fire(.scrollHour, enabled: true) }
     }
 }
 
 struct DayTimelineCanvas: View {
     @Environment(CalendarStore.self) private var store
-
-    let date: Date
-    let events: [CalendarEvent]
-    let hourHeight: CGFloat
-    let highlightedEventID: String?
-    let onSelect: (CalendarEvent) -> Void
-
+    let date: Date; let events: [CalendarEvent]; let hourHeight: CGFloat; let highlightedEventID: String?; let onSelect: (CalendarEvent) -> Void
     private let engine = EventLayoutEngine()
-
     var body: some View {
         GeometryReader { proxy in
-            let placements = engine.placements(for: events)
             let contentWidth = max(1, proxy.size.width - timelineTimeWidth)
-
             ZStack(alignment: .topLeading) {
                 DayHourGrid(hourHeight: hourHeight)
-
-                ForEach(placements) { placement in
-                    let laneWidth = max(1, contentWidth / CGFloat(placement.columnCount))
-                    let x = timelineTimeWidth + CGFloat(placement.column) * laneWidth
-                    let top = yPosition(for: placement.event.start, hourHeight: hourHeight)
-                    let bottom = yPosition(for: placement.event.end, hourHeight: hourHeight)
-                    let cardHeight = max(1, bottom - top)
-
-                    CourseBlock(
-                        event: placement.event,
-                        availableWidth: laneWidth,
-                        height: cardHeight,
-                        highlighted: highlightedEventID == placement.event.id
-                    )
-                    .frame(width: laneWidth, height: cardHeight)
-                    .offset(x: x, y: top)
-                    .onTapGesture { onSelect(placement.event) }
+                ForEach(engine.placements(for: events)) { placement in
+                    let lane = max(1, contentWidth / CGFloat(placement.columnCount))
+                    let top = yPosition(for: placement.event.start, hourHeight: hourHeight), bottom = yPosition(for: placement.event.end, hourHeight: hourHeight)
+                    CourseBlock(event: placement.event, availableWidth: lane, height: max(1, bottom - top), highlighted: highlightedEventID == placement.event.id)
+                        .frame(width: lane, height: max(1, bottom - top), alignment: .top)
+                        .offset(x: timelineTimeWidth + CGFloat(placement.column) * lane, y: top).onTapGesture { onSelect(placement.event) }
                 }
-
-                if calendar.isDate(date, inSameDayAs: store.now) {
-                    CurrentTimeIndicator(
-                        hourHeight: hourHeight,
-                        x: timelineTimeWidth,
-                        width: contentWidth
-                    )
-                }
+                if calendar.isDate(date, inSameDayAs: store.now) { CurrentTimeIndicator(hourHeight: hourHeight, x: timelineTimeWidth, width: contentWidth) }
             }
-            .frame(height: hourHeight * 24 + 2, alignment: .top)
-        }
-        .frame(height: hourHeight * 24 + 2)
+        }.frame(height: hourHeight * 24 + 1)
     }
 }
 
 private struct DayHourGrid: View {
     let hourHeight: CGFloat
-
     var body: some View {
         ZStack(alignment: .topLeading) {
             ForEach(0...24, id: \.self) { hour in
                 let y = CGFloat(hour) * hourHeight
-
-                Rectangle()
-                    .fill(Color.secondary.opacity(hour % 3 == 0 ? 0.24 : 0.15))
-                    .frame(height: hour % 3 == 0 ? 0.8 : 0.5)
-                    .offset(x: timelineTimeWidth, y: y)
-
-                Text(String(format: "%02d", hour % 24))
-                    .font(.caption2.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                    .frame(width: timelineTimeWidth - 8, height: 16, alignment: .trailing)
-                    .position(x: (timelineTimeWidth - 8) / 2, y: y)
+                Text(String(format: "%02d", hour % 24)).font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
+                    .frame(width: timelineTimeWidth - 10, height: 16, alignment: .trailing).position(x: (timelineTimeWidth - 10) / 2, y: y)
+                Rectangle().fill(Color.secondary.opacity(hour % 3 == 0 ? 0.24 : 0.14)).frame(height: hour % 3 == 0 ? 0.8 : 0.5)
+                    .padding(.leading, timelineTimeWidth).offset(y: y)
             }
-        }
-        .frame(height: hourHeight * 24 + 2, alignment: .top)
+        }.frame(height: hourHeight * 24 + 1)
     }
 }
 
 struct WeekTimelineView: View {
     @Environment(CalendarStore.self) private var store
     let onSelect: (CalendarEvent) -> Void
-
-    @State private var hasPositioned = false
-    @State private var horizontalPosition: Date?
+    @State private var centerDate = Date()
+    @State private var didInitialScroll = false
 
     var body: some View {
         GeometryReader { viewport in
             let dayWidth = max(1, (viewport.size.width - timelineTimeWidth) / 5)
-            let start = initialWeekStart
-            let days = extendedVisibleDays(centeredAround: start)
-            let visibleFive = fiveDays(startingAt: start)
-
-            VStack(spacing: 0) {
-                WeekStickyHeader(
-                    days: days,
-                    dayWidth: dayWidth,
-                    position: $horizontalPosition
-                )
-                .frame(height: weekHeaderHeight)
-
-                ScrollViewReader { verticalProxy in
-                    ScrollView(.vertical, showsIndicators: false) {
-                        HStack(alignment: .top, spacing: 0) {
-                            WeekTimeColumn(hourHeight: CGFloat(store.hourHeight))
-                                .frame(width: timelineTimeWidth)
-
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(alignment: .top, spacing: 0) {
-                                    ForEach(days, id: \.self) { day in
-                                        WeekDayColumn(
-                                            day: day,
-                                            events: store.events(on: day),
-                                            now: store.now,
-                                            hourHeight: CGFloat(store.hourHeight),
-                                            width: dayWidth,
-                                            highlightedEventID: store.highlightedEventID,
-                                            onSelect: onSelect
-                                        )
-                                        .frame(width: dayWidth)
-                                        .id(day)
-                                    }
+            let days = loadedDays(around: centerDate)
+            ScrollViewReader { proxy in
+                ScrollView([.horizontal, .vertical], showsIndicators: false) {
+                    LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+                        Section {
+                            HStack(alignment: .top, spacing: 0) {
+                                WeekTimeColumn(hourHeight: CGFloat(store.hourHeight)).frame(width: timelineTimeWidth)
+                                ForEach(days, id: \.self) { day in
+                                    WeekDayColumn(day: day, events: store.events(on: day), now: store.now, hourHeight: CGFloat(store.hourHeight), width: dayWidth, highlightedEventID: store.highlightedEventID, onSelect: onSelect)
+                                        .frame(width: dayWidth).id(weekDayID(day))
                                 }
-                                .scrollTargetLayout()
-                            }
-                            .scrollPosition(id: $horizontalPosition, anchor: .leading)
-                            .scrollTargetBehavior(.viewAligned(limitBehavior: .always))
+                            }.overlay(alignment: .topLeading) { weekAnchors }
+                        } header: {
+                            HStack(spacing: 0) {
+                                Color.clear.frame(width: timelineTimeWidth, height: weekHeaderHeight)
+                                ForEach(days, id: \.self) { day in
+                                    Button {
+                                        store.focusedDate = calendar.startOfDay(for: day); store.setDisplayMode(.day)
+                                    } label: {
+                                        VStack(spacing: 1) {
+                                            Text(capitalizedWeekday(day)).font(.caption2.weight(.semibold)).lineLimit(1)
+                                            Text(day.formatted(.dateTime.day())).font(.subheadline.monospacedDigit().bold())
+                                        }.frame(width: dayWidth, height: weekHeaderHeight)
+                                            .foregroundStyle(calendar.isDate(day, inSameDayAs: store.now) ? Color.accentColor : Color.primary)
+                                    }.buttonStyle(.plain)
+                                }
+                            }.background(.ultraThinMaterial).overlay(alignment: .bottom) { Rectangle().fill(Color.secondary.opacity(0.16)).frame(height: 0.5) }
                         }
                     }
-                    .onScrollGeometryChange(for: CGFloat.self) { geometry in
-                        geometry.contentOffset.y
-                    } action: { oldValue, newValue in
-                        handleWeekScrollFeedback(from: oldValue, to: newValue)
-                    }
-                    .onAppear {
-                        horizontalPosition = start
-                        guard !hasPositioned else { return }
-                        hasPositioned = true
-
-                        scrollToEarliestCourse(in: visibleFive, proxy: verticalProxy, animated: false)
-                        Task {
-                            if let first = days.first { await store.ensureLoaded(around: first) }
-                            if let last = days.last { await store.ensureLoaded(around: last) }
-                            await MainActor.run {
-                                scrollToEarliestCourse(in: visibleFive, proxy: verticalProxy, animated: false)
-                            }
-                        }
-                    }
-                    .onChange(of: store.focusedDate) { _, _ in
-                        let newStart = initialWeekStart
-                        horizontalPosition = newStart
-                        scrollToEarliestCourse(
-                            in: fiveDays(startingAt: newStart),
-                            proxy: verticalProxy,
-                            animated: true
-                        )
-                    }
-                    .onChange(of: store.timelineRecenterToken) { _, _ in
-                        horizontalPosition = initialWeekStart
-                        if calendar.isDate(store.focusedDate, inSameDayAs: store.now) {
-                            scrollToMinute(
-                                minutesSinceMidnight(store.now),
-                                proxy: verticalProxy,
-                                animated: true,
-                                anchor: .center
-                            )
-                        } else {
-                            scrollToEarliestCourse(
-                                in: fiveDays(startingAt: initialWeekStart),
-                                proxy: verticalProxy,
-                                animated: true
-                            )
-                        }
-                    }
-                    .refreshable { await store.refresh() }
                 }
+                .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y } action: { oldValue, newValue in
+                    let h = CGFloat(store.hourHeight); if store.hapticsEnabled, Int(max(0, oldValue) / h) != Int(max(0, newValue) / h) { HapticService.fire(.scrollHour, enabled: true) }
+                }
+                .task {
+                    centerDate = calendar.startOfDay(for: store.focusedDate)
+                    await store.ensureLoaded(around: store.focusedDate)
+                    await positionWeek(proxy: proxy, days: visibleFive(from: store.focusedDate), animated: false)
+                    didInitialScroll = true
+                }
+                .onChange(of: store.focusedDate) { _, newDate in
+                    centerDate = calendar.startOfDay(for: newDate)
+                    Task { @MainActor in await store.ensureLoaded(around: newDate); await positionWeek(proxy: proxy, days: visibleFive(from: newDate), animated: didInitialScroll) }
+                }
+                .onChange(of: store.timelineRecenterToken) { _, _ in
+                    centerDate = calendar.startOfDay(for: store.focusedDate)
+                    Task { @MainActor in await store.ensureLoaded(around: store.focusedDate); await positionWeek(proxy: proxy, days: visibleFive(from: store.focusedDate), animated: true) }
+                }
+                .refreshable { await store.refresh() }
             }
         }
     }
 
-    private var initialWeekStart: Date {
-        store.visibleWeekDays(containing: store.focusedDate).first ?? store.focusedDate
-    }
-
-    private func extendedVisibleDays(centeredAround center: Date) -> [Date] {
-        var previous: [Date] = []
-        var cursor = center
-        for _ in 0..<15 {
-            cursor = store.adjacentVisibleDate(from: cursor, direction: -1)
-            previous.append(cursor)
-        }
-
-        var following: [Date] = []
-        cursor = center
-        for _ in 0..<25 {
-            cursor = store.adjacentVisibleDate(from: cursor, direction: 1)
-            following.append(cursor)
-        }
-
-        return Array(previous.reversed()) + [center] + following
-    }
-
-    private func fiveDays(startingAt start: Date) -> [Date] {
-        var output = [start]
-        var cursor = start
-        while output.count < 5 {
-            cursor = store.adjacentVisibleDate(from: cursor, direction: 1)
-            output.append(cursor)
-        }
-        return output
-    }
-
-    private func scrollToEarliestCourse(
-        in days: [Date],
-        proxy: ScrollViewProxy,
-        animated: Bool
-    ) {
-        let keys = Set(days.map { calendar.startOfDay(for: $0) })
-        let earliest = store.events
-            .filter { keys.contains(calendar.startOfDay(for: $0.start)) }
-            .map(\.start)
-            .min()
-
-        scrollToMinute(
-            earliest.map(minutesSinceMidnight) ?? 8 * 60,
-            proxy: proxy,
-            animated: animated,
-            anchor: .top
-        )
-    }
-
-    private func scrollToMinute(
-        _ minutes: Int,
-        proxy: ScrollViewProxy,
-        animated: Bool,
-        anchor: UnitPoint
-    ) {
-        let quarter = max(0, min(95, Int(floor(Double(minutes) / 15.0))))
-        let target = "week-quarter-\(quarter)"
-        if animated {
-            withAnimation(.snappy(duration: 0.38)) {
-                proxy.scrollTo(target, anchor: anchor)
-            }
-        } else {
-            proxy.scrollTo(target, anchor: anchor)
+    private var weekAnchors: some View {
+        ZStack(alignment: .topLeading) {
+            ForEach(0..<96, id: \.self) { quarter in Color.clear.frame(width: 1, height: 1).offset(y: CGFloat(quarter) * CGFloat(store.hourHeight) / 4).id("week-quarter-\(quarter)") }
         }
     }
 
-    private func handleWeekScrollFeedback(from oldValue: CGFloat, to newValue: CGFloat) {
-        guard store.hapticsEnabled else { return }
-        let hourHeight = CGFloat(store.hourHeight)
-        let oldOffset = max(0, oldValue)
-        let newOffset = max(0, newValue)
-        if Int(oldOffset / hourHeight) != Int(newOffset / hourHeight) {
-            HapticService.fire(.scrollHour, enabled: true)
-        }
+    private func loadedDays(around center: Date) -> [Date] {
+        var before: [Date] = [], after: [Date] = [], left = calendar.startOfDay(for: center), right = calendar.startOfDay(for: center)
+        for _ in 0..<weekPreloadRadius { left = store.adjacentVisibleDate(from: left, direction: -1); right = store.adjacentVisibleDate(from: right, direction: 1); before.append(left); after.append(right) }
+        return Array(before.reversed()) + [calendar.startOfDay(for: center)] + after
+    }
+
+    private func visibleFive(from date: Date) -> [Date] {
+        let start = store.visibleWeekDays(containing: date).first ?? calendar.startOfDay(for: date)
+        var result = [start], cursor = start
+        while result.count < 5 { cursor = store.adjacentVisibleDate(from: cursor, direction: 1); result.append(cursor) }
+        return result
+    }
+
+    private func positionWeek(proxy: ScrollViewProxy, days: [Date], animated: Bool) async {
+        await Task.yield(); try? await Task.sleep(for: .milliseconds(140))
+        guard let firstDay = days.first else { return }
+        if animated { withAnimation(.snappy(duration: 0.35)) { proxy.scrollTo(weekDayID(firstDay), anchor: .topLeading) } }
+        else { proxy.scrollTo(weekDayID(firstDay), anchor: .topLeading) }
+        await Task.yield(); try? await Task.sleep(for: .milliseconds(80))
+        let minute = days.flatMap { store.events(on: $0) }.map(\.start).min().map(minutesSinceMidnight) ?? 8 * 60
+        let target = "week-quarter-\(max(0, min(95, minute / 15)))"
+        if animated { withAnimation(.snappy(duration: 0.35)) { proxy.scrollTo(target, anchor: .top) } } else { proxy.scrollTo(target, anchor: .top) }
     }
 }
 
-private struct WeekStickyHeader: View {
-    @Environment(CalendarStore.self) private var store
-
-    let days: [Date]
-    let dayWidth: CGFloat
-    @Binding var position: Date?
-
-    var body: some View {
-        HStack(spacing: 0) {
-            Color.clear
-                .frame(width: timelineTimeWidth)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 0) {
-                    ForEach(days, id: \.self) { day in
-                        Button {
-                            store.focusedDate = calendar.startOfDay(for: day)
-                            store.setDisplayMode(.day)
-                        } label: {
-                            VStack(spacing: 1) {
-                                Text(capitalizedWeekday(day))
-                                    .font(.caption2.weight(.semibold))
-                                    .lineLimit(1)
-                                Text(day.formatted(.dateTime.day()))
-                                    .font(.subheadline.monospacedDigit().weight(.bold))
-                            }
-                            .frame(width: dayWidth, height: weekHeaderHeight)
-                            .foregroundStyle(
-                                calendar.isDate(day, inSameDayAs: store.now)
-                                    ? Color.accentColor
-                                    : Color.primary
-                            )
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .id(day)
-                    }
-                }
-                .scrollTargetLayout()
-            }
-            .scrollPosition(id: $position, anchor: .leading)
-            .scrollTargetBehavior(.viewAligned(limitBehavior: .always))
-        }
-        .background(.ultraThinMaterial)
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(Color.secondary.opacity(0.16))
-                .frame(height: 0.5)
-        }
-        .zIndex(10)
-    }
-}
+private func weekDayID(_ date: Date) -> String { "week-day-\(Int(calendar.startOfDay(for: date).timeIntervalSince1970))" }
 
 private struct WeekTimeColumn: View {
     let hourHeight: CGFloat
-
     var body: some View {
         ZStack(alignment: .topLeading) {
             ForEach(0...24, id: \.self) { hour in
-                let y = CGFloat(hour) * hourHeight
-                Text(String(format: "%02d", hour % 24))
-                    .font(.caption2.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                    .frame(width: timelineTimeWidth - 8, height: 16, alignment: .trailing)
-                    .position(x: (timelineTimeWidth - 8) / 2, y: y)
+                Text(String(format: "%02d", hour % 24)).font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
+                    .frame(width: timelineTimeWidth - 10, height: 16, alignment: .trailing).position(x: (timelineTimeWidth - 10) / 2, y: CGFloat(hour) * hourHeight)
             }
-
-            ForEach(0..<96, id: \.self) { quarter in
-                Color.clear
-                    .frame(width: 1, height: 1)
-                    .offset(y: CGFloat(quarter) * hourHeight / 4)
-                    .id("week-quarter-\(quarter)")
-            }
-        }
-        .frame(height: hourHeight * 24 + 2, alignment: .top)
+        }.frame(height: hourHeight * 24 + 1)
     }
 }
 
 private struct WeekDayColumn: View {
-    @Environment(CalendarStore.self) private var store
-
-    let day: Date
-    let events: [CalendarEvent]
-    let now: Date
-    let hourHeight: CGFloat
-    let width: CGFloat
-    let highlightedEventID: String?
-    let onSelect: (CalendarEvent) -> Void
-
+    let day: Date; let events: [CalendarEvent]; let now: Date; let hourHeight: CGFloat; let width: CGFloat; let highlightedEventID: String?; let onSelect: (CalendarEvent) -> Void
     private let engine = EventLayoutEngine()
-
     var body: some View {
         ZStack(alignment: .topLeading) {
-            WeekDayGrid(hourHeight: hourHeight)
-
+            ForEach(0...24, id: \.self) { hour in Rectangle().fill(Color.secondary.opacity(hour % 3 == 0 ? 0.24 : 0.14)).frame(height: hour % 3 == 0 ? 0.8 : 0.5).offset(y: CGFloat(hour) * hourHeight) }
             ForEach(engine.placements(for: events)) { placement in
-                let laneWidth = max(1, width / CGFloat(placement.columnCount))
-                let x = CGFloat(placement.column) * laneWidth
-                let top = yPosition(for: placement.event.start, hourHeight: hourHeight)
-                let bottom = yPosition(for: placement.event.end, hourHeight: hourHeight)
-                let cardHeight = max(1, bottom - top)
-
-                CourseBlock(
-                    event: placement.event,
-                    availableWidth: laneWidth,
-                    height: cardHeight,
-                    highlighted: highlightedEventID == placement.event.id,
-                    forceCompact: true
-                )
-                .frame(width: laneWidth, height: cardHeight)
-                .offset(x: x, y: top)
-                .onTapGesture { onSelect(placement.event) }
+                let lane = max(1, width / CGFloat(placement.columnCount)), top = yPosition(for: placement.event.start, hourHeight: hourHeight), bottom = yPosition(for: placement.event.end, hourHeight: hourHeight)
+                CourseBlock(event: placement.event, availableWidth: lane, height: max(1, bottom - top), highlighted: highlightedEventID == placement.event.id, forceCompact: true)
+                    .frame(width: lane, height: max(1, bottom - top), alignment: .top).offset(x: CGFloat(placement.column) * lane, y: top).onTapGesture { onSelect(placement.event) }
             }
-
-            if calendar.isDate(day, inSameDayAs: now) {
-                WeekCurrentTimeIndicator(
-                    hourHeight: hourHeight,
-                    width: width
-                )
-            }
-        }
-        .frame(height: hourHeight * 24 + 2, alignment: .top)
-        .overlay(alignment: .leading) {
-            Rectangle()
-                .fill(Color.secondary.opacity(0.12))
-                .frame(width: 0.5)
-        }
-    }
-}
-
-private struct WeekDayGrid: View {
-    let hourHeight: CGFloat
-
-    var body: some View {
-        ZStack(alignment: .topLeading) {
-            ForEach(0...24, id: \.self) { hour in
-                Rectangle()
-                    .fill(Color.secondary.opacity(hour % 3 == 0 ? 0.24 : 0.14))
-                    .frame(height: hour % 3 == 0 ? 0.8 : 0.5)
-                    .offset(y: CGFloat(hour) * hourHeight)
-            }
-        }
-        .frame(height: hourHeight * 24 + 2, alignment: .top)
+            if calendar.isDate(day, inSameDayAs: now) { WeekCurrentTimeIndicator(hourHeight: hourHeight, width: width) }
+        }.frame(height: hourHeight * 24 + 1).overlay(alignment: .leading) { Rectangle().fill(Color.secondary.opacity(0.12)).frame(width: 0.5) }
     }
 }
 
 struct CurrentTimeIndicator: View {
     @Environment(CalendarStore.self) private var store
-
-    let hourHeight: CGFloat
-    let x: CGFloat
-    let width: CGFloat
-
+    let hourHeight: CGFloat; let x: CGFloat; let width: CGFloat
     var body: some View {
         TimelineView(.periodic(from: .now, by: 30)) { context in
-            let now = store.effectiveNow(from: context.date)
-            let y = yPosition(for: now, hourHeight: hourHeight)
-
-            HStack(spacing: 0) {
-                Circle().fill(Color.red).frame(width: 8, height: 8)
-                Rectangle().fill(Color.red).frame(height: 1.5)
-            }
-            .frame(width: width, alignment: .leading)
-            .offset(x: x - 4, y: y - 4)
-            .accessibilityHidden(true)
+            let y = yPosition(for: store.effectiveNow(from: context.date), hourHeight: hourHeight)
+            HStack(spacing: 0) { Circle().fill(.red).frame(width: 8, height: 8); Rectangle().fill(.red).frame(height: 1.5) }.frame(width: width, alignment: .leading).offset(x: x - 4, y: y - 4).accessibilityHidden(true)
         }
     }
 }
 
 private struct WeekCurrentTimeIndicator: View {
     @Environment(CalendarStore.self) private var store
-
-    let hourHeight: CGFloat
-    let width: CGFloat
-
+    let hourHeight: CGFloat; let width: CGFloat
     var body: some View {
         TimelineView(.periodic(from: .now, by: 30)) { context in
-            let now = store.effectiveNow(from: context.date)
-            let y = yPosition(for: now, hourHeight: hourHeight)
-
-            HStack(spacing: 0) {
-                Circle().fill(Color.red).frame(width: 7, height: 7)
-                Rectangle().fill(Color.red).frame(height: 1.5)
-            }
-            .frame(width: width, alignment: .leading)
-            .offset(x: -3, y: y - 3)
-            .accessibilityHidden(true)
+            let y = yPosition(for: store.effectiveNow(from: context.date), hourHeight: hourHeight)
+            HStack(spacing: 0) { Circle().fill(.red).frame(width: 7, height: 7); Rectangle().fill(.red).frame(height: 1.5) }.frame(width: width, alignment: .leading).offset(x: -3, y: y - 3).accessibilityHidden(true)
         }
     }
 }
 
 struct CourseBlock: View {
-    let event: CalendarEvent
-    let availableWidth: CGFloat
-    let height: CGFloat
-    let highlighted: Bool
-    var forceCompact = false
-
+    let event: CalendarEvent; let availableWidth: CGFloat; let height: CGFloat; let highlighted: Bool; var forceCompact = false
     var body: some View {
-        HStack(spacing: 0) {
-            Rectangle()
-                .fill(eventColor)
-                .frame(width: 3)
-                .frame(maxHeight: .infinity)
-
-            VStack(alignment: .leading, spacing: availableWidth > 190 ? 4 : 2) {
-                HStack(alignment: .firstTextBaseline, spacing: 3) {
-                    if let label = event.displayTypeLabel, !label.isEmpty {
-                        Text(label)
-                            .font(.system(size: forceCompact ? 7 : 9, weight: .bold))
-                            .foregroundStyle(eventColor)
-                            .lineLimit(1)
-                    } else if event.source == .local {
-                        Image(systemName: "person.crop.circle")
-                            .font(.caption2)
+        ZStack(alignment: .leading) {
+            Rectangle().fill(eventColor.opacity(event.source == .local ? 0.09 : 0.12))
+            HStack(spacing: 0) {
+                Rectangle().fill(eventColor).frame(width: 3)
+                VStack(alignment: .leading, spacing: availableWidth > 190 ? 4 : 2) {
+                    HStack(alignment: .firstTextBaseline, spacing: 3) {
+                        if let label = event.displayTypeLabel, !label.isEmpty { Text(label).font(.system(size: forceCompact ? 7 : 9, weight: .bold)).foregroundStyle(eventColor).lineLimit(1) }
+                        Spacer(minLength: 2); Text(event.start, style: .time).font(timeFont).foregroundStyle(.secondary).lineLimit(1)
                     }
-
-                    Spacer(minLength: 2)
-                    Text(event.start, style: .time)
-                        .font(timeFont)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-
-                Text(event.title)
-                    .font(titleFont)
-                    .lineLimit(forceCompact || availableWidth < 130 ? 2 : 3)
-                    .minimumScaleFactor(0.68)
-
-                if height > 48, !event.room.isEmpty {
-                    Text(event.room)
-                        .font(metadataFont)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-
-                if !forceCompact, availableWidth >= 145, height > 68, !event.teachers.isEmpty {
-                    Text(event.teachers.joined(separator: ", "))
-                        .font(metadataFont)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-
-                if !forceCompact, availableWidth >= 170, height > 84, !event.groups.isEmpty {
-                    Text(event.groups.map(\.name).joined(separator: " · "))
-                        .font(.caption2.weight(.medium))
-                        .foregroundStyle(.tertiary)
-                        .lineLimit(1)
-                }
-
-                Spacer(minLength: 0)
-
-                HStack {
-                    Spacer(minLength: 0)
-                    Text(event.end, style: .time)
-                        .font(timeFont)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-            }
-            .padding(.leading, forceCompact ? 3 : 6)
-            .padding(.trailing, forceCompact ? 2 : 5)
-            .padding(.vertical, min(5, max(1, height * 0.05)))
-        }
-        .clipped()
-        .background(Rectangle().fill(eventColor.opacity(event.source == .local ? 0.09 : 0.12)))
-        .overlay {
-            if highlighted {
-                Rectangle().stroke(Color.accentColor, lineWidth: 2)
+                    Text(event.title).font(titleFont).lineLimit(forceCompact || availableWidth < 130 ? 2 : 3).minimumScaleFactor(0.68)
+                    if height > 48, !event.room.isEmpty { Text(event.room).font(metadataFont).foregroundStyle(.secondary).lineLimit(1) }
+                    if !forceCompact, availableWidth >= 145, height > 68, !event.teachers.isEmpty { Text(event.teachers.joined(separator: ", ")).font(metadataFont).foregroundStyle(.secondary).lineLimit(1) }
+                    if !forceCompact, availableWidth >= 170, height > 84, !event.groups.isEmpty { Text(event.groups.map(\.name).joined(separator: " · ")).font(.caption2.weight(.medium)).foregroundStyle(.tertiary).lineLimit(1) }
+                    Spacer(minLength: 0); HStack { Spacer(minLength: 0); Text(event.end, style: .time).font(timeFont).foregroundStyle(.secondary).lineLimit(1) }
+                }.padding(.leading, forceCompact ? 3 : 6).padding(.trailing, forceCompact ? 2 : 5).padding(.vertical, min(5, max(1, height * 0.05)))
             }
         }
-        .contentShape(Rectangle())
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(accessibilityText)
+        .frame(height: height).clipped().overlay { if highlighted { Rectangle().stroke(Color.accentColor, lineWidth: 2) } }.contentShape(Rectangle())
+        .accessibilityElement(children: .ignore).accessibilityLabel(accessibilityText)
     }
-
-    private var titleFont: Font {
-        if forceCompact || availableWidth < 90 { return .system(size: 8, weight: .bold) }
-        if availableWidth < 140 { return .caption2.weight(.bold) }
-        if availableWidth < 180 { return .caption.weight(.bold) }
-        return .subheadline.weight(.bold)
-    }
-
-    private var metadataFont: Font {
-        forceCompact || availableWidth < 140 ? .system(size: 7.5) : .caption
-    }
-
-    private var timeFont: Font {
-        .system(
-            size: forceCompact || availableWidth < 100 ? 7 : 9,
-            weight: .semibold,
-            design: .rounded
-        )
-        .monospacedDigit()
-    }
-
-    private var eventColor: Color {
-        if event.source == .local { return .purple }
-        guard let label = event.displayTypeLabel, !label.isEmpty else { return .accentColor }
-        return Color(courslyHex: CourseTypeColorPreferences.hex(for: label))
-    }
-
-    private var accessibilityText: String {
-        var parts = [event.displayTypeLabel, event.title].compactMap { $0 }
-        parts.append(
-            "de \(event.start.formatted(date: .omitted, time: .shortened)) à \(event.end.formatted(date: .omitted, time: .shortened))"
-        )
-        if !event.room.isEmpty { parts.append("salle \(event.room)") }
-        if !event.teachers.isEmpty { parts.append(event.teachers.joined(separator: ", ")) }
-        if !event.groups.isEmpty { parts.append(event.groups.map(\.name).joined(separator: ", ")) }
-        return parts.joined(separator: ", ")
-    }
+    private var titleFont: Font { if forceCompact || availableWidth < 90 { return .system(size: 8, weight: .bold) }; if availableWidth < 140 { return .caption2.weight(.bold) }; if availableWidth < 180 { return .caption.weight(.bold) }; return .subheadline.weight(.bold) }
+    private var metadataFont: Font { forceCompact || availableWidth < 140 ? .system(size: 7.5) : .caption }
+    private var timeFont: Font { .system(size: forceCompact || availableWidth < 100 ? 7 : 9, weight: .semibold, design: .rounded).monospacedDigit() }
+    private var eventColor: Color { if event.source == .local { return .purple }; guard let label = event.displayTypeLabel, !label.isEmpty else { return .accentColor }; return Color(courslyHex: CourseTypeColorPreferences.hex(for: label)) }
+    private var accessibilityText: String { var parts = [event.displayTypeLabel, event.title].compactMap { $0 }; parts.append("de \(event.start.formatted(date: .omitted, time: .shortened)) à \(event.end.formatted(date: .omitted, time: .shortened))"); if !event.room.isEmpty { parts.append("salle \(event.room)") }; if !event.teachers.isEmpty { parts.append(event.teachers.joined(separator: ", ")) }; return parts.joined(separator: ", ") }
 }
 
-private var calendar: Calendar {
-    var value = Calendar(identifier: .gregorian)
-    value.locale = Locale(identifier: "fr_FR")
-    value.timeZone = TimeZone(identifier: "Europe/Paris") ?? .current
-    return value
-}
-
-private func minutesSinceMidnight(_ date: Date) -> Int {
-    let components = calendar.dateComponents([.hour, .minute], from: date)
-    return (components.hour ?? 0) * 60 + (components.minute ?? 0)
-}
-
-private func yPosition(for date: Date, hourHeight: CGFloat) -> CGFloat {
-    let components = calendar.dateComponents([.hour, .minute, .second], from: date)
-    let minutes = CGFloat((components.hour ?? 0) * 60 + (components.minute ?? 0))
-        + CGFloat(components.second ?? 0) / 60
-    return max(0, min(minutes * hourHeight / 60, hourHeight * 24))
-}
-
-private func capitalizedWeekday(_ date: Date) -> String {
-    let formatter = DateFormatter()
-    formatter.locale = Locale(identifier: "fr_FR")
-    formatter.timeZone = TimeZone(identifier: "Europe/Paris")
-    formatter.dateFormat = "EEE"
-    let value = formatter.string(from: date)
-    return value.prefix(1).uppercased() + value.dropFirst()
-}
-
-private extension Color {
-    init(courslyHex hex: String) {
-        let cleaned = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        var value: UInt64 = 0
-        Scanner(string: cleaned).scanHexInt64(&value)
-
-        if cleaned.count == 6 {
-            self.init(
-                red: Double((value >> 16) & 0xFF) / 255,
-                green: Double((value >> 8) & 0xFF) / 255,
-                blue: Double(value & 0xFF) / 255
-            )
-        } else {
-            self.init(red: 0, green: 122.0 / 255.0, blue: 1)
-        }
-    }
-}
-
-private func courseBoundaryOffsets(events: [CalendarEvent], hourHeight: CGFloat) -> [CGFloat] {
-    events.flatMap { event in
-        [
-            yPosition(for: event.start, hourHeight: hourHeight),
-            yPosition(for: event.end, hourHeight: hourHeight)
-        ]
-    }
-    .sorted()
-}
+private var calendar: Calendar { var value = Calendar(identifier: .gregorian); value.locale = Locale(identifier: "fr_FR"); value.timeZone = TimeZone(identifier: "Europe/Paris") ?? .current; return value }
+private func minutesSinceMidnight(_ date: Date) -> Int { let c = calendar.dateComponents([.hour, .minute], from: date); return (c.hour ?? 0) * 60 + (c.minute ?? 0) }
+private func yPosition(for date: Date, hourHeight: CGFloat) -> CGFloat { let c = calendar.dateComponents([.hour, .minute, .second], from: date); let minutes = CGFloat((c.hour ?? 0) * 60 + (c.minute ?? 0)) + CGFloat(c.second ?? 0) / 60; return max(0, min(minutes * hourHeight / 60, hourHeight * 24)) }
+private func capitalizedWeekday(_ date: Date) -> String { let f = DateFormatter(); f.locale = Locale(identifier: "fr_FR"); f.timeZone = calendar.timeZone; f.dateFormat = "EEE"; let value = f.string(from: date); return value.prefix(1).uppercased() + value.dropFirst() }
+private extension Color { init(courslyHex hex: String) { let cleaned = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted); var value: UInt64 = 0; Scanner(string: cleaned).scanHexInt64(&value); if cleaned.count == 6 { self.init(red: Double((value >> 16) & 0xFF) / 255, green: Double((value >> 8) & 0xFF) / 255, blue: Double(value & 0xFF) / 255) } else { self = .accentColor } } }
+private func courseBoundaryOffsets(events: [CalendarEvent], hourHeight: CGFloat) -> [CGFloat] { events.flatMap { [yPosition(for: $0.start, hourHeight: hourHeight), yPosition(for: $0.end, hourHeight: hourHeight)] }.sorted() }
