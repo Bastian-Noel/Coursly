@@ -39,6 +39,7 @@ struct CalendarEvent: Identifiable, Hashable, Codable, Sendable {
     let rooms: [String]
     let teachers: [String]
     let groups: [StudentGroup]
+    var rawGroupLabels: [String]? = nil
     let moduleCode: String?
     let moduleName: String?
     let source: EventSource
@@ -50,6 +51,11 @@ struct CalendarEvent: Identifiable, Hashable, Codable, Sendable {
         if let raw, !raw.isEmpty { return raw }
         return type?.rawValue
     }
+    var displayGroupLabels: [String] {
+        let actual = (rawGroupLabels ?? []).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+        return actual.isEmpty ? groups.map(\.name) : Array(Set(actual)).sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+    }
+    var displayGroupsText: String { displayGroupLabels.joined(separator: " · ") }
 
     var searchableText: String {
         [
@@ -57,7 +63,7 @@ struct CalendarEvent: Identifiable, Hashable, Codable, Sendable {
             displayTypeLabel ?? "",
             rooms.joined(separator: " "),
             teachers.joined(separator: " "),
-            groups.map(\.name).joined(separator: " "),
+            displayGroupLabels.joined(separator: " "),
             moduleCode ?? "",
             moduleName ?? ""
         ]
