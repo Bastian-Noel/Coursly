@@ -29,7 +29,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p Coursly/Assets/Assets.xcassets/AppIcon.appiconset
-          base64 --decode Coursly/Assets/AppIcon.source.b64 > /tmp/CourslyIcon.png
+          base64 -D -i Coursly/Assets/AppIcon.source.b64 -o /tmp/CourslyIcon.png
           sips -z 1024 1024 /tmp/CourslyIcon.png --out Coursly/Assets/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png >/dev/null
 
       - name: Resolve Coursly version
