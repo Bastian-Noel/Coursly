@@ -6,116 +6,101 @@ struct WeekTimelineView: View {
 
     @State private var days: [Date] = []
     @State private var horizontalDayID: String?
-    @State private var didInitialPosition = false
+    @State private var verticalPosition = ScrollPosition(edge: .top)
+    @State private var verticalScrollState = TimelineVerticalScrollState()
+    @State private var pendingRequestID: UUID?
+    @State private var currentVerticalOffset: CGFloat = 0
 
     var body: some View {
         GeometryReader { viewport in
             let dayWidth = max(1, (viewport.size.width - TimelineMetrics.timeColumnWidth) / 5)
 
-            ScrollViewReader { verticalProxy in
-                ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: 0) {
-                        HStack(alignment: .top, spacing: 0) {
-                            TimelineTimeColumn(
-                                hourHeight: CGFloat(store.hourHeight),
-                                headerHeight: TimelineMetrics.weekHeaderHeight
-                            )
-
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                LazyHStack(alignment: .top, spacing: 0) {
-                                    ForEach(days, id: \.self) { day in
-                                        WeekDayColumn(
-                                            day: day,
-                                            events: store.events(on: day),
-                                            now: store.now,
-                                            hourHeight: CGFloat(store.hourHeight),
-                                            width: dayWidth,
-                                            highlightedEventID: store.highlightedEventID,
-                                            onSelect: onSelect
-                                        )
-                                        .frame(width: dayWidth)
-                                        .id(timelineDayID(day))
-                                    }
-                                }
-                                .scrollTargetLayout()
-                            }
-                            .scrollPosition(id: $horizontalDayID, anchor: .leading)
-                            .scrollTargetBehavior(.viewAligned(limitBehavior: .always))
-                            .onChange(of: horizontalDayID) { _, newID in
-                                guard let newID,
-                                      let day = days.first(where: { timelineDayID($0) == newID }) else { return }
-                                store.setFocusedDateFromTimeline(day)
-                                extendWindowIfNeeded(around: day)
-                                Task { await preloadFiveDays(startingAt: day) }
-                            }
-                        }
-                        .frame(height: TimelineMetrics.weekHeaderHeight + CGFloat(store.hourHeight) * 24 + 1)
-                        .overlay(alignment: .topLeading) {
-                            TimelineAnchors(
-                                prefix: "week",
-                                hourHeight: CGFloat(store.hourHeight),
-                                headerHeight: TimelineMetrics.weekHeaderHeight
-                            )
-                        }
-
-                        Color.clear
-                            .frame(height: TimelineMetrics.floatingDockClearance)
-                            .allowsHitTesting(false)
-                    }
-                }
-                .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y } action: { oldValue, newValue in
-                    if didInitialPosition {
-                        store.recordTopMinute(
-                            TimelineAxis.minute(
-                                forContentOffset: newValue,
-                                headerHeight: TimelineMetrics.weekHeaderHeight,
-                                hourHeight: CGFloat(store.hourHeight)
-                            ),
-                            for: .week
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(spacing: 0) {
+                    HStack(alignment: .top, spacing: 0) {
+                        TimelineTimeColumn(
+                            hourHeight: CGFloat(store.hourHeight),
+                            headerHeight: TimelineMetrics.weekHeaderHeight
                         )
-                        weekScrollFeedback(oldValue, newValue)
+
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            LazyHStack(alignment: .top, spacing: 0) {
+                                ForEach(days, id: \.self) { day in
+                                    WeekDayColumn(
+                                        day: day,
+                                        events: store.events(on: day),
+                                        now: store.now,
+                                        hourHeight: CGFloat(store.hourHeight),
+                                        width: dayWidth,
+                                        highlightedEventID: store.highlightedEventID,
+                                        onSelect: onSelect
+                                    )
+                                    .frame(width: dayWidth)
+                                    .id(timelineDayID(day))
+                                }
+                            }
+                            .scrollTargetLayout()
+                        }
+                        .scrollPosition(id: $horizontalDayID, anchor: .leading)
+                        .scrollTargetBehavior(.viewAligned(limitBehavior: .always))
+                        .onChange(of: horizontalDayID) { _, newID in
+                            guard let newID,
+                                  let day = days.first(where: { timelineDayID($0) == newID }) else { return }
+                            store.setFocusedDateFromTimeline(day)
+                            extendWindowIfNeeded(around: day)
+                            Task { await preloadFiveDays(startingAt: day) }
+                        }
                     }
+                    .frame(height: TimelineMetrics.weekHeaderHeight + CGFloat(store.hourHeight) * 24 + 1)
+
+                    Color.clear
+                        .frame(height: TimelineMetrics.floatingDockClearance)
+                        .allowsHitTesting(false)
                 }
-                .task {
-                    await configureInitialWindow(proxy: verticalProxy)
-                }
-                .onChange(of: store.dateNavigationToken) { _, _ in
-                    Task { @MainActor in
-                        await navigateHorizontally(to: store.focusedDate)
-                    }
-                }
-                .onChange(of: store.timelineScrollRequest) { _, request in
-                    guard let request else { return }
-                    Task { @MainActor in
-                        await fulfill(request, proxy: verticalProxy, animated: true)
-                    }
-                }
-                .refreshable { await store.refresh() }
             }
+            .scrollPosition($verticalPosition)
+            .onScrollGeometryChange(for: CGFloat.self) { max(0, $0.contentOffset.y) } action: { oldValue, newValue in
+                currentVerticalOffset = newValue
+                guard verticalScrollState.observe(offset: newValue) else { return }
+                completeVerticalPosition(oldOffset: oldValue, newOffset: newValue)
+            }
+            .task {
+                await configureInitialWindow(viewportHeight: viewport.size.height)
+            }
+            .onChange(of: store.dateNavigationToken) { _, _ in
+                Task { @MainActor in
+                    await navigateHorizontally(to: store.focusedDate)
+                }
+            }
+            .onChange(of: store.timelineScrollRequest) { _, request in
+                guard let request else { return }
+                fulfill(request, viewportHeight: viewport.size.height, animated: true)
+            }
+            .refreshable { await store.refresh() }
         }
     }
 
-    private func configureInitialWindow(proxy: ScrollViewProxy) async {
+    private func configureInitialWindow(viewportHeight: CGFloat) async {
         guard days.isEmpty else { return }
         let first = firstVisibleDay(containing: store.focusedDate)
         days = makeWindow(around: first, radius: 120)
         horizontalDayID = timelineDayID(first)
         await preloadFiveDays(startingAt: first)
 
-        guard !didInitialPosition else { return }
+        guard !verticalScrollState.isUserControlled,
+              verticalScrollState.expectedOffset == nil else { return }
         if let request = store.timelineScrollRequest {
-            await fulfill(request, proxy: proxy, animated: false)
+            fulfill(request, viewportHeight: viewportHeight, animated: false)
         } else if let savedMinute = store.weekTopMinute {
-            await scroll(proxy, minute: savedMinute, anchor: .top, animated: false)
+            beginScroll(minute: savedMinute, anchor: .top, viewportHeight: viewportHeight, animated: false)
         } else {
             let visibleDays = fiveVisibleDays(startingAt: first)
             let firstCourseMinute = visibleDays
                 .flatMap { store.events(on: $0) }
                 .map { TimelineAxis.minute(of: $0.start) }
                 .min() ?? 8 * 60
-            await scroll(proxy, minute: firstCourseMinute, anchor: .top, animated: false)
+            beginScroll(minute: firstCourseMinute, anchor: .top, viewportHeight: viewportHeight, animated: false)
         }
-        didInitialPosition = true
     }
 
     private func navigateHorizontally(to date: Date) async {
@@ -129,26 +114,57 @@ struct WeekTimelineView: View {
         }
     }
 
-    private func fulfill(_ request: TimelineScrollRequest, proxy: ScrollViewProxy, animated: Bool) async {
+    private func fulfill(_ request: TimelineScrollRequest, viewportHeight: CGFloat, animated: Bool) {
         let minute: Int
         switch request.target {
         case .now: minute = TimelineAxis.minute(of: store.now)
         case let .minute(value): minute = value
         }
-        await scroll(proxy, minute: minute, anchor: .center, animated: animated)
-        store.consumeTimelineScrollRequest(request.id)
+        pendingRequestID = request.id
+        beginScroll(minute: minute, anchor: .center, viewportHeight: viewportHeight, animated: animated)
     }
 
-    private func scroll(_ proxy: ScrollViewProxy, minute: Int, anchor: UnitPoint, animated: Bool) async {
-        await Task.yield()
-        let id = TimelineAxis.anchorID(prefix: "week", minute: minute)
+    private func beginScroll(
+        minute: Int,
+        anchor: TimelineVerticalAnchor,
+        viewportHeight: CGFloat,
+        animated: Bool
+    ) {
+        let offset = TimelineAxis.contentOffset(
+            forMinute: minute,
+            anchor: anchor,
+            headerHeight: TimelineMetrics.weekHeaderHeight,
+            hourHeight: CGFloat(store.hourHeight),
+            viewportHeight: viewportHeight
+        )
+        verticalScrollState.beginRestoration(to: offset)
+        if verticalScrollState.observe(offset: currentVerticalOffset) {
+            completeVerticalPosition(oldOffset: currentVerticalOffset, newOffset: currentVerticalOffset)
+            return
+        }
         if animated {
-            withAnimation(.snappy(duration: 0.34)) { proxy.scrollTo(id, anchor: anchor) }
+            withAnimation(.snappy(duration: 0.34)) { verticalPosition.scrollTo(y: offset) }
         } else {
             var transaction = Transaction()
             transaction.disablesAnimations = true
-            withTransaction(transaction) { proxy.scrollTo(id, anchor: anchor) }
+            withTransaction(transaction) { verticalPosition.scrollTo(y: offset) }
         }
+    }
+
+    private func completeVerticalPosition(oldOffset: CGFloat, newOffset: CGFloat) {
+        store.recordTopMinute(
+            TimelineAxis.minute(
+                forContentOffset: newOffset,
+                headerHeight: TimelineMetrics.weekHeaderHeight,
+                hourHeight: CGFloat(store.hourHeight)
+            ),
+            for: .week
+        )
+        if let requestID = pendingRequestID {
+            store.consumeTimelineScrollRequest(requestID)
+            pendingRequestID = nil
+        }
+        weekScrollFeedback(oldOffset, newOffset)
     }
 
     private func preloadFiveDays(startingAt start: Date) async {

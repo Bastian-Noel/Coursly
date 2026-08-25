@@ -42,7 +42,7 @@ Ordre obligatoire :
 1. rendre le squelette de timeline ;
 2. demander les données du jour et des voisins ;
 3. attendre les chargements en vol ;
-4. laisser SwiftUI produire les ancres ;
+4. laisser SwiftUI mesurer le contenu et le viewport ;
 5. appliquer une requête explicite en attente, sinon restaurer `dayTopMinute` ;
 6. si aucune position n’existe, centrer la ligne rouge sur aujourd’hui ;
 7. activer l’enregistrement du scroll utilisateur.
@@ -118,7 +118,7 @@ Le tableau de dates possède une marge de préchargement. Lorsqu’une journée 
 - minute depuis minuit ;
 - position `y` pour une date ;
 - conversion offset → minute ;
-- IDs d’ancre par quart d’heure.
+- offset exact aligné en haut ou centré dans le viewport.
 
 Formule :
 
@@ -127,6 +127,8 @@ y = minute × hourHeight / 60
 ```
 
 La Semaine retire `weekHeaderHeight` avant de convertir son offset vertical en minute.
+
+Jour et Semaine pilotent chacun une `ScrollPosition` verticale numérique. Pendant une restauration, `TimelineVerticalScrollState` refuse d’enregistrer les mesures intermédiaires — notamment le zéro produit par le premier layout — jusqu’à ce que l’offset cible soit confirmé. Ce n’est qu’ensuite que la position repasse sous le contrôle de l’utilisateur.
 
 ## 9. Layout des événements
 

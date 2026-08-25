@@ -109,6 +109,8 @@ TimelineCourseCard.swift
 
 `TimelineAxis` est l’unique conversion date/minute/position. Jour et Semaine ne possèdent pas de formule locale divergente.
 
+Le scroll vertical utilise une `ScrollPosition` numérique. `TimelineVerticalScrollState` ignore les mesures transitoires tant que l’offset demandé n’a pas été réellement observé ; une première géométrie à zéro ne peut donc pas écraser la restauration.
+
 La grille utilise `Canvas` afin de réduire le nombre de vues. Les calques décoratifs désactivent le hit testing.
 
 ## 7. Navigation Semaine

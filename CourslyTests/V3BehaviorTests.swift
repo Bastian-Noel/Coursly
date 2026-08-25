@@ -109,6 +109,46 @@ final class V3BehaviorTests: XCTestCase {
         )
     }
 
+    func testTimelineComputesExactCenteredOffsetInsteadOfMidnightAnchor() {
+        XCTAssertEqual(
+            TimelineAxis.contentOffset(
+                forMinute: 8 * 60,
+                anchor: .center,
+                hourHeight: 80,
+                viewportHeight: 400
+            ),
+            440,
+            accuracy: 0.01
+        )
+    }
+
+    func testWeekTopOffsetIncludesScrollingHeader() {
+        XCTAssertEqual(
+            TimelineAxis.contentOffset(
+                forMinute: 8 * 60,
+                anchor: .top,
+                headerHeight: TimelineMetrics.weekHeaderHeight,
+                hourHeight: 80,
+                viewportHeight: 400
+            ),
+            TimelineMetrics.weekHeaderHeight + 640,
+            accuracy: 0.01
+        )
+    }
+
+    func testInitialZeroGeometryCannotOverwritePendingRestoration() {
+        var state = TimelineVerticalScrollState()
+        state.beginRestoration(to: 440)
+
+        XCTAssertFalse(state.observe(offset: 0))
+        XCTAssertEqual(state.expectedOffset, 440)
+        XCTAssertFalse(state.isUserControlled)
+
+        XCTAssertTrue(state.observe(offset: 441))
+        XCTAssertNil(state.expectedOffset)
+        XCTAssertTrue(state.isUserControlled)
+    }
+
     @MainActor func testGoToTodayKeepsCurrentDisplayMode() {
         let store = CalendarStore()
         store.displayMode = .week
