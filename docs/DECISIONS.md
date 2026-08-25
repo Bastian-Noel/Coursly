@@ -23,6 +23,8 @@ Sont interdits :
 - le fallback déclenché parce qu’une journée ou période est vide ;
 - la comparaison en production des deux sources pour choisir la plus riche.
 
+Une copie locale du dernier résultat distant valide peut rester affichée lorsque POST et iCal échouent tous les deux. Elle constitue une continuité hors ligne signalée, pas une troisième source réseau et jamais un enrichissement du POST.
+
 ## D-003 — Deux identités de groupe
 
 Un événement conserve séparément :

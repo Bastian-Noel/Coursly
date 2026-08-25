@@ -22,6 +22,7 @@ final class CalendarStore {
     var failedGroups: [StudentGroup] = []
     var loadedInterval: DateInterval?
     var lastSyncDate: Date?
+    var isUsingCachedEvents = false
     var focusedDate: Date = Calendar.current.startOfDay(for: Date())
     var displayMode: CalendarDisplayMode = .day
     var highlightedEventID: String?
@@ -47,6 +48,7 @@ final class CalendarStore {
     private let changeDetector = ChangeDetectionService()
     private let searchEngine = SearchEngine()
     private let snapshotStore = DirectSnapshotStore()
+    private let calendarCache = RemoteCalendarCache()
     private let historyStore = ChangeHistoryStore()
     private let localEventStore = LocalEventStore()
     private let notificationService = NotificationService()
@@ -70,6 +72,12 @@ final class CalendarStore {
         let effectiveNow = simulationEnabled ? Date().addingTimeInterval(simulationOffset) : Date()
         focusedDate = Calendar.current.startOfDay(for: effectiveNow)
         recentChanges = historyStore.all()
+        if let cached = calendarCache.load(for: selectedGroups) {
+            remoteEvents = cached.events
+            lastSyncDate = cached.savedAt
+            isUsingCachedEvents = true
+        }
+        refreshCombinedEvents()
     }
 
     var now: Date { effectiveNow(from: Date()) }
@@ -96,15 +104,21 @@ final class CalendarStore {
     func isNotificationKindEnabled(_ kind: CalendarChangeKind) -> Bool { notificationChangeKinds.contains(kind) }
 
     func setGroup(_ group: StudentGroup, enabled: Bool) {
-        if enabled { if !selectedGroups.contains(group) { selectedGroups.append(group); selectedGroups.sort { $0.name < $1.name } } }
-        else { guard selectedGroups.count > 1 else { return }; selectedGroups.removeAll { $0 == group } }
-        HapticService.fire(.selection, enabled: hapticsEnabled)
+        var updated = selectedGroups
+        if enabled {
+            if !updated.contains(group) { updated.append(group) }
+        } else {
+            guard updated.count > 1 else { return }
+            updated.removeAll { $0 == group }
+        }
+        setSelectedGroups(updated)
     }
 
     func setSelectedGroups(_ groups: [StudentGroup]) {
         let valid = Array(Set(groups.filter { StudentGroup.all.contains($0) })).sorted { $0.name < $1.name }
-        guard !valid.isEmpty else { return }
+        guard !valid.isEmpty, valid != selectedGroups else { return }
         selectedGroups = valid
+        restoreCachedCalendarForSelection()
         HapticService.fire(.selection, enabled: hapticsEnabled)
     }
 
@@ -161,9 +175,13 @@ final class CalendarStore {
             fallbackGroups = Array(Set(fallbackGroups + result.fallbackGroups)).sorted { $0.name < $1.name }
             failedGroups = result.failedGroups
             lastSyncDate = Date()
+            isUsingCachedEvents = false
 
             let newChanges = force ? processDirectSnapshots(result.directEventsByGroup, interval: interval) : []
             refreshCombinedEvents()
+            if result.failedGroups.isEmpty {
+                calendarCache.save(remoteEvents, for: selectedGroups, at: lastSyncDate ?? Date())
+            }
             if !newChanges.isEmpty {
                 historyStore.prepend(newChanges, now: now)
                 recentChanges = historyStore.all()
@@ -174,6 +192,8 @@ final class CalendarStore {
             else { await LiveActivityManager.endAll(now: now) }
         } catch {
             errorMessage = error.localizedDescription
+            failedGroups = selectedGroups
+            isUsingCachedEvents = !remoteEvents.isEmpty
             HapticService.fire(.error, enabled: hapticsEnabled)
         }
     }
@@ -282,6 +302,18 @@ final class CalendarStore {
     }
     private func changesWithinNotificationHorizon(_ changes: [CalendarChange]) -> [CalendarChange] { let lower = now; let upper = Calendar.current.date(byAdding: .day, value: notificationHorizonDays, to: lower) ?? lower; return changes.filter { guard notificationChangeKinds.contains($0.kind), let date = $0.relevantDate else { return false }; return date >= lower && date <= upper } }
     private func refreshCombinedEvents() { events = (remoteEvents + localEventStore.all()).sorted { $0.start == $1.start ? $0.title < $1.title : $0.start < $1.start } }
+    private func restoreCachedCalendarForSelection() {
+        let cached = calendarCache.load(for: selectedGroups)
+        remoteEvents = cached?.events ?? []
+        lastSyncDate = cached?.savedAt
+        isUsingCachedEvents = cached != nil
+        loadedIntervals.removeAll()
+        loadedInterval = nil
+        fallbackGroups = []
+        failedGroups = []
+        errorMessage = nil
+        refreshCombinedEvents()
+    }
     private func makeLoadInterval(around date: Date) -> DateInterval { let calendar = Calendar.current; let day = calendar.startOfDay(for: date); let start = calendar.date(byAdding: .day, value: -7, to: day) ?? day; let horizon = max(35, notificationHorizonDays + 14); let end = calendar.date(byAdding: .day, value: horizon, to: day) ?? day.addingTimeInterval(Double(horizon) * 86_400); return DateInterval(start: start, end: end) }
     private func navigate(to date: Date, scrollTarget: TimelineScrollTarget?) {
         focusedDate = Calendar.current.startOfDay(for: date)

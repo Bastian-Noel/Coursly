@@ -15,8 +15,9 @@ Corps `application/x-www-form-urlencoded` :
 | `resType` | `103` |
 | `calView` | `agendaWeek` |
 | `federationIds[]` | nom public du groupe, par exemple `MMI2-B2` |
+| `colourScheme` | `3` |
 
-Headers importants : `Accept: application/json`, `X-Requested-With: XMLHttpRequest`.
+Headers importants : `Accept: application/json, text/javascript, */*; q=0.01`, `X-Requested-With: XMLHttpRequest`, ainsi que l’origine et le référent CELCAT.
 
 Une réponse décodable en tableau constitue un succès, même si ce tableau est vide.
 
@@ -115,13 +116,15 @@ Le parser doit :
 
 ## 7. Fallback iCal
 
-Endpoint :
+Le client essaie plusieurs routes du même flux iCal, dans cet ordre :
 
 ```text
+GET https://celcat.iut-velizy.uvsq.fr/cal/ical/<ID>/schedule.ics
+GET https://celcat.rambouillet.iut-velizy.uvsq.fr/cal/ical/<ID>/schedule.ics
 GET https://edt.iut-velizy.uvsq.fr/Calendar/iCalendar
 ```
 
-Paramètres : `resType=103` et `federationIds[]=<ID interne>`.
+La dernière route est historique et reçoit `resType=103` et `federationIds[]=<ID interne>`. Toutes restent un fallback iCal : elles ne sont essayées qu’après l’échec du POST et ne sont jamais fusionnées avec lui.
 
 Le parser gère au minimum : VEVENT, UID, SUMMARY, LOCATION, DTSTART, DTEND, lignes repliées, texte échappé, dates UTC et locales. Les champs absents restent vides ou nuls ; ils ne sont pas inventés depuis le POST.
 
@@ -146,5 +149,17 @@ La fusion :
 - `failedGroups` expose les échecs complets.
 - Un chargement incrémental destiné à la navigation ne doit pas produire de faux changements.
 - Un refresh explicite peut mettre à jour les snapshots et notifier.
+
+## 10. Continuité hors ligne
+
+Après un chargement distant complet, l’app persiste les événements normalisés pour la sélection exacte de groupes. Si POST et iCal deviennent tous deux indisponibles, ce dernier calendrier valide reste affiché avec le diagnostic `Dernière copie locale`.
+
+Le cache local :
+
+- n’est jamais interrogé pour compléter une réponse POST réussie ;
+- ne remplace pas le fallback iCal dans la stratégie réseau ;
+- ne produit aucun snapshot de changements ;
+- est invalidé visuellement lors d’un changement vers une sélection de groupes différente sans cache correspondant ;
+- est remplacé après un nouveau chargement distant complet.
 
 Les références JavaScript historiques sont décrites dans [`reference/README.md`](reference/README.md). Le code Swift actuel reste la référence d’implémentation.

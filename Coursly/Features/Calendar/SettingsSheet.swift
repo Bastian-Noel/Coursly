@@ -126,6 +126,7 @@ struct SettingsSheet: View {
                     LabeledContent("Dernière synchronisation", value: store.lastSyncDate?.formatted(date: .abbreviated, time: .shortened) ?? "Jamais")
                     LabeledContent("Groupes", value: store.selectedGroupsLabel)
                     LabeledContent("Événements chargés", value: String(store.events.count))
+                    LabeledContent("Données affichées", value: store.isUsingCachedEvents ? "Dernière copie locale" : "CELCAT à jour")
                     LabeledContent("Fallback iCal", value: store.fallbackGroups.isEmpty ? "Non utilisé" : store.fallbackGroups.map(\.name).joined(separator: ", "))
                     if !store.failedGroups.isEmpty {
                         LabeledContent("Groupes en erreur", value: store.failedGroups.map(\.name).joined(separator: ", "))

@@ -75,3 +75,55 @@ final class CalendarServiceTests: XCTestCase {
         XCTAssertEqual(calls, 1)
     }
 }
+
+final class CelcatClientContractTests: XCTestCase {
+    func testDirectRequestMatchesCurrentCELCATFormContract() throws {
+        let interval = DateInterval(
+            start: ISO8601DateFormatter().date(from: "2026-09-01T00:00:00Z")!,
+            end: ISO8601DateFormatter().date(from: "2026-10-15T00:00:00Z")!
+        )
+        let request = try CelcatDirectClient().makeRequest(group: .init(name: "MMI2-B2"), interval: interval)
+        let body = try XCTUnwrap(request.httpBody.flatMap { String(data: $0, encoding: .utf8) })
+        let items = try XCTUnwrap(URLComponents(string: "https://coursly.invalid/?\(body)")?.queryItems)
+        let values = Dictionary(uniqueKeysWithValues: items.compactMap { item in item.value.map { (item.name, $0) } })
+
+        XCTAssertEqual(request.url?.absoluteString, "https://edt.iut-velizy.uvsq.fr/Home/GetCalendarData")
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertEqual(values["resType"], "103")
+        XCTAssertEqual(values["calView"], "agendaWeek")
+        XCTAssertEqual(values["federationIds[]"], "MMI2-B2")
+        XCTAssertEqual(values["colourScheme"], "3")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "X-Requested-With"), "XMLHttpRequest")
+    }
+
+    func testICalFallbackTriesStaticFederationFeedsBeforeLegacyRoute() throws {
+        let urls = try CelcatICalClient().candidateURLs(for: .init(name: "MMI2-B2"))
+
+        XCTAssertEqual(urls.count, 3)
+        XCTAssertEqual(urls[0].host, "celcat.iut-velizy.uvsq.fr")
+        XCTAssertEqual(urls[0].path, "/cal/ical/G1-TM2VJCBU5998/schedule.ics")
+        XCTAssertEqual(urls[1].host, "celcat.rambouillet.iut-velizy.uvsq.fr")
+        XCTAssertEqual(urls[2].host, "edt.iut-velizy.uvsq.fr")
+        XCTAssertEqual(urls[2].path, "/Calendar/iCalendar")
+    }
+
+    @MainActor func testRemoteCalendarCacheIsScopedToSelectedGroups() throws {
+        let suiteName = "CourslyTests.RemoteCalendarCache.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let cache = RemoteCalendarCache(defaults: defaults)
+        let group = StudentGroup(name: "MMI2-B2")
+        let start = ISO8601DateFormatter().date(from: "2026-09-10T08:00:00Z")!
+        let event = CalendarEvent(
+            id: "cached", title: "Réseau", type: .tp,
+            start: start, end: start.addingTimeInterval(3_600),
+            rooms: ["B204"], teachers: ["Mme Dupont"], groups: [group],
+            moduleCode: "R2", moduleName: "Réseau", source: .directPOST
+        )
+
+        cache.save([event], for: [group], at: start)
+
+        XCTAssertEqual(cache.load(for: [group])?.events, [event])
+        XCTAssertNil(cache.load(for: [.init(name: "MMI1-A1")]))
+    }
+}

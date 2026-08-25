@@ -30,8 +30,8 @@ enum TimelineAxis {
         return max(0, min(24 * 60, Int((timelineOffset / hourHeight * 60).rounded())))
     }
 
-    static func anchorID(prefix: String, minute: Int) -> String {
-        "\(prefix)-minute-\(max(0, min(96, minute / 15)))"
+    static func pinnedHeaderOffset(forContentOffset offset: CGFloat) -> CGFloat {
+        max(0, offset)
     }
 
     static func contentOffset(
