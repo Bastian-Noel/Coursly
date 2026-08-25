@@ -38,7 +38,7 @@ enum LiveActivityManager {
             event.teachers.joined(separator: " · ")
         }
         func groups(for event: CalendarEvent) -> String {
-            event.groups.map(\.name).joined(separator: " · ")
+            event.displayGroupsText
         }
 
         if let currentIndex = ordered.firstIndex(where: { $0.start <= now && now < $0.end }) {
@@ -47,11 +47,12 @@ enum LiveActivityManager {
             let isLast = next == nil
             let remaining = current.end.timeIntervalSince(now)
             let showNext = remaining <= 30 * 60
+            let status = isLast ? "DERNIER COURS" : (remaining <= 20 * 60 ? "BIENTÔT TERMINÉ" : "EN COURS")
             let timerStart = timerDate(current.start)
             let timerEnd = timerDate(current.end)
 
             let state = CourslyActivityAttributes.ContentState(
-                status: isLast ? "DERNIER COURS" : "EN COURS",
+                status: status,
                 title: current.title,
                 room: current.room,
                 teachers: teachers(for: current),

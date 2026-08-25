@@ -23,11 +23,9 @@ struct LiveActivityColorSettingsView: View {
                                 withAnimation(.snappy(duration: 0.22)) { expandedType = expandedType == label ? nil : label }
                                 HapticService.fire(.selection, enabled: store.hapticsEnabled)
                             },
-                            onChange: { hue in
+                            onCommit: { hue in
                                 CourseTypeColorPreferences.setHex(Color.hueHex(hue), for: label)
-                                refreshToken = UUID()
-                            },
-                            onCommit: {
+                                store.courseColorsDidChange()
                                 HapticService.fire(.selection, enabled: store.hapticsEnabled)
                                 Task { await store.restartLiveActivity() }
                             }
@@ -42,6 +40,7 @@ struct LiveActivityColorSettingsView: View {
                     Button("Rétablir les couleurs par défaut") {
                         CourseTypeColorPreferences.reset(labels: detectedTypes)
                         expandedType = nil; refreshToken = UUID()
+                        store.courseColorsDidChange()
                         HapticService.fire(.selection, enabled: store.hapticsEnabled)
                         Task { await store.restartLiveActivity() }
                     }
@@ -55,11 +54,11 @@ struct LiveActivityColorSettingsView: View {
 
 private struct HueTypeRow: View {
     let label: String; let hex: String; let expanded: Bool
-    let onToggle: () -> Void; let onChange: (Double) -> Void; let onCommit: () -> Void
+    let onToggle: () -> Void; let onCommit: (Double) -> Void
     @State private var hue: Double
 
-    init(label: String, hex: String, expanded: Bool, onToggle: @escaping () -> Void, onChange: @escaping (Double) -> Void, onCommit: @escaping () -> Void) {
-        self.label = label; self.hex = hex; self.expanded = expanded; self.onToggle = onToggle; self.onChange = onChange; self.onCommit = onCommit
+    init(label: String, hex: String, expanded: Bool, onToggle: @escaping () -> Void, onCommit: @escaping (Double) -> Void) {
+        self.label = label; self.hex = hex; self.expanded = expanded; self.onToggle = onToggle; self.onCommit = onCommit
         _hue = State(initialValue: Color.hue(fromHex: hex))
     }
 
@@ -75,7 +74,7 @@ private struct HueTypeRow: View {
             }.buttonStyle(.plain)
 
             if expanded {
-                HueStrip(hue: $hue, onChange: onChange, onCommit: onCommit).transition(.opacity.combined(with: .move(edge: .top)))
+                HueStrip(hue: $hue, onCommit: { onCommit(hue) }).transition(.opacity.combined(with: .move(edge: .top)))
             }
         }.padding(.vertical, 2)
     }
@@ -83,7 +82,6 @@ private struct HueTypeRow: View {
 
 private struct HueStrip: View {
     @Binding var hue: Double
-    let onChange: (Double) -> Void
     let onCommit: () -> Void
     private let thumbSize: CGFloat = 26
 
@@ -106,7 +104,6 @@ private struct HueStrip: View {
                         let centeredX = value.location.x - thumbSize / 2
                         let newHue = max(0, min(1, Double(centeredX / trackWidth)))
                         hue = newHue
-                        onChange(newHue)
                     }
                     .onEnded { _ in onCommit() }
             )

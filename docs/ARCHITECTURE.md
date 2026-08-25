@@ -59,7 +59,10 @@ Coursly/
 ├── Features/
 │   ├── RootView.swift
 │   └── Calendar/
-│       ├── TimelineViews.swift
+│       ├── TimelineGeometry.swift
+│       ├── DayTimelineView.swift
+│       ├── WeekTimelineView.swift
+│       ├── TimelineCourseCard.swift
 │       ├── FloatingPanels.swift
 │       ├── CourseDetailSheet.swift
 │       ├── SettingsSheet.swift
@@ -75,3 +78,7 @@ Coursly/
 - les IDs `G1-...` restent internes ;
 - les événements locaux ne participent pas au diff CELCAT ;
 - les snapshots de changement ne contiennent que du POST direct.
+
+## Navigation de timeline
+
+La date horizontale, la position verticale et le chargement réseau sont trois états indépendants. Les règles détaillées et les seuls recentrages autorisés sont décrits dans `TIMELINE_REDESIGN.md`.

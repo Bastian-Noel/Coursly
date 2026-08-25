@@ -15,6 +15,22 @@ final class ParserTests: XCTestCase {
         XCTAssertEqual(event.groups.map(\.name), ["MMI1-A1"])
     }
 
+    func testDirectParserUsesActualBroadGroupAndRemovesVisibleModulePrefix() throws {
+        let json = #"[{"id":"42","start":"2026-09-11T13:00:00","end":"2026-09-11T14:30:00","description":"HAUTBOIS Xavier\r\n\r\n<br />\r\n\r\nMMI2-B\r\n\r\n<br />\r\n\r\nI22 - VEL\r\n\r\n<br />\r\n\r\nR 3.19 Environnement de developpement interactif [MM3R19]\r\n","eventCategory":"Travaux Dirigés (TD)","modules":["MM3R19"],"sites":["Bat. BASTIE - VEL"]}]"#
+        let event = try XCTUnwrap(DirectEventParser().parse(Data(json.utf8), group: .init(name: "MMI2-B2")).first)
+        XCTAssertEqual(event.displayGroupLabels, ["MMI2-B"])
+        XCTAssertEqual(event.title, "Environnement de developpement interactif")
+        XCTAssertFalse(event.title.contains("MM3R19"))
+        XCTAssertFalse(event.title.hasPrefix("R 3.19"))
+    }
+
+    func testDirectParserKeepsMultipleTeachersOnSeparateValues() throws {
+        let json = #"[{"id":"42","start":"2026-09-11T13:00:00","end":"2026-09-11T14:30:00","description":"Mme Dupont\r\nM. Martin<br />MMI2-B<br />I22 - VEL<br />R 3.19 - Atelier [MM3R19]","eventCategory":"Atelier transversal","modules":["MM3R19"],"sites":["Bat. BASTIE - VEL"]}]"#
+        let event = try XCTUnwrap(DirectEventParser().parse(Data(json.utf8), group: .init(name: "MMI2-B2")).first)
+        XCTAssertEqual(event.teachers, ["Mme Dupont", "M. Martin"])
+        XCTAssertEqual(event.displayTypeLabel, "Atelier transversal")
+    }
+
     func testICalUnfoldsLinesAndFiltersInterval() throws {
         let ics = "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:abc\r\nSUMMARY:R101 - Développe\r\n ment web\r\nLOCATION:A101 / A102\r\nDTSTART:20260813T080000\r\nDTEND:20260813T100000\r\nEND:VEVENT\r\nEND:VCALENDAR"
         let formatter = ISO8601DateFormatter()
