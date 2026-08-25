@@ -1,64 +1,150 @@
-# Sources de données CELCAT
+# Contrat des données CELCAT
 
-## Principe fondamental
-
-Le POST CELCAT direct est la source de vérité. Le flux iCal est un fallback strict uniquement lorsque le POST échoue réellement.
+## 1. Source principale
 
 ```text
 POST https://edt.iut-velizy.uvsq.fr/Home/GetCalendarData
 ```
 
-Paramètres connus : `start`, `end`, `resType=103`, `calView=agendaWeek`, `federationIds[]=<groupe lisible>`.
+Corps `application/x-www-form-urlencoded` :
 
-## Groupes publics et IDs iCal internes
+| Champ | Valeur |
+| --- | --- |
+| `start` | début de l’intervalle au format `yyyy-MM-dd` |
+| `end` | fin de l’intervalle au format `yyyy-MM-dd` |
+| `resType` | `103` |
+| `calView` | `agendaWeek` |
+| `federationIds[]` | nom public du groupe, par exemple `MMI2-B2` |
 
-- MMI1-A1 → G1-QJ2DMFYC5987
-- MMI1-A2 → G1-PW2GUKMM5988
-- MMI1-B1 → G1-HN2CHYNX5990
-- MMI1-B2 → G1-QW2SJTJH5991
-- MMI2-A1 → G1-QS2QEJVB5994
-- MMI2-A2 → G1-EG2LDXAM5995
-- MMI2-B1 → G1-AE2BGJHX5997
-- MMI2-B2 → G1-TM2VJCBU5998
-- MMI3-FA-DW-A1 → G1-TS2PGRAD6003
-- MMI3-FA-DW-A2 → G1-KL2GMWYW6004
-- MMI3-FI-CN-A1 → G1-EB2URAPF6006
-- MMI3-FI-CN-A2 → G1-JP2NSAYC6007
-- MMI3-FA-CN-A1 → G1-CC2LTGMX6000
-- MMI3-FA-CN-A2 → G1-HW2LKCBM6001
+Headers importants : `Accept: application/json`, `X-Requested-With: XMLHttpRequest`.
 
-Les IDs `G1-...` ne doivent jamais apparaître dans l'UI.
+Une réponse décodable en tableau constitue un succès, même si ce tableau est vide.
 
-## Stratégie
+## 2. Stratégie par groupe
 
 ```text
-CalendarService
-  ↓
-POST direct
-  ├─ succès exploitable → parser direct → normalizer → POST uniquement
-  └─ échec réel         → iCal → parser iCal → normalizer → fallback uniquement
+CelcatDirectClient.fetch
+   ↓
+DirectEventParser
+   ├─ succès → directPOST uniquement
+   └─ erreur → CelcatICalClient.fetch → ICalParser → iCalFallback uniquement
 ```
 
-Une réponse POST valide avec zéro événement est un succès et ne déclenche pas iCal.
+Le choix est effectué indépendamment pour chaque groupe demandé. Une requête multi-groupes peut donc afficher :
 
-Le fallback peut être utilisé pour timeout, panne réseau, statut HTTP inutilisable, payload invalide ou parsing impossible.
+- du POST pour les groupes ayant réussi ;
+- de l’iCal pour un groupe dont le POST a échoué ;
+- une erreur signalée pour un groupe dont les deux sources ont échoué.
 
-## Données à préserver
+Cette coexistence entre groupes n’est pas une fusion des sources d’un même groupe.
 
-Le POST peut fournir enseignant(s), groupe, salle(s), catégorie, modules, département, faculté, sites, horaires et ID. Le modèle Swift doit préserver cette richesse. Le fallback iCal peut produire moins de champs ; les champs manquants restent vides/nuls.
+## 3. Groupes publics et IDs iCal internes
 
-## Parsing de référence
+| Groupe public POST | ID iCal interne |
+| --- | --- |
+| `MMI1-A1` | `G1-QJ2DMFYC5987` |
+| `MMI1-A2` | `G1-PW2GUKMM5988` |
+| `MMI1-B1` | `G1-HN2CHYNX5990` |
+| `MMI1-B2` | `G1-QW2SJTJH5991` |
+| `MMI2-A1` | `G1-QS2QEJVB5994` |
+| `MMI2-A2` | `G1-EG2LDXAM5995` |
+| `MMI2-B1` | `G1-AE2BGJHX5997` |
+| `MMI2-B2` | `G1-TM2VJCBU5998` |
+| `MMI3-FA-DW-A1` | `G1-TS2PGRAD6003` |
+| `MMI3-FA-DW-A2` | `G1-KL2GMWYW6004` |
+| `MMI3-FI-CN-A1` | `G1-EB2URAPF6006` |
+| `MMI3-FI-CN-A2` | `G1-JP2NSAYC6007` |
+| `MMI3-FA-CN-A1` | `G1-CC2LTGMX6000` |
+| `MMI3-FA-CN-A2` | `G1-HW2LKCBM6001` |
 
-Le prototype `docs/reference/calendar.mjs` contient la logique fonctionnelle à porter en Swift :
+Les IDs de la seconde colonne ne sortent jamais du client iCal.
 
-- mapping catégories vers CM/TD/TP/PROJET/INT/REUNION/DS/EXAM ;
-- découpage de la description CELCAT sur `<br />` ;
-- extraction enseignant/groupe/salles/module ;
-- parsing d'un bloc tel que `R218 - Economie et Droit du numerique [MM2R18]` ;
-- nettoyage de salle ;
-- parsing iCal VEVENT, UID, SUMMARY, LOCATION, DESCRIPTION, DTSTART, DTEND, TZID et UTC ;
-- filtrage des événements en `Europe/Paris`.
+## 4. Groupe de requête et groupe réel
 
-Limite connue : le prototype iCal ne développe pas `RRULE`. Si nécessaire, le port Swift devra traiter les récurrences explicitement.
+Exemple : une requête `MMI2-B2` peut renvoyer dans `description` un cours pour `MMI2-B` ou `MMI2`.
 
-Voir `docs/reference/README.md` pour les règles de portage.
+Le modèle conserve :
+
+```text
+groups            = [MMI2-B2]    provenance de requête
+rawGroupLabels    = [MMI2-B]     groupe annoncé par CELCAT
+displayGroupLabels= [MMI2-B]     valeur destinée à l’interface
+```
+
+Si aucun groupe réel exploitable n’est présent, `displayGroupLabels` retombe sur `groups`.
+
+## 5. Parsing POST
+
+Champs exploités :
+
+- `id`, `start`, `end`, `allDay` ;
+- `description`, `eventCategory` ;
+- `modules`, `sites` ;
+- les métadonnées supplémentaires peuvent être préservées lors d’une évolution du modèle.
+
+La description CELCAT contient généralement :
+
+```text
+enseignant 1
+enseignant 2
+<br />
+groupe réel
+<br />
+salle 1
+<br />
+bloc module
+```
+
+Le parser doit :
+
+- préserver les vrais retours ligne avant de découper `<br />` ;
+- garder plusieurs enseignants séparés ;
+- calculer la position du groupe à partir du bloc final module et du nombre de salles ;
+- nettoyer le suffixe de site des salles ;
+- retirer le code et le préfixe module du titre visible ;
+- conserver `eventCategory` comme type dynamique ;
+- normaliser les catégories connues sans supprimer les inconnues ;
+- ignorer `allDay == true`.
+
+## 6. Dates et fuseau
+
+- Fuseau métier : `Europe/Paris`.
+- Accepter ISO 8601 avec offset, secondes fractionnaires ou date locale CELCAT.
+- La position timeline est calculée dans le fuseau métier.
+- Les tests doivent inclure heure d’été, heure d’hiver et valeurs UTC.
+
+## 7. Fallback iCal
+
+Endpoint :
+
+```text
+GET https://edt.iut-velizy.uvsq.fr/Calendar/iCalendar
+```
+
+Paramètres : `resType=103` et `federationIds[]=<ID interne>`.
+
+Le parser gère au minimum : VEVENT, UID, SUMMARY, LOCATION, DTSTART, DTEND, lignes repliées, texte échappé, dates UTC et locales. Les champs absents restent vides ou nuls ; ils ne sont pas inventés depuis le POST.
+
+Limite connue : le développement de `RRULE` / `RECURRENCE-ID` doit être ajouté et testé si le flux réel en contient.
+
+## 8. Fusion visuelle multi-groupes
+
+Après normalisation, `CalendarService.mergeVisualDuplicates` peut fusionner des cours identiques selon matière, dates, salles, enseignants, type et module.
+
+La fusion :
+
+- réunit les groupes de requête ;
+- réunit les groupes réels ;
+- conserve une provenance cohérente ;
+- ne fusionne pas les événements personnels ;
+- ne mélange pas POST et iCal pour enrichir un même cours.
+
+## 9. Snapshots et diagnostics
+
+- `directEventsByGroup` alimente les snapshots POST.
+- `fallbackGroups` explique quels groupes utilisent la roue de secours.
+- `failedGroups` expose les échecs complets.
+- Un chargement incrémental destiné à la navigation ne doit pas produire de faux changements.
+- Un refresh explicite peut mettre à jour les snapshots et notifier.
+
+Les références JavaScript historiques sont décrites dans [`reference/README.md`](reference/README.md). Le code Swift actuel reste la référence d’implémentation.

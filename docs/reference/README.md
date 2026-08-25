@@ -1,61 +1,38 @@
-# Références JavaScript / MJS pour le portage Swift
+# Références de parsing CELCAT
 
-Ce dossier conserve la logique du prototype CELCAT utilisé avant l'implémentation native iOS.
-
-Ces fichiers ne doivent pas être exécutés dans Coursly. Ils servent à Codex comme référence de comportement lors du portage vers Foundation/Swift.
+Ce dossier conserve des implémentations JavaScript historiques utilisées pour comprendre les formats CELCAT. Elles servent de documentation exécutable et de matériau de test ; elles ne sont pas exécutées par l’application iOS.
 
 ## Fichiers
 
-- `direct-celcat-reference.mjs` : mapping des groupes, requête POST, parsing de la description CELCAT, parsing module, catégories et normalisation de la source principale.
-- `ical-core-reference.mjs` : noyau du parsing VEVENT/UID/SUMMARY/LOCATION/DESCRIPTION/DTSTART/DTEND et normalisation iCal de secours.
-- `fallback-strategy.mjs` : règle POST-first stricte et fallback iCal uniquement sur erreur.
+| Fichier | Rôle historique |
+| --- | --- |
+| [`direct-celcat-reference.mjs`](direct-celcat-reference.mjs) | requête directe et lecture de la réponse du calendrier |
+| [`ical-core-reference.mjs`](ical-core-reference.mjs) | extraction des événements iCal |
+| [`fallback-strategy.mjs`](fallback-strategy.mjs) | illustration de la priorité POST puis du fallback |
 
-## Sources historiques étudiées
+Le code Swift dans `Coursly/Core/Calendar` est l’implémentation de production et reste la seule autorité technique de l’app.
 
-Le prototype est issu de l'étude de :
+## Ce qui doit rester équivalent
 
-- `Bastian-Noel/edtvelizyics` : parsing enrichi des événements CELCAT et reconstruction ICS propre.
-- `mmi-place/celcat-back` : POST direct avec fallback sur un flux iCal.
+- compréhension des champs utiles du POST CELCAT ;
+- extraction de matière, type, groupe réel, salle et enseignants ;
+- gestion des dates dans le fuseau `Europe/Paris` ;
+- recours à l’iCal uniquement lorsque le POST échoue réellement ;
+- rejet des objets incomplets plutôt que fabrication silencieuse de données.
 
-## Règle de portage
+## Différences volontaires du code Swift
 
-Ne pas faire une traduction ligne à ligne. Conserver les comportements métier et remplacer les mécanismes JavaScript par les API Swift adaptées.
+L’implémentation native ajoute notamment :
 
-Correspondances recommandées :
+- une distinction explicite entre groupe de requête et groupe réel du cours ;
+- des erreurs typées pour décider du fallback ;
+- un modèle `CalendarEvent` normalisé ;
+- des identifiants stables et une déduplication multi-groupes ;
+- la découverte dynamique des types ;
+- l’intégration au cache, à la recherche, aux changements et à la Live Activity.
 
-- `fetch` → `URLSession`
-- `URLSearchParams` → corps `application/x-www-form-urlencoded`
-- objets JS → `struct Codable`
-- `Date` JS → `Foundation.Date`
-- mapping `GROUPS` → `enum StudentGroup`
-- `eventCategoryToTag` → `CourseType` / normalizer
-- `parseCelcatDescription` → `DirectEventParser`
-- `parseModuleFromBlock` → fonction testable pure
-- parser VEVENT → `ICalParser`
-- stratégie `try POST / catch iCal` → `CalendarService`
+Une divergence observée entre ces références et CELCAT ne doit pas être copiée aveuglément dans Swift. Ajouter d’abord une fixture anonymisée issue du format réel, écrire un test qui échoue, puis adapter le parseur de production.
 
-## Tests Swift à écrire avant de considérer le portage terminé
+## Données sensibles
 
-- description avec un enseignant ;
-- plusieurs enseignants ;
-- `(N more...)` ;
-- plusieurs salles ;
-- module avec code entre crochets ;
-- CM, TD, TP, projet, DS, examen ;
-- POST vide sans fallback ;
-- POST en erreur avec fallback ;
-- iCal avec lignes repliées ;
-- dates UTC et Europe/Paris ;
-- accents et caractères HTML/iCal échappés.
-
-## Point à vérifier sur la nouvelle instance CELCAT
-
-Le prototype utilise `start=date` et `end=date` car c'est le comportement repris des projets existants. Si une instance CELCAT traite `end` comme une borne exclusive, tester `end = lendemain` avant de modifier le reste du parser.
-
-## Limite iCal connue
-
-Le prototype maison ne développe pas `RRULE`/`RECURRENCE-ID`. Si le flux réel en contient, l'implémentation Swift doit ajouter la gestion des récurrences ou utiliser une stratégie adaptée.
-
-## Important
-
-Le fichier iCal de référence est volontairement plus minimal que le parser final attendu. Pour le port Swift, Foundation doit gérer correctement les timezones, notamment `Europe/Paris`, et les tests doivent couvrir les changements d'heure.
+Ne pas ajouter de réponse contenant noms complets, identifiants privés, cookies, tokens ou emploi du temps personnel non anonymisé. Une fixture doit conserver la structure nécessaire au test avec des valeurs fictives.

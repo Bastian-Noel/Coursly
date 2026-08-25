@@ -1,38 +1,167 @@
-# UX Coursly V3
+# Spécification UX et design
 
-Voir `docs/V3.md` pour le contrat complet.
+## 1. Direction visuelle
 
-## Surface unique
+Coursly privilégie une grille temporelle claire, des surfaces interactives légères et des informations denses mais hiérarchisées.
 
-Coursly utilise une seule CalendarScene plein écran. Il n'existe plus de navigation principale Aujourd'hui / Semaine / Recherche / Réglages sous forme d'onglets.
+- Fond principal blanc ou système en mode clair, sombre système en mode sombre.
+- Gris neutres pour les jours passés et séparateurs.
+- Aucune teinte jaune ou orange décorative imposée aux en-têtes Semaine.
+- Couleur de type réservée au trait gauche, aux accents et aux fonds teintés des cartes.
+- Liquid Glass réservé aux contrôles et panneaux flottants.
 
-## Timeline
+## 2. Hiérarchie de l’écran
 
-- 00:00 → 00:00 ;
-- centrée sur maintenant à l'ouverture ;
-- trait rouge pour maintenant ;
-- swipe gauche/droite pour changer de jour ;
-- week-ends intelligents ;
-- Jour et Semaine sont deux états de la même vue.
+```text
+CalendarHeader
+CalendarScene
+   ├── DayTimelineView
+   └── WeekTimelineView
+Panneau contextuel éventuel
+FloatingControlDock
+```
 
-## Blocs de cours
+L’ordre de superposition doit garantir :
 
-Début en haut à gauche, fin en bas à gauche. La matière, le type et la salle sont prioritaires. Prof, groupes et module apparaissent quand la largeur/hauteur le permet.
+1. timeline scrollable ;
+2. panneaux au-dessus de la timeline ;
+3. dock toujours accessible ;
+4. réserve de contenu suffisante sous 24:00.
 
-Les chevauchements sont disposés côte à côte. CM/TD/TP restent textuels : la couleur n'est jamais la seule information.
+## 3. En-tête principal
 
-## Contrôles
+- Date focalisée à gauche.
+- Heure logique et groupes à droite.
+- Actualisation explicite avec état de chargement.
+- Toucher la date ouvre le panneau de choix de date.
+- L’indicateur de simulation utilise un gris neutre et reste identifiable par son icône/texte.
 
-Liquid Glass est réservé aux contrôles flottants et surfaces interactives. La grille reste structurée et lisible.
+## 4. Timeline Jour
 
-## Recherche
+- Colonne horaire de 44 points environ.
+- Libellés `00` à `00`, traits principaux chaque heure et traits secondaires discrets.
+- Cours à droite de la colonne horaire.
+- Ligne rouge exacte sur aujourd’hui uniquement.
+- Page précédente et suivante préchargées pour le swipe.
+- La réponse verticale à un swipe diagonal reste prioritaire si le mouvement horizontal n’est pas dominant.
 
-Recherche texte + facettes dynamiques : matière, professeur, salle, groupe, type et module. Tap sur un résultat ramène la timeline au bon jour et met en évidence le cours.
+Positionnements :
 
-## Détail
+| Situation | Comportement |
+| --- | --- |
+| Lancement sur aujourd’hui | ligne rouge centrée après chargement |
+| Date initiale non courante | premier cours ou 08:00 si vide |
+| Swipe jour | position verticale inchangée |
+| Choix de date | position verticale inchangée |
+| Aujourd’hui | ligne rouge centrée |
+| Résultat de recherche | cours centré |
 
-Sheet contextuelle avec matière, type, date, horaires, durée, salle, prof, groupes et module. La provenance réseau reste en diagnostic uniquement.
+## 5. Timeline Semaine
 
-## Français et accessibilité
+- Cinq journées dans la largeur disponible.
+- Colonne horaire visible à gauche pendant tout déplacement horizontal.
+- En-tête blanc/gris clair ; aujourd’hui distingué par une forme grise neutre, pas une couleur chaude.
+- En-tête et contenu se déplacent ensemble horizontalement.
+- L’en-tête défile verticalement avec la journée ; il n’est pas sticky.
+- Les traits horaires traversent chaque colonne jusqu’à 24:00.
+- Les séparateurs verticaux restent subtils.
+- Le ruban se cale sur les limites de journée.
 
-Tous les libellés visibles sont français. VoiceOver doit pouvoir lire type, matière, horaires, salle, professeur et groupes. Respecter Dynamic Type et Réduire les animations.
+Les jours passés utilisent un fond légèrement plus sombre et un texte secondaire. Aujourd’hui et les jours futurs utilisent le fond normal.
+
+## 6. Carte de cours
+
+### Forme
+
+- Rectangle sans gros rayon.
+- Trait de type de 2,5 à 3,5 points au bord gauche.
+- Pas d’ombre lourde.
+- Pas de marge au début temporel.
+- Environ quatre points de vide avant la fin temporelle.
+
+### Contenu
+
+Priorité :
+
+1. matière ;
+2. horaires et type ;
+3. salle ;
+4. enseignants ;
+5. groupe réel.
+
+Le code module n’est jamais rendu sur la carte. Il reste disponible dans le détail et la recherche.
+
+Les métadonnées utilisent :
+
+- `mappin` ou `mappin.and.ellipse` pour la salle ;
+- `person.fill` pour les enseignants ;
+- `person.2.fill` pour le groupe.
+
+### Adaptation
+
+- Une carte très courte utilise deux lignes compactes.
+- Un cours d’environ une heure utilise type/horaires, matière puis une ligne compressible de métadonnées.
+- Une carte haute sépare salle, enseignants et groupe sur plusieurs lignes.
+- Une colonne Semaine étroite réduit la typographie, le nombre de lignes et les métadonnées secondaires.
+- `minimumScaleFactor` évite les coupures brutales sans rendre le texte illisible.
+
+### Pression
+
+Au touch-down :
+
+- échelle proche de `0.97` ;
+- légère baisse de luminosité/opacité ;
+- haptique doux unique.
+
+Au relâchement valide : ouverture du détail. Les grilles, indicateurs et ancres sont `allowsHitTesting(false)`.
+
+## 7. Couleurs et passé
+
+- Le fond normal d’un cours utilise une faible opacité de la couleur du type.
+- Le trait gauche utilise la couleur pleine.
+- Un cours passé réduit saturation et luminosité tout en préservant la hue.
+- Le fond de jour passé et le fond de cours passé sont deux traitements différents et cumulables.
+- Le texte doit conserver un contraste suffisant dans les deux modes système.
+
+## 8. Sélecteur de Hue
+
+- Une seule barre arc-en-ciel par type développé.
+- Surface tactile d’au moins 44 points.
+- `DragGesture(minimumDistance: 0)` local.
+- Le curseur est centré sous le doigt et reste dans les bornes.
+- La preview suit chaque `onChanged`.
+- La préférence et la Live Activity sont mises à jour au `onEnded`.
+- Aucun changement d’identité de la row pendant le drag.
+
+## 9. Groupes
+
+- Navigation progressive dans une hiérarchie.
+- Fil d’Ariane et retour au niveau précédent.
+- `Tous` clairement séparé des choix enfants.
+- Nombres nommés `Groupe N`.
+- Résumé permanent de la sélection actuelle.
+- Aucun ID technique exposé.
+
+## 10. Contrôles flottants
+
+Le dock regroupe : Jour/Semaine, Chercher, Groupes et Plus. Aujourd’hui apparaît séparément lorsqu’il est utile.
+
+- Cibles tactiles minimales de 44 points.
+- État actif visible par fond teinté et trait d’accessibilité sélectionné.
+- Le dock n’occupe pas une TabBar opaque pleine largeur.
+- La timeline ajoute une réserve de scroll supérieure à la hauteur réelle du dock.
+
+## 11. Panneaux et réglages
+
+- Recherche, Groupes, Date, Plus et Changements sont des panneaux flottants.
+- Réglages, création et détail sont des sheets.
+- Les réglages sont regroupés par intention : Calendrier, Apparence, Changements, Live Activity, Simulation, Interactions, Diagnostic.
+- Une explication courte accompagne toute option métier non évidente.
+
+## 12. Accessibilité
+
+- Tous les libellés visibles sont en français.
+- Une carte forme un élément VoiceOver unique avec matière, type, horaires, salle, enseignants et groupe.
+- Ne pas dépendre uniquement de la couleur.
+- Conserver la lisibilité avec Dynamic Type ; si une carte ne peut pas grandir, prioriser le contenu essentiel.
+- Les animations de navigation doivent pouvoir être réduites sans casser l’état final.

@@ -1,69 +1,87 @@
-# Décisions de conception — Coursly
+# Décisions de conception
 
-Ce document contient les décisions structurantes. Codex ne doit pas les changer implicitement.
+Ce registre contient les décisions qui ne peuvent être modifiées implicitement. Toute évolution contraire exige une décision explicite, la mise à jour de ce fichier et des tests de migration.
 
-## D-001 — POST CELCAT = source de vérité
+## D-001 — POST CELCAT comme source de vérité
 
-Endpoint principal :
+L’endpoint principal est :
 
 ```text
 POST https://edt.iut-velizy.uvsq.fr/Home/GetCalendarData
 ```
 
-Le POST est plus riche et plus complet que l'iCal. Tant qu'il répond avec un payload exploitable, **seules ses données sont utilisées**.
+Une réponse exploitable, y compris `[]`, produit exclusivement des événements `directPOST`.
 
-Une réponse valide contenant zéro événement est un succès.
+## D-002 — iCal comme fallback strict
 
-## D-002 — iCal = fallback strict
+Le fallback iCal n’est autorisé qu’après un échec réel du POST : transport, timeout, statut HTTP inutilisable, payload invalide ou parsing impossible.
 
-Le flux iCal est une roue de secours si le POST échoue réellement : réseau, timeout, statut inutilisable, payload invalide ou parsing impossible.
+Sont interdits :
 
-Interdit :
+- la fusion POST + iCal ;
+- l’enrichissement du POST avec l’iCal ;
+- le fallback déclenché parce qu’une journée ou période est vide ;
+- la comparaison en production des deux sources pour choisir la plus riche.
 
-- fusion POST + iCal ;
-- enrichissement du POST par iCal ;
-- fallback parce qu'une journée contient 0 cours ;
-- comparaison systématique en production pour choisir « le meilleur » événement.
+## D-003 — Deux identités de groupe
 
-## D-003 — Groupes publics lisibles
+Un événement conserve séparément :
 
-L'app manipule publiquement : `MMI1-A1`, `MMI1-A2`, etc.
+- le groupe de requête dans `groups` ;
+- le groupe réel annoncé par CELCAT dans `rawGroupLabels` / `displayGroupLabels`.
 
-Les IDs `G1-...` sont strictement internes au client iCal.
+L’interface affiche le groupe réel lorsqu’il existe. Le groupe de requête reste utile pour la provenance, les snapshots et le fallback.
 
-## D-004 — Modèle métier unique
+## D-004 — IDs techniques invisibles
 
-Le reste de l'app consomme un modèle normalisé `CalendarEvent` et ne doit pas dépendre du format réseau d'origine.
+Les noms `MMI...` sont publics. Les IDs iCal `G1-...` sont internes au client fallback et interdits dans l’interface, la recherche, les notifications et la Live Activity.
 
-La provenance (`directPOST`, `iCalFallback`, `local`) peut être conservée pour le debug.
+## D-005 — Modèle métier unique
 
-## D-005 — Multi-groupes != fusion de sources
+L’application consomme `CalendarEvent`. Les formats POST et iCal ne remontent pas dans les vues. La provenance `directPOST`, `iCalFallback` ou `local` est conservée pour les règles métier et le diagnostic.
 
-La fusion de cours identiques concerne uniquement plusieurs groupes après normalisation. Elle ne mélange jamais deux sources réseau.
+## D-006 — Multi-groupes sans mélange de sources
 
-## D-006 — Live Activity Lock Screen uniquement
+La fusion visuelle rassemble des cours normalisés identiques issus de plusieurs groupes demandés. Elle ne transforme jamais deux sources réseau en un même événement hybride.
 
-V1 : présentation Lock Screen uniquement.
+## D-007 — Changements basés uniquement sur le POST
 
-Hors scope : Dynamic Island compact, minimal et expanded.
+`ChangeDetectionService` compare des snapshots POST directs par groupe. Un résultat iCal reste affichable mais n’écrase pas le dernier snapshot POST fiable et ne peut pas générer une suppression ou un déplacement.
 
-## D-007 — Live Activity = maintenant + après si utile
+## D-008 — Une seule surface de calendrier
 
-Elle répond à : quel cours, où, quand, combien de temps avant début/fin, quel type, puis le prochain seulement quand pertinent.
+Jour et Semaine sont deux états de `CalendarScene`, pas deux onglets indépendants. Recherche, groupes, date et actions utilisent des panneaux ; détail et réglages utilisent des sheets.
 
-## D-008 — SwiftUI natif
+## D-009 — États de scroll indépendants
 
-Privilégier SwiftUI, Foundation, ActivityKit et les API Apple. Éviter les dépendances si une API native suffit.
+La date horizontale, la position verticale et le chargement réseau sont indépendants. Un changement horizontal normal ne produit aucun recentrage vertical.
 
-## D-009 — Distribution sans signature CI
+## D-010 — Coordonnées temporelles communes
 
-`main` compile une IPA non signée sur runner macOS. La signature est effectuée sur l'iPhone par Feather/SideStore/etc.
+Jour et Semaine utilisent la même conversion heure → position. Un cours commence exactement à son heure et se termine avec un petit espace visuel avant son heure de fin.
 
-## D-010 — Branches
+## D-011 — Types dynamiques et réglage Hue uniquement
 
-- `main` = développement et CI.
-- `site` = GitHub Pages + JSON de distribution uniquement.
+Le libellé du type provient des données CELCAT. Une enum peut normaliser les catégories connues mais ne limite pas l’interface. Le réglage utilisateur modifie uniquement la hue ; saturation et luminosité sont déterminées par le design.
 
-## D-011 — Bundle ID stable
+## D-012 — Temps logique simulé
 
-Une fois choisi, le Bundle ID reste stable pour permettre les mises à jour. `CFBundleVersion` augmente à chaque build distribuée.
+Le statut en cours, les décomptes, la ligne rouge, le centrage explicite et la Live Activity utilisent le temps logique. Les heures affichées du cours restent les dates CELCAT réelles.
+
+## D-013 — Live Activity centrée sur le Lock Screen
+
+Le Lock Screen est l’unique expérience produit de la Live Activity. Une représentation minimale imposée par les surfaces système peut exister pour compatibilité ActivityKit, mais aucune expérience Dynamic Island développée ne fait partie du périmètre sans nouvelle décision.
+
+## D-014 — SwiftUI natif
+
+Privilégier SwiftUI, Foundation, ActivityKit et UserNotifications. Une dépendance externe doit résoudre un besoin non couvert de façon raisonnable par les API Apple.
+
+## D-015 — Distribution non signée
+
+La CI compile une IPA non signée. La signature est réalisée sur l’iPhone avec Feather, SideStore ou un outil équivalent. Aucun certificat ou profil privé n’est stocké dans le dépôt.
+
+## D-016 — Branches et Bundle ID
+
+- `main` : code, documentation, tests et déclenchement de distribution ;
+- `site` : GitHub Pages et métadonnées uniquement ;
+- Bundle ID stable : `fr.bastiannoel.coursly`.
