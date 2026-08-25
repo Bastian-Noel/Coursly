@@ -10,7 +10,7 @@ L’emploi du temps CELCAT de l’IUT de Vélizy, dans une application iPhone na
 
 Coursly affiche la journée ou la semaine sur une timeline réelle de 24 heures, suit le cours en cours sur l’écran verrouillé et permet de parcourir l’emploi du temps dans le passé comme dans le futur. L’application est développée en Swift 6 et SwiftUI pour iOS 26.
 
-[Installer Coursly](https://bastian-noel.github.io/Coursly/) · [Télécharger la dernière IPA](https://github.com/Bastian-Noel/Coursly/releases) · [Consulter la documentation](docs/V3.md)
+[Installer Coursly](https://bastian-noel.github.io/Coursly/) · [Télécharger la dernière IPA](https://github.com/Bastian-Noel/Coursly/releases) · [Consulter la documentation](docs/README.md)
 
 > [!IMPORTANT]
 > Les IPA publiées sont volontairement non signées. Elles doivent être signées sur l’iPhone avec Feather, SideStore ou un outil équivalent.
@@ -159,7 +159,7 @@ Les tests couvrent notamment :
 - l’échec POST avec fallback iCal ;
 - les groupes CELCAT réels et leur fusion multi-groupes ;
 - les types dynamiques ;
-- les cours consécutifs et simultanés ;
+- les cours consécutifs et le moteur de placement ;
 - les coordonnées temporelles de la timeline ;
 - l’indépendance entre navigation horizontale et position verticale ;
 - la détection de changements et la recherche.
@@ -188,12 +188,14 @@ Les pull requests vers `main` exécutent les tests, le build et le packaging san
 | Document | Sujet |
 | --- | --- |
 | [`AGENTS.md`](AGENTS.md) | Règles de travail prioritaires |
+| [`docs/README.md`](docs/README.md) | Index et ordre d’autorité de la documentation |
 | [`docs/V3.md`](docs/V3.md) | Contrat produit et UX actif |
 | [`docs/DECISIONS.md`](docs/DECISIONS.md) | Décisions non négociables |
 | [`docs/DATA_SOURCES.md`](docs/DATA_SOURCES.md) | Contrat POST CELCAT et fallback iCal |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Architecture Swift |
 | [`docs/TIMELINE_REDESIGN.md`](docs/TIMELINE_REDESIGN.md) | Invariants Jour/Semaine et performances |
 | [`docs/LIVE_ACTIVITY.md`](docs/LIVE_ACTIVITY.md) | États et contenu du Lock Screen |
+| [`docs/QUALITY_ASSURANCE.md`](docs/QUALITY_ASSURANCE.md) | Tests et validation sur appareil |
 | [`docs/DISTRIBUTION.md`](docs/DISTRIBUTION.md) | IPA, Releases et branche `site` |
 | [`docs/reference/README.md`](docs/reference/README.md) | Références de parsing CELCAT |
 

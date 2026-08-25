@@ -1,34 +1,60 @@
-# Vision produit — Coursly V3
+# Vision produit
 
-Coursly est une app iPhone native d'emploi du temps étudiant pour l'IUT de Vélizy / UVSQ. La V3 optimise le geste quotidien : ouvrir l'app et comprendre immédiatement le présent et la suite.
+Coursly transforme l’emploi du temps CELCAT de l’IUT de Vélizy en une expérience iPhone immédiate, lisible et fiable.
 
-## Questions prioritaires
+## Promesse
 
-1. Qu'est-ce que j'ai maintenant ?
-2. Qu'est-ce que j'ai ensuite ?
-3. Où dois-je aller ?
-4. Qu'est-ce qui a changé ?
-5. À quoi ressemble ma journée ou ma semaine ?
+En ouvrant Coursly, un étudiant doit comprendre sans calcul :
 
-## Expérience
+1. quel cours a lieu maintenant ;
+2. quand il commence ou se termine ;
+3. où aller et avec qui ;
+4. quel groupe est réellement concerné ;
+5. ce qui vient ensuite ;
+6. ce qui a changé depuis la dernière synchronisation.
 
-Une seule timeline plein écran. Swipe pour changer de jour. Jour/Semaine est un niveau de zoom. Recherche, groupes, date et actions sont des panneaux flottants. Les détails et réglages sont des sheets.
+## Principes
 
-## Fonctions V3
+- **Temporel avant tout** : les cours occupent leurs vraies coordonnées de 00:00 à 24:00.
+- **Continuité** : Jour et Semaine sont deux échelles d’un même calendrier.
+- **Contrôle utilisateur** : après le positionnement initial, le scroll vertical appartient à l’utilisateur.
+- **Fidélité CELCAT** : l’app affiche les données du POST sans les compléter silencieusement.
+- **Information avant décoration** : matière, état, horaires, type, groupe, salle et enseignants sont prioritaires.
+- **Design adaptatif** : une carte ne coupe pas simplement son contenu ; elle change de densité.
+- **Temps simulé sans falsification** : la logique peut voyager dans le temps, pas les horaires affichés.
 
-- multi-groupes ;
-- fusion des cours identiques ;
-- conflits côte à côte ;
+## Fonctionnalités actives
+
+- timeline Jour avec swipe et ligne du temps courant ;
+- ruban Semaine de cinq jours avec navigation passée et future ;
+- multi-groupes, sélection hiérarchique et fusion visuelle ;
+- cartes adaptatives, chevauchements côte à côte et détail contextuel ;
 - recherche texte et facettes dynamiques ;
-- événements personnels ;
+- événements personnels locaux ;
+- personnalisation de hue par type CELCAT ;
+- détection ajouté/supprimé/déplacé/modifié ;
+- notifications locales configurables ;
 - simulation temporelle ;
-- détection ajout/suppression/déplacement/modification ;
-- notifications configurables sur les prochains jours ;
-- historique des changements ;
-- Activité en direct de la journée ;
-- retours haptiques ;
-- cache local et diagnostic de synchronisation.
+- Live Activity Lock Screen ;
+- IPA non signée distribuée automatiquement.
 
-## Source de vérité
+## Hors périmètre actuel
 
-Le POST CELCAT reste la source de vérité. iCal est uniquement un fallback lorsqu'il échoue et n'est jamais utilisé comme complément ou comme référence de détection de changement.
+- Dynamic Island comme expérience produit distincte ;
+- modification de l’emploi du temps CELCAT ;
+- authentification UVSQ ;
+- synchronisation cloud d’événements personnels ;
+- signature de l’IPA par la CI ;
+- utilisation de l’iCal comme complément de données.
+
+## Mesure de qualité
+
+La réussite n’est pas seulement une compilation. Elle combine :
+
+- respect des invariants de données ;
+- tests de régression ;
+- fluidité sur un ruban Semaine réel ;
+- lisibilité des cours courts et étroits ;
+- interactions tactiles fiables ;
+- validation sur iPhone iOS 26 ;
+- pipeline de distribution entièrement vert.

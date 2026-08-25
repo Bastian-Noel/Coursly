@@ -1,26 +1,107 @@
-# Activité en direct — V3
+# Live Activity — spécification Lock Screen
 
-L'Activité en direct représente la journée et reçoit uniquement des `CalendarEvent` normalisés. Elle n'appelle jamais CELCAT.
+## 1. Périmètre
 
-## États
+La Live Activity répond à la situation immédiate de l’étudiant sur le Lock Screen. Elle ne charge aucune donnée et ne constitue pas une seconde application.
 
-- `PREMIER COURS` avant le premier cours ;
-- `PROCHAIN COURS` entre deux cours ;
-- `EN COURS` pendant un cours ;
-- `BIENTÔT TERMINÉ` dans les 20 dernières minutes si un cours suit ;
-- `DERNIER COURS` pour le dernier cours ;
-- `JOURNÉE TERMINÉE` avant la fermeture.
+La Dynamic Island n’est pas une expérience produit active. Le code requis par `ActivityConfiguration` doit rester minimal et ne pas introduire de hiérarchie fonctionnelle distincte.
 
-## Lock Screen
+## 2. Entrée
 
-Priorités : état, compte à rebours, matière, type, salle, horaires, progression, puis prochain cours seulement si utile.
+`LiveActivityManager` reçoit :
 
-## Contrôles
+- les `CalendarEvent` normalisés du jour logique ;
+- le temps logique courant ;
+- l’état d’activation ;
+- les couleurs personnalisées des types.
 
-Réglages contient : activation globale, état autorisé/actif, `Réafficher l'activité`, `Terminer l'activité actuelle`.
+Le groupe affiché est `displayGroupsText`, jamais automatiquement `groups`.
 
-Si l'utilisateur retire l'activité, Coursly peut en demander une nouvelle lorsqu'il est ouvert et qu'ActivityKit l'autorise.
+## 3. États
 
-## Dynamic Island
+| État | Condition | Décompte |
+| --- | --- | --- |
+| `PREMIER COURS` | avant le premier cours | jusqu’au début |
+| `PAUSE` | entre deux cours | jusqu’au prochain |
+| `EN COURS` | cours actuel, plus de 20 min restantes si un cours suit | jusqu’à la fin |
+| `BIENTÔT TERMINÉ` | 20 dernières minutes et un cours suit | jusqu’à la fin |
+| `DERNIER COURS` | cours actuel sans cours suivant | jusqu’à la fin |
+| `JOURNÉE TERMINÉE` | aucun cours restant | état final temporaire |
 
-Le design produit reste centré sur le Lock Screen. Une présentation minimale est fournie pour les surfaces système où iOS décide d'afficher la Live Activity.
+Le prochain cours pendant un cours en cours n’apparaît que dans les 30 dernières minutes.
+
+## 4. Hiérarchie Lock Screen
+
+Ordre visuel :
+
+1. état temporel en haut à gauche ;
+2. décompte en haut à droite ;
+3. matière ;
+4. type et groupe réel ;
+5. salle et enseignants ;
+6. horaires réels ;
+7. prochain cours si utile ;
+8. barre de progression en bas.
+
+Une bande verticale et les accents utilisent la couleur personnalisée du type.
+
+## 5. Couleurs
+
+- `accentHex` vient de `CourseTypeColorPreferences`.
+- Le type reste textuel.
+- Le contraste du badge est calculé depuis la luminance.
+- L’état terminé peut utiliser une couleur de succès neutre.
+- La couleur doit être cohérente avec la carte correspondante.
+
+## 6. Simulation
+
+Pour un temps logique simulé `logicalNow` :
+
+```text
+timerOffset = systemNow - logicalNow
+timerDate(courseDate) = courseDate + timerOffset
+```
+
+Les champs :
+
+- `start` et `end` restent les horaires réels du cours ;
+- `timerStart` et `timerEnd` sont translatés pour les timers ActivityKit.
+
+Le décompte représente ainsi la simulation tandis que `08:00 → 10:00` reste affiché comme horaire réel.
+
+## 7. Cycle de vie
+
+- Si désactivée : terminer les activités.
+- Si ActivityKit non autorisé : ne rien demander.
+- Si aucun cours dans la journée : terminer immédiatement.
+- Si une activité existe : la mettre à jour et terminer les doublons.
+- Sinon : demander une activité pour le jour logique.
+- `Réafficher l’activité` termine puis recrée.
+- `Terminer l’activité actuelle` termine manuellement.
+
+## 8. Réglages
+
+Le sheet doit exposer :
+
+- activation globale ;
+- autorisation ActivityKit ;
+- état actif/inactif ;
+- réaffichage ;
+- terminaison manuelle ;
+- accès aux couleurs dans la section Apparence générale, pas uniquement sous Live Activity.
+
+## 9. Tests
+
+Extraire ou tester autant que possible la sélection d’état comme logique pure :
+
+- avant premier cours ;
+- pause ;
+- cours en cours ;
+- seuils 30 et 20 minutes ;
+- dernier cours ;
+- journée terminée ;
+- groupe réel ;
+- couleurs dynamiques ;
+- simulation conservant `start/end`.
+
+La validation finale nécessite un iPhone : rendu Lock Screen, mise à jour des timers, suppression utilisateur et recréation.

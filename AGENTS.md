@@ -1,43 +1,55 @@
-# AGENTS.md — Instructions Codex pour Coursly
+# Instructions de contribution à Coursly
 
 ## Mission
 
-Construire **Coursly**, application iPhone native Swift/SwiftUI iOS 26 pour l'emploi du temps de l'IUT de Vélizy / UVSQ.
+Coursly est une application iPhone native Swift 6 / SwiftUI pour iOS 26. Elle affiche l’emploi du temps CELCAT de l’IUT de Vélizy / UVSQ et distribue une IPA non signée destinée à être signée sur l’appareil.
 
-La direction active est **Coursly V3**. Avant une modification importante, lire ce fichier puis `docs/V3.md`.
+Avant toute modification, lire [`docs/README.md`](docs/README.md), puis les documents associés au périmètre.
 
-## Ordre de priorité
+## Règles absolues
 
-1. `docs/DECISIONS.md` — décisions non négociables.
-2. `docs/DATA_SOURCES.md` — POST source de vérité, iCal fallback.
-3. `docs/V3.md` — contrat produit/UX actif.
-4. `docs/ARCHITECTURE.md` — architecture Swift V3.
-5. `docs/PRODUCT.md` — vision produit.
-6. `docs/UX.md` — règles d'interface.
-7. `docs/LIVE_ACTIVITY.md` — Activité en direct V3.
-8. `docs/PLAN.md` — ordre de réalisation.
-9. `docs/DISTRIBUTION.md` et `docs/CODEX_WORKFLOW.md`.
-10. `docs/reference/README.md` et les `.mjs` — référence JavaScript du comportement CELCAT à porter en Swift.
+### Données
 
-En cas de contradiction sur les sources de données, `docs/DECISIONS.md` et `docs/DATA_SOURCES.md` prévalent. Pour l'UX, `docs/V3.md` prévaut sur les anciennes descriptions V1/V2.
+- Le POST CELCAT direct est la source de vérité.
+- L’iCal est un fallback strict par groupe, uniquement après un échec réel du POST.
+- Un POST valide `[]` est un succès.
+- Ne jamais fusionner, enrichir ou comparer POST et iCal pour construire l’affichage.
+- Les snapshots de changements proviennent uniquement du POST direct.
+- Les IDs iCal `G1-...` restent internes.
+- Conserver séparément groupe de requête et groupe réel du cours.
 
-## Règles absolues sur les données
+### Timeline
 
-- **POST CELCAT direct = source de vérité.**
-- **iCal = fallback strict**, seulement si le POST échoue réellement.
-- Ne jamais fusionner ou compléter POST avec iCal.
-- Un POST valide `[]` est un succès et peut signifier zéro cours.
-- Les noms `MMI...` sont publics ; les IDs `G1-...` sont internes et interdits dans l'UI.
-- La détection de changements compare uniquement des snapshots POST directs.
-- Un groupe en fallback iCal peut être affiché mais son snapshot POST précédent ne doit pas être écrasé.
+- Jour et Semaine utilisent les mêmes coordonnées temporelles.
+- Date horizontale, position verticale et chargement réseau sont indépendants.
+- Un swipe ou un préchargement ne recentre jamais la timeline.
+- Le premier affichage attend la fin du chargement utile avant de se positionner.
+- Ne pas recréer une synchronisation entre deux `ScrollView` horizontales.
+- Ne pas réintroduire un ruban Semaine eager contenant des centaines de grilles complètes.
 
-## Référence de portage Swift
+### Interface
 
-`docs/reference/` contient les `.mjs` de référence. Conserver le comportement métier mais utiliser les APIs Swift/Foundation adaptées : `URLSession`, `Codable`, `Date`, `ISO8601DateFormatter`, `async/await`.
+- Toute l’interface visible est en français.
+- Les contrôles du bas flottent et une réserve de scroll protège les cours.
+- Les cartes n’affichent pas le code module.
+- Les cartes utilisent le groupe réel CELCAT lorsqu’il existe.
+- La couleur ne constitue jamais la seule information du type.
+- Un cours passé conserve la hue de son type.
+- Le jour actuel n’est jamais assombri.
 
-Réseau, parsing, normalisation, synchronisation et UI restent séparés.
+### Temps simulé
 
-## Architecture V3
+- Toute décision temporelle utilise le temps logique.
+- Les horaires CELCAT affichés restent les horaires réels du cours.
+- Les timers ActivityKit peuvent être translatés ; les champs `start` et `end` ne le sont pas.
+
+### Live Activity
+
+- L’expérience produit cible le Lock Screen.
+- Elle reçoit des `CalendarEvent` normalisés et n’appelle jamais CELCAT.
+- Ne pas ajouter une seconde expérience Dynamic Island sans décision produit explicite.
+
+## Architecture attendue
 
 ```text
 CalendarScene
@@ -46,43 +58,37 @@ CalendarStore
    ↓
 CalendarService
    ├── CelcatDirectClient
-   └── CelcatICalClient (fallback uniquement)
+   └── CelcatICalClient · fallback strict
    ↓
-Parsers / modèles normalisés
+Parsers → CalendarEvent normalisé
    ↓
-Cache / snapshots / change engine / notifications / Live Activity
+UI · cache · changements · notifications · Live Activity
 ```
 
-Les Views ne parsèrent jamais CELCAT et n'appellent jamais les clients réseau directement.
+Les vues n’appellent pas les clients réseau et ne parsèrent pas les réponses CELCAT.
 
-## UI V3
+## Méthode de modification
 
-- une seule CalendarScene plein écran ;
-- timeline 00:00 → 00:00 ;
-- swipe jour précédent/suivant ;
-- week-ends intelligents ;
-- Jour/Semaine = états de la même vue ;
-- heure actuelle en rouge ;
-- cours simultanés côte à côte ;
-- carte adaptative avec début en haut à gauche et fin en bas à gauche ;
-- recherche à facettes dynamique ;
-- contrôles Liquid Glass flottants ;
-- interface visible en français ;
-- haptics significatifs et accessibilité.
+1. Partir de `main` à jour sur une branche dédiée.
+2. Écrire les critères d’acceptation et les risques de régression.
+3. Modifier le bon module ; éviter les fichiers monolithiques et les correctifs croisés.
+4. Ajouter les tests unitaires des invariants concernés.
+5. Ouvrir une PR vers `main`.
+6. Attendre la CI Xcode 26 entièrement verte.
+7. Fusionner seulement après validation.
+8. Vérifier le pipeline `main` lorsqu’une distribution est déclenchée.
 
-## Activité en direct
+## Validation minimale avant livraison
 
-Le design principal reste le Lock Screen et représente la journée. Réglages doit permettre activation globale, réaffichage et fin manuelle. Une présentation Dynamic Island minimale peut exister car iOS peut afficher une Live Activity sur ses surfaces système ; ne pas en faire une seconde expérience complexe.
+- POST `[]` sans appel iCal ;
+- échec POST avec fallback, sans fusion ;
+- groupe réel et groupe de requête préservés ;
+- multi-groupes sans duplication visuelle ;
+- cours consécutifs non placés en parallèle ;
+- aucun recentrage vertical lors d’une navigation normale ;
+- simulation cohérente ;
+- aucune donnée privée dans Git ;
+- compilation et tests Xcode 26 ;
+- documentation mise à jour.
 
-## Build et distribution
-
-- `main` = code et docs ;
-- `site` = GitHub Pages et métadonnées ;
-- push de code sur `main` → IPA non signée via GitHub Actions ;
-- version source `0.<version>.0`, build publié `0.<version>.<build>` ;
-- `0.3.0` produit `0.3.1`, `0.3.2`, etc. ;
-- ne jamais committer `.p12`, mot de passe ou provisioning profile privé.
-
-## Avant de terminer
-
-Vérifier : compilation CI, absence de régression POST-first, POST `[]`, multi-groupes, fallback strict, aucune exposition `G1-...`, recherche dynamique, changements sans faux diff iCal, versioning et docs à jour.
+Ne jamais déclarer un rendu iPhone validé uniquement parce que la CI compile. La validation matérielle est une étape distincte.
