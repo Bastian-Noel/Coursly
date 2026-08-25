@@ -62,7 +62,7 @@ Positionnements :
 - Colonne horaire visible à gauche pendant tout déplacement horizontal.
 - En-tête blanc/gris clair ; aujourd’hui distingué par une forme grise neutre, pas une couleur chaude.
 - En-tête et contenu se déplacent ensemble horizontalement.
-- L’en-tête défile verticalement avec la journée ; il n’est pas sticky.
+- L’en-tête reste attaché à sa colonne horizontale mais compense le scroll vertical afin que le numéro du jour demeure visible.
 - Les traits horaires traversent chaque colonne jusqu’à 24:00.
 - Les séparateurs verticaux restent subtils.
 - Le ruban se cale sur les limites de journée.

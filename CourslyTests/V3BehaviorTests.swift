@@ -149,6 +149,11 @@ final class V3BehaviorTests: XCTestCase {
         XCTAssertTrue(state.isUserControlled)
     }
 
+    func testWeekHeaderCompensatesVerticalScrollAndNeverMovesAboveItsOrigin() {
+        XCTAssertEqual(TimelineAxis.pinnedHeaderOffset(forContentOffset: -18), 0)
+        XCTAssertEqual(TimelineAxis.pinnedHeaderOffset(forContentOffset: 420), 420)
+    }
+
     @MainActor func testGoToTodayKeepsCurrentDisplayMode() {
         let store = CalendarStore()
         store.displayMode = .week

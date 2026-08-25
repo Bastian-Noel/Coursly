@@ -1,5 +1,38 @@
 import Foundation
 
+struct CachedRemoteCalendar: Codable, Sendable {
+    let groupNames: [String]
+    let savedAt: Date
+    let events: [CalendarEvent]
+}
+
+@MainActor
+struct RemoteCalendarCache {
+    private let defaults: UserDefaults
+    private let key = "v3.remoteCalendarCache"
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
+
+    func load(for groups: [StudentGroup]) -> CachedRemoteCalendar? {
+        guard let data = defaults.data(forKey: key),
+              let cached = try? JSONDecoder().decode(CachedRemoteCalendar.self, from: data),
+              cached.groupNames == normalizedNames(groups) else { return nil }
+        return cached
+    }
+
+    func save(_ events: [CalendarEvent], for groups: [StudentGroup], at date: Date = .now) {
+        let cached = CachedRemoteCalendar(groupNames: normalizedNames(groups), savedAt: date, events: events)
+        guard let data = try? JSONEncoder().encode(cached) else { return }
+        defaults.set(data, forKey: key)
+    }
+
+    private func normalizedNames(_ groups: [StudentGroup]) -> [String] {
+        groups.map(\.name).sorted()
+    }
+}
+
 @MainActor
 struct DirectSnapshotStore {
     private let defaults = UserDefaults.standard

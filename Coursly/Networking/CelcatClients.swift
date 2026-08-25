@@ -24,6 +24,15 @@ struct CelcatDirectClient: DirectCalendarClient {
     init(session: URLSession = .shared) { self.session = session }
 
     func fetch(group: StudentGroup, interval: DateInterval) async throws -> Data {
+        let request = try makeRequest(group: group, interval: interval)
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw CalendarClientError.invalidResponse
+        }
+        return data
+    }
+
+    func makeRequest(group: StudentGroup, interval: DateInterval) throws -> URLRequest {
         guard let url = URL(string: "https://edt.iut-velizy.uvsq.fr/Home/GetCalendarData") else {
             throw CalendarClientError.invalidURL
         }
@@ -35,7 +44,8 @@ struct CelcatDirectClient: DirectCalendarClient {
         let values = [
             "start": formatter.string(from: interval.start),
             "end": formatter.string(from: interval.end),
-            "resType": "103", "calView": "agendaWeek", "federationIds[]": group.name
+            "resType": "103", "calView": "agendaWeek", "federationIds[]": group.name,
+            "colourScheme": "3"
         ]
         var components = URLComponents()
         components.queryItems = values.map { URLQueryItem(name: $0.key, value: $0.value) }
@@ -43,13 +53,12 @@ struct CelcatDirectClient: DirectCalendarClient {
         request.httpMethod = "POST"
         request.httpBody = components.percentEncodedQuery?.data(using: .utf8)
         request.setValue("application/x-www-form-urlencoded; charset=UTF-8", forHTTPHeaderField: "Content-Type")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json, text/javascript, */*; q=0.01", forHTTPHeaderField: "Accept")
         request.setValue("XMLHttpRequest", forHTTPHeaderField: "X-Requested-With")
-        let (data, response) = try await session.data(for: request)
-        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-            throw CalendarClientError.invalidResponse
-        }
-        return data
+        request.setValue("https://edt.iut-velizy.uvsq.fr", forHTTPHeaderField: "Origin")
+        request.setValue("https://edt.iut-velizy.uvsq.fr/", forHTTPHeaderField: "Referer")
+        request.setValue("Coursly/0.3 (iOS)", forHTTPHeaderField: "User-Agent")
+        return request
     }
 }
 
@@ -68,17 +77,41 @@ struct CelcatICalClient: ICalCalendarClient {
     ]
 
     func fetch(group: StudentGroup) async throws -> Data {
+        let candidates = try candidateURLs(for: group)
+        var lastError: Error = CalendarClientError.invalidResponse
+        for url in candidates {
+            do {
+                var request = URLRequest(url: url, timeoutInterval: 12)
+                request.setValue("text/calendar, text/plain, */*", forHTTPHeaderField: "Accept")
+                request.setValue("Coursly/0.3 (iOS)", forHTTPHeaderField: "User-Agent")
+                let (data, response) = try await session.data(for: request)
+                guard let http = response as? HTTPURLResponse,
+                      (200..<300).contains(http.statusCode),
+                      String(decoding: data.prefix(256), as: UTF8.self).contains("BEGIN:VCALENDAR") else {
+                    lastError = CalendarClientError.invalidResponse
+                    continue
+                }
+                return data
+            } catch {
+                lastError = error
+            }
+        }
+        throw lastError
+    }
+
+    func candidateURLs(for group: StudentGroup) throws -> [URL] {
         guard let internalID = Self.identifiers[group.name] else { throw CalendarClientError.invalidGroup }
-        var components = URLComponents(string: "https://edt.iut-velizy.uvsq.fr/Calendar/iCalendar")
-        components?.queryItems = [
+        let staticPaths = [
+            "https://celcat.iut-velizy.uvsq.fr/cal/ical/\(internalID)/schedule.ics",
+            "https://celcat.rambouillet.iut-velizy.uvsq.fr/cal/ical/\(internalID)/schedule.ics"
+        ]
+        var candidates = staticPaths.compactMap(URL.init(string:))
+        var legacy = URLComponents(string: "https://edt.iut-velizy.uvsq.fr/Calendar/iCalendar")
+        legacy?.queryItems = [
             URLQueryItem(name: "resType", value: "103"),
             URLQueryItem(name: "federationIds[]", value: internalID)
         ]
-        guard let url = components?.url else { throw CalendarClientError.invalidURL }
-        let (data, response) = try await session.data(from: url)
-        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-            throw CalendarClientError.invalidResponse
-        }
-        return data
+        if let legacyURL = legacy?.url { candidates.append(legacyURL) }
+        return candidates
     }
 }

@@ -32,6 +32,7 @@ struct WeekTimelineView: View {
                                         now: store.now,
                                         hourHeight: CGFloat(store.hourHeight),
                                         width: dayWidth,
+                                        stickyHeaderOffset: TimelineAxis.pinnedHeaderOffset(forContentOffset: currentVerticalOffset),
                                         highlightedEventID: store.highlightedEventID,
                                         onSelect: onSelect
                                     )
@@ -245,6 +246,7 @@ private struct WeekDayColumn: View {
     let now: Date
     let hourHeight: CGFloat
     let width: CGFloat
+    let stickyHeaderOffset: CGFloat
     let highlightedEventID: String?
     let onSelect: (CalendarEvent) -> Void
     private let engine = EventLayoutEngine()
@@ -254,7 +256,14 @@ private struct WeekDayColumn: View {
         let isToday = courslyCalendar.isDate(day, inSameDayAs: now)
 
         VStack(spacing: 0) {
-            WeekDayHeader(day: day, isPastDay: isPastDay, isToday: isToday)
+            WeekDayHeader(
+                day: day,
+                isPastDay: isPastDay,
+                isToday: isToday,
+                isPinned: stickyHeaderOffset > 1
+            )
+            .offset(y: stickyHeaderOffset)
+            .zIndex(20)
 
             ZStack(alignment: .topLeading) {
                 TimelineDayBackground(isPastDay: isPastDay)
@@ -299,6 +308,7 @@ private struct WeekDayHeader: View {
     let day: Date
     let isPastDay: Bool
     let isToday: Bool
+    let isPinned: Bool
 
     var body: some View {
         VStack(spacing: 2) {
@@ -316,6 +326,7 @@ private struct WeekDayHeader: View {
         .overlay(alignment: .bottom) {
             Rectangle().fill(Color.secondary.opacity(0.16)).frame(height: 0.5)
         }
+        .shadow(color: .black.opacity(isPinned ? 0.09 : 0), radius: 5, y: 2)
         .accessibilityElement(children: .combine)
     }
 }
