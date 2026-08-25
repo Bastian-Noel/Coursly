@@ -24,6 +24,18 @@ struct SettingsSheet: View {
                 }
 
                 Section {
+                    NavigationLink {
+                        LiveActivityColorSettingsView().environment(store)
+                    } label: {
+                        Label("Couleurs des types de cours", systemImage: "paintpalette.fill")
+                    }
+                } header: {
+                    Text("Apparence")
+                } footer: {
+                    Text("Les types sont découverts dans CELCAT. Chaque réglage modifie uniquement la teinte des cartes et de l’Activité en direct.")
+                }
+
+                Section {
                     Toggle("Me prévenir des changements", isOn: Binding(
                         get: { store.notificationsEnabled },
                         set: { enabled in Task { await store.setNotificationsEnabled(enabled) } }
@@ -63,12 +75,6 @@ struct SettingsSheet: View {
                     ))
                     LabeledContent("Autorisation iOS", value: store.liveActivitiesAuthorized ? "Autorisée" : "Désactivée")
                     LabeledContent("État", value: store.liveActivityIsActive ? "Active" : "Aucune activité")
-
-                    NavigationLink {
-                        LiveActivityColorSettingsView().environment(store)
-                    } label: {
-                        Label("Couleurs des types de cours", systemImage: "paintpalette.fill")
-                    }
 
                     Button {
                         Task { await store.restartLiveActivity() }

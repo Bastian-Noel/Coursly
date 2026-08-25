@@ -17,7 +17,7 @@ struct CourseDetailSheet: View {
                     VStack(spacing: 0) {
                         if !event.room.isEmpty { DetailRow(icon: "mappin.and.ellipse", title: "Salle", value: event.room) }
                         if !event.teachers.isEmpty { DetailRow(icon: "person", title: "Enseignant", value: event.teachers.joined(separator: ", ")) }
-                        if !event.groups.isEmpty { DetailRow(icon: "person.2", title: "Groupes", value: event.groups.map(\.name).joined(separator: " · ")) }
+                        if !event.displayGroupLabels.isEmpty { DetailRow(icon: "person.2", title: "Groupes", value: event.displayGroupsText) }
                         if let moduleCode = event.moduleCode, !moduleCode.isEmpty { DetailRow(icon: "number", title: "Code module", value: moduleCode) }
                         if let moduleName = event.moduleName, !moduleName.isEmpty, moduleName != event.title { DetailRow(icon: "book.closed", title: "Module", value: moduleName) }
                     }.background(Color.secondary.opacity(0.06), in: RoundedRectangle(cornerRadius: 18, style: .continuous))

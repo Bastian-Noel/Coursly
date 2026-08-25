@@ -186,7 +186,7 @@ struct SearchPanel: View {
                     else { filters.types.insert(type) }
                     HapticService.fire(.selection, enabled: store.hapticsEnabled)
                 } label: {
-                    Label(type.rawValue, systemImage: filters.types.contains(type) ? "checkmark.circle.fill" : "circle")
+                    Label(type, systemImage: filters.types.contains(type) ? "checkmark.circle.fill" : "circle")
                 }
             }
             if !filters.types.isEmpty {
@@ -244,9 +244,8 @@ struct DatePanel: View {
                 selection: Binding(
                     get: { store.focusedDate },
                     set: { newDate in
-                        store.focusedDate = Calendar.current.startOfDay(for: newDate)
+                        store.goToDate(newDate)
                         Task { await store.ensureLoaded(around: newDate) }
-                        HapticService.fire(.selection, enabled: store.hapticsEnabled)
                     }
                 ),
                 displayedComponents: .date

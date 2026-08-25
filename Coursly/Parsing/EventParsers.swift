@@ -28,9 +28,17 @@ struct DirectEventParser: Sendable {
             let parts = htmlLines(payload.description ?? "")
             let siteCount = payload.sites?.count ?? 0
             let module = parts.last ?? payload.modules?.first ?? "Sans titre"
-            let moduleParts = module.replacingOccurrences(of: #"\s*\[.*?\]\s*$"#, with: "", options: .regularExpression)
+            let moduleWithoutBracketCode = module.replacingOccurrences(of: #"\s*\[.*?\]\s*$"#, with: "", options: .regularExpression)
+            let moduleParts = moduleWithoutBracketCode
                 .components(separatedBy: " - ")
-            let title = moduleParts.count > 1 ? moduleParts.dropFirst().joined(separator: " - ") : moduleParts[0]
+            let rawTitle = moduleParts.count > 1 ? moduleParts.dropFirst().joined(separator: " - ") : moduleParts[0]
+            let title = rawTitle
+                .replacingOccurrences(
+                    of: #"^(?:R|SA[ÉE])\s*\d+(?:\.\d+)+\s*(?:-\s*)?"#,
+                    with: "",
+                    options: [.regularExpression, .caseInsensitive]
+                )
+                .trimmingCharacters(in: .whitespacesAndNewlines)
 
             // CELCAT POST description order is: teachers, actual group, rooms, module.
             // Keep the actual group label separate from the federation group used to make the request.
@@ -60,7 +68,8 @@ struct DirectEventParser: Sendable {
     }
 
     private func htmlLines(_ value: String) -> [String] {
-        value.replacingOccurrences(of: "\r\n", with: "")
+        value.replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
             .replacingOccurrences(of: #"<br\s*/?>"#, with: "\n", options: [.regularExpression, .caseInsensitive])
             .components(separatedBy: .newlines)
             .map(decodeHTML)

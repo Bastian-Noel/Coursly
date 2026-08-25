@@ -42,6 +42,25 @@ final class V3BehaviorTests: XCTestCase {
         XCTAssertEqual(SearchEngine().results(in: [matching, otherRoom], filters: filters).map(\.id), ["1"])
     }
 
+    func testSearchUsesDynamicCELCATTypeAndActualGroup() throws {
+        var custom = event(
+            id: "dynamic",
+            start: date("2026-09-10T08:00:00Z"),
+            end: date("2026-09-10T10:00:00Z")
+        )
+        custom.categoryLabel = "Atelier transversal"
+        custom.rawGroupLabels = ["MMI2-B"]
+
+        let facets = SearchEngine().facets(from: [custom])
+        XCTAssertEqual(facets.types, ["Atelier transversal"])
+        XCTAssertEqual(facets.groups, ["MMI2-B"])
+
+        var filters = SearchFilters()
+        filters.types = ["Atelier transversal"]
+        filters.groups = ["MMI2-B"]
+        XCTAssertEqual(SearchEngine().results(in: [custom], filters: filters).map(\.id), ["dynamic"])
+    }
+
     func testDirectParserKeepsActualBroadCELCATGroup() throws {
         let payload = """
         [{"id":"evt-1","start":"2026-09-10T08:00:00","end":"2026-09-10T09:00:00","description":"Mme Dupont<br />MMI2-B<br />B204 - VEL<br />R218 - Développement iOS [MM2R18]","eventCategory":"Travaux pratiques","modules":["MM2R18"],"sites":["B204"],"allDay":false}]
@@ -69,11 +88,53 @@ final class V3BehaviorTests: XCTestCase {
         XCTAssertEqual(placements.map(\.column), [0, 0])
     }
 
+    func testTimelineCoordinatesUseRealParisClockTime() throws {
+        let date = try XCTUnwrap(courslyCalendar.date(from: DateComponents(
+            timeZone: TimeZone(identifier: "Europe/Paris"),
+            year: 2026,
+            month: 9,
+            day: 10,
+            hour: 13,
+            minute: 30
+        )))
+        XCTAssertEqual(TimelineAxis.minute(of: date), 13 * 60 + 30)
+        XCTAssertEqual(TimelineAxis.y(for: date, hourHeight: 80), 1_080, accuracy: 0.01)
+    }
+
+    func testWeekOffsetRemovesHeaderBeforeConvertingToMinute() {
+        let offset = TimelineMetrics.weekHeaderHeight + 6 * 80
+        XCTAssertEqual(
+            TimelineAxis.minute(forContentOffset: offset, headerHeight: TimelineMetrics.weekHeaderHeight, hourHeight: 80),
+            6 * 60
+        )
+    }
+
     @MainActor func testGoToTodayKeepsCurrentDisplayMode() {
         let store = CalendarStore()
         store.displayMode = .week
         store.goToToday()
         XCTAssertEqual(store.displayMode, .week)
+        XCTAssertEqual(store.timelineScrollRequest?.target, .now)
+    }
+
+    @MainActor func testHorizontalDayMoveDoesNotRequestVerticalRecentering() {
+        let store = CalendarStore()
+        store.timelineScrollRequest = nil
+        store.dayTopMinute = 9 * 60 + 15
+        store.moveDay(1)
+        XCTAssertNil(store.timelineScrollRequest)
+        XCTAssertEqual(store.dayTopMinute, 9 * 60 + 15)
+    }
+
+    @MainActor func testDisplayModeChangePreservesIndependentVerticalPositions() {
+        let store = CalendarStore()
+        store.dayTopMinute = 8 * 60
+        store.weekTopMinute = 10 * 60
+        store.timelineScrollRequest = nil
+        store.setDisplayMode(.week)
+        XCTAssertNil(store.timelineScrollRequest)
+        XCTAssertEqual(store.dayTopMinute, 8 * 60)
+        XCTAssertEqual(store.weekTopMinute, 10 * 60)
     }
 
     private func event(id: String, title: String = "Développement iOS", start: Date, end: Date, room: String = "B204", teacher: String = "Mme Dupont") -> CalendarEvent {

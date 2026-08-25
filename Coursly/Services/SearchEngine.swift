@@ -5,7 +5,7 @@ struct SearchFacets: Sendable {
     let teachers: [String]
     let rooms: [String]
     let groups: [String]
-    let types: [CourseType]
+    let types: [String]
     let modules: [String]
 }
 
@@ -15,7 +15,7 @@ struct SearchFilters: Sendable {
     var teachers: Set<String> = []
     var rooms: Set<String> = []
     var groups: Set<String> = []
-    var types: Set<CourseType> = []
+    var types: Set<String> = []
     var modules: Set<String> = []
 
     var hasFacets: Bool {
@@ -25,7 +25,14 @@ struct SearchFilters: Sendable {
 
 struct SearchEngine: Sendable {
     func facets(from events: [CalendarEvent]) -> SearchFacets {
-        SearchFacets(subjects: unique(events.map(\.title)), teachers: unique(events.flatMap(\.teachers)), rooms: unique(events.flatMap(\.rooms)), groups: unique(events.flatMap { $0.groups.map(\.name) }), types: Array(Set(events.compactMap(\.type))).sorted { $0.rawValue < $1.rawValue }, modules: unique(events.compactMap { $0.moduleCode ?? $0.moduleName }))
+        SearchFacets(
+            subjects: unique(events.map(\.title)),
+            teachers: unique(events.flatMap(\.teachers)),
+            rooms: unique(events.flatMap(\.rooms)),
+            groups: unique(events.flatMap(\.displayGroupLabels)),
+            types: unique(events.compactMap(\.displayTypeLabel)),
+            modules: unique(events.compactMap { $0.moduleCode ?? $0.moduleName })
+        )
     }
 
     func results(in events: [CalendarEvent], filters: SearchFilters) -> [CalendarEvent] {
@@ -35,8 +42,8 @@ struct SearchEngine: Sendable {
             if !filters.subjects.isEmpty, !filters.subjects.contains(event.title) { return false }
             if !filters.teachers.isEmpty, filters.teachers.isDisjoint(with: Set(event.teachers)) { return false }
             if !filters.rooms.isEmpty, filters.rooms.isDisjoint(with: Set(event.rooms)) { return false }
-            if !filters.groups.isEmpty, filters.groups.isDisjoint(with: Set(event.groups.map(\.name))) { return false }
-            if !filters.types.isEmpty, event.type.map({ filters.types.contains($0) }) != true { return false }
+            if !filters.groups.isEmpty, filters.groups.isDisjoint(with: Set(event.displayGroupLabels)) { return false }
+            if !filters.types.isEmpty, event.displayTypeLabel.map({ filters.types.contains($0) }) != true { return false }
             if !filters.modules.isEmpty {
                 let values = Set([event.moduleCode, event.moduleName].compactMap { $0 })
                 if filters.modules.isDisjoint(with: values) { return false }

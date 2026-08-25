@@ -53,8 +53,8 @@ struct CalendarScene: View {
             CalendarHeader(panel: $panel).padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 6)
             Group {
                 switch store.displayMode {
-                case .day: DayTimelineView { event in selectedEvent = event; HapticService.fire(.courseOpened, enabled: store.hapticsEnabled) }
-                case .week: WeekTimelineView { event in selectedEvent = event; HapticService.fire(.courseOpened, enabled: store.hapticsEnabled) }
+                case .day: DayTimelineView { event in selectedEvent = event }
+                case .week: WeekTimelineView { event in selectedEvent = event }
                 }
             }.environment(store)
         }
@@ -67,7 +67,7 @@ struct CalendarScene: View {
                 Button { panel = .more; HapticService.fire(.panelOpened, enabled: store.hapticsEnabled) } label: {
                     Label("Simulation · \(store.now.formatted(date: .abbreviated, time: .shortened))", systemImage: "clock.arrow.2.circlepath")
                         .font(.caption.weight(.semibold)).padding(.horizontal, 12).frame(minHeight: 44).contentShape(Capsule())
-                }.buttonStyle(.plain).glassEffect(.regular.tint(.orange.opacity(0.16)).interactive(), in: Capsule()).padding(.top, 58)
+                }.buttonStyle(.plain).glassEffect(.regular.tint(Color(.systemGray5).opacity(0.72)).interactive(), in: Capsule()).padding(.top, 58)
             }
         }
         .overlay(alignment: .bottomLeading) {
@@ -113,12 +113,16 @@ struct FloatingControlDock: View {
     @Binding var showSettings: Bool
     @Binding var showNewEvent: Bool
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
             dockButton(title: store.displayMode == .day ? "Semaine" : "Jour", icon: store.displayMode == .day ? "calendar" : "rectangle.split.1x2") { activePanel = nil; store.setDisplayMode(store.displayMode == .day ? .week : .day) }
             dockButton(title: "Chercher", icon: "magnifyingglass", active: activePanel == .search) { toggle(.search) }
             dockButton(title: "Groupes", icon: "person.2.fill", active: activePanel == .groups, badge: store.selectedGroups.count) { toggle(.groups) }
             dockButton(title: "Plus", icon: "ellipsis", active: activePanel == .more || activePanel == .changes) { toggle(.more) }
-        }.padding(.horizontal, 10).padding(.vertical, 7)
+        }
+        .padding(7)
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
     }
     private func toggle(_ panel: FloatingPanel) { activePanel = activePanel == panel ? nil : panel; HapticService.fire(.panelOpened, enabled: store.hapticsEnabled) }
     private func dockButton(title: String, icon: String, active: Bool = false, badge: Int? = nil, action: @escaping () -> Void) -> some View {
@@ -130,6 +134,10 @@ struct FloatingControlDock: View {
                 }
                 Text(title).font(.system(size: 9.5, weight: .semibold, design: .rounded)).lineLimit(1).minimumScaleFactor(0.75)
             }.frame(minWidth: 62, minHeight: 52).padding(.horizontal, 4).contentShape(Rectangle())
-        }.buttonStyle(.plain).glassEffect(active ? .regular.tint(Color.accentColor.opacity(0.18)).interactive() : .regular.interactive(), in: RoundedRectangle(cornerRadius: 18, style: .continuous)).accessibilityLabel(title).accessibilityAddTraits(active ? .isSelected : [])
+        }
+        .buttonStyle(.plain)
+        .background(active ? Color.accentColor.opacity(0.12) : Color.clear, in: RoundedRectangle(cornerRadius: 17, style: .continuous))
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(active ? .isSelected : [])
     }
 }
