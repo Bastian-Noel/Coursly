@@ -26,7 +26,10 @@ struct CourseBlock: View {
                 .padding(.leading, layout.horizontalPadding)
                 .padding(.trailing, max(2, layout.horizontalPadding - 1))
                 .padding(.vertical, layout.verticalPadding)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
+        .frame(maxHeight: .infinity, alignment: .top)
+        .frame(width: max(1, availableWidth), height: max(1, height), alignment: .topLeading)
         .background(Rectangle().fill(cardFill))
         .overlay {
             if highlighted {
@@ -44,17 +47,21 @@ struct CourseBlock: View {
         switch layout.density {
         case .micro:
             VStack(alignment: .leading, spacing: 1) {
-                Text(event.title)
-                    .font(layout.titleFont)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.55)
-                HStack(spacing: 3) {
-                    Text(timeRange).font(layout.timeFont)
-                    if !event.room.isEmpty { Text("· \(event.room)") }
+                HStack(alignment: .top, spacing: 3) {
+                    Text(event.title)
+                        .font(layout.titleFont)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    trailingTimes
                 }
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.45)
+                if !event.room.isEmpty {
+                    Label(event.room, systemImage: "mappin")
+                        .font(layout.metadataFont)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.45)
+                }
             }
 
         case .compact:
@@ -84,11 +91,6 @@ struct CourseBlock: View {
                 if !event.displayGroupsText.isEmpty {
                     metadataLine(icon: "person.2.fill", text: event.displayGroupsText)
                 }
-
-                Spacer(minLength: 0)
-                Text(shortTime(event.end))
-                    .font(layout.timeFont)
-                    .foregroundStyle(.secondary)
             }
         }
     }
@@ -103,12 +105,21 @@ struct CourseBlock: View {
                     .minimumScaleFactor(0.62)
             }
             Spacer(minLength: 2)
-            Text(layout.density == .compact ? timeRange : shortTime(event.start))
-                .font(layout.timeFont)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
+            trailingTimes
         }
+    }
+
+    private var trailingTimes: some View {
+        VStack(alignment: .trailing, spacing: 0) {
+            Text(shortTime(event.start))
+            Text(shortTime(event.end))
+        }
+        .font(layout.timeFont)
+        .foregroundStyle(.secondary)
+        .lineLimit(1)
+        .minimumScaleFactor(0.55)
+        .fixedSize(horizontal: true, vertical: false)
+        .accessibilityLabel("de \(shortTime(event.start)) à \(shortTime(event.end))")
     }
 
     private var compactMetadata: some View {
@@ -143,8 +154,6 @@ struct CourseBlock: View {
             .lineLimit(1)
     }
 
-    private var timeRange: String { "\(shortTime(event.start))–\(shortTime(event.end))" }
-
     private var baseHex: String {
         if event.source == .local { return "#AF52DE" }
         guard let label = event.displayTypeLabel, !label.isEmpty else { return "#0A84FF" }
@@ -154,14 +163,17 @@ struct CourseBlock: View {
     private var baseColor: Color { Color(courslyHex: baseHex) }
 
     private var stripeColor: Color {
-        isPast
-            ? Color(courslyHex: baseHex, saturationScale: 0.78, brightnessScale: 0.68)
-            : baseColor
+        guard isPast else { return baseColor }
+        return weekLayout
+            ? Color(courslyHex: baseHex, saturationScale: 0.72, brightnessScale: 0.64)
+            : Color(courslyHex: baseHex, saturationScale: 0.42, brightnessScale: 0.53)
     }
 
     private var cardFill: Color {
         if isPast {
-            return Color(courslyHex: baseHex, saturationScale: 0.68, brightnessScale: 0.70).opacity(0.24)
+            return weekLayout
+                ? Color(courslyHex: baseHex, saturationScale: 0.58, brightnessScale: 0.62).opacity(0.27)
+                : Color(courslyHex: baseHex, saturationScale: 0.28, brightnessScale: 0.46).opacity(0.38)
         }
         return baseColor.opacity(event.source == .local ? 0.11 : 0.15)
     }

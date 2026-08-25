@@ -33,6 +33,49 @@ enum TimelineAxis {
     static func anchorID(prefix: String, minute: Int) -> String {
         "\(prefix)-minute-\(max(0, min(96, minute / 15)))"
     }
+
+    static func contentOffset(
+        forMinute minute: Int,
+        anchor: TimelineVerticalAnchor,
+        headerHeight: CGFloat = 0,
+        hourHeight: CGFloat,
+        viewportHeight: CGFloat,
+        footerHeight: CGFloat = TimelineMetrics.floatingDockClearance
+    ) -> CGFloat {
+        let position = headerHeight + y(forMinute: Double(minute), hourHeight: hourHeight)
+        let proposed = switch anchor {
+        case .top: position
+        case .center: position - viewportHeight / 2
+        }
+        let contentHeight = headerHeight + hourHeight * 24 + 1 + footerHeight
+        let maximumOffset = max(0, contentHeight - viewportHeight)
+        return max(0, min(proposed, maximumOffset))
+    }
+}
+
+enum TimelineVerticalAnchor: Equatable {
+    case top
+    case center
+}
+
+/// Empêche les mesures transitoires de SwiftUI (souvent zéro au premier layout)
+/// de devenir la position verticale mémorisée de l’utilisateur.
+struct TimelineVerticalScrollState: Equatable {
+    private(set) var expectedOffset: CGFloat?
+    private(set) var isUserControlled = false
+
+    mutating func beginRestoration(to offset: CGFloat) {
+        expectedOffset = max(0, offset)
+        isUserControlled = false
+    }
+
+    mutating func observe(offset: CGFloat, tolerance: CGFloat = 2) -> Bool {
+        guard let expectedOffset else { return isUserControlled }
+        guard abs(max(0, offset) - expectedOffset) <= tolerance else { return false }
+        self.expectedOffset = nil
+        isUserControlled = true
+        return true
+    }
 }
 
 struct EventPlacement: Identifiable, Equatable {
@@ -129,30 +172,20 @@ struct TimelineTimeColumn: View {
     }
 }
 
-struct TimelineAnchors: View {
-    let prefix: String
-    let hourHeight: CGFloat
-    var headerHeight: CGFloat = 0
+struct TimelineDayBackground: View {
+    enum PastEmphasis { case day, week }
+
+    let isPastDay: Bool
+    var pastEmphasis: PastEmphasis = .week
 
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            ForEach(0...96, id: \.self) { quarter in
-                Color.clear
-                    .frame(width: 1, height: 1)
-                    .offset(y: headerHeight + CGFloat(quarter) * hourHeight / 4)
-                    .id("\(prefix)-minute-\(quarter)")
+        ZStack {
+            Color(.systemBackground).opacity(0.82)
+            if isPastDay {
+                Color(.secondarySystemBackground)
+                Color.black.opacity(pastEmphasis == .day ? 0.13 : 0.08)
             }
         }
-        .allowsHitTesting(false)
-    }
-}
-
-struct TimelineDayBackground: View {
-    let isPastDay: Bool
-
-    var body: some View {
-        Rectangle()
-            .fill(isPastDay ? Color(.systemGray6).opacity(0.82) : Color(.systemBackground).opacity(0.72))
             .allowsHitTesting(false)
     }
 }

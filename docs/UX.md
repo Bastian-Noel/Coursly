@@ -91,6 +91,8 @@ Priorité :
 
 Le code module n’est jamais rendu sur la carte. Il reste disponible dans le détail et la recherche.
 
+Le contenu reste aligné en haut, quelle que soit la hauteur disponible. Les heures de début et de fin forment une pile compacte alignée à droite du haut de la carte.
+
 Les métadonnées utilisent :
 
 - `mappin` ou `mappin.and.ellipse` pour la salle ;

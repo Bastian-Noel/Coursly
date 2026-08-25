@@ -4,67 +4,50 @@ struct DayTimelineView: View {
     @Environment(CalendarStore.self) private var store
     let onSelect: (CalendarEvent) -> Void
 
-    @State private var didInitialPosition = false
+    @State private var verticalPosition = ScrollPosition(edge: .top)
+    @State private var verticalScrollState = TimelineVerticalScrollState()
+    @State private var pendingRequestID: UUID?
+    @State private var currentVerticalOffset: CGFloat = 0
     @State private var pageOffset: CGFloat = 0
     @State private var isChangingDay = false
     @GestureState private var liveDragX: CGFloat = 0
 
     var body: some View {
         GeometryReader { viewport in
-            ScrollViewReader { proxy in
-                ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: 0) {
-                        dayPager(width: viewport.size.width)
-                            .overlay(alignment: .topLeading) {
-                                TimelineAnchors(prefix: "day", hourHeight: CGFloat(store.hourHeight))
-                                Color.clear
-                                    .frame(width: 1, height: 1)
-                                    .offset(y: TimelineAxis.y(for: store.now, hourHeight: CGFloat(store.hourHeight)))
-                                    .id("day-now")
-                                    .allowsHitTesting(false)
-                            }
-                        Color.clear
-                            .frame(height: TimelineMetrics.floatingDockClearance)
-                            .allowsHitTesting(false)
-                    }
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(spacing: 0) {
+                    dayPager(width: viewport.size.width)
+                    Color.clear
+                        .frame(height: TimelineMetrics.floatingDockClearance)
+                        .allowsHitTesting(false)
                 }
-                .clipped()
-                .contentShape(Rectangle())
-                .simultaneousGesture(daySwipe(width: viewport.size.width))
-                .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y } action: { oldValue, newValue in
-                    if didInitialPosition {
-                        store.recordTopMinute(
-                            TimelineAxis.minute(forContentOffset: newValue, hourHeight: CGFloat(store.hourHeight)),
-                            for: .day
-                        )
-                        scrollFeedback(oldValue, newValue)
-                    }
-                }
-                .task {
-                    await preloadDayNeighbors()
-                    guard !didInitialPosition else { return }
-                    await positionOnAppearance(proxy: proxy)
-                    didInitialPosition = true
-                }
-                .onChange(of: store.dateNavigationToken) { _, _ in
-                    Task { await preloadDayNeighbors() }
-                }
-                .onChange(of: store.timelineScrollRequest) { _, request in
-                    guard let request else { return }
-                    Task { @MainActor in
-                        await preloadDayNeighbors()
-                        await fulfill(request, proxy: proxy, animated: true)
-                    }
-                }
-                .onChange(of: store.highlightedEventID) { _, eventID in
-                    guard let eventID,
-                          let event = store.events.first(where: { $0.id == eventID }) else { return }
-                    Task { @MainActor in
-                        await scroll(proxy, to: TimelineAxis.anchorID(prefix: "day", minute: TimelineAxis.minute(of: event.start)), anchor: .center, animated: true)
-                    }
-                }
-                .refreshable { await store.refresh() }
             }
+            .scrollPosition($verticalPosition)
+            .clipped()
+            .contentShape(Rectangle())
+            .simultaneousGesture(daySwipe(width: viewport.size.width))
+            .onScrollGeometryChange(for: CGFloat.self) { max(0, $0.contentOffset.y) } action: { oldValue, newValue in
+                currentVerticalOffset = newValue
+                guard verticalScrollState.observe(offset: newValue) else { return }
+                completeVerticalPosition(oldOffset: oldValue, newOffset: newValue)
+            }
+            .task {
+                await preloadDayNeighbors()
+                guard !verticalScrollState.isUserControlled,
+                      verticalScrollState.expectedOffset == nil else { return }
+                positionOnAppearance(viewportHeight: viewport.size.height)
+            }
+            .onChange(of: store.dateNavigationToken) { _, _ in
+                Task { await preloadDayNeighbors() }
+            }
+            .onChange(of: store.timelineScrollRequest) { _, request in
+                guard let request else { return }
+                Task { @MainActor in
+                    await preloadDayNeighbors()
+                    fulfill(request, viewportHeight: viewport.size.height, animated: true)
+                }
+            }
+            .refreshable { await store.refresh() }
         }
     }
 
@@ -91,44 +74,78 @@ struct DayTimelineView: View {
         .frame(width: width)
     }
 
-    private func positionOnAppearance(proxy: ScrollViewProxy) async {
+    private func positionOnAppearance(viewportHeight: CGFloat) {
         if let request = store.timelineScrollRequest {
-            await fulfill(request, proxy: proxy, animated: false)
+            fulfill(request, viewportHeight: viewportHeight, animated: false)
             return
         }
         if let savedMinute = store.dayTopMinute {
-            await scroll(proxy, to: TimelineAxis.anchorID(prefix: "day", minute: savedMinute), anchor: .top, animated: false)
+            beginScroll(minute: savedMinute, anchor: .top, viewportHeight: viewportHeight, animated: false)
             return
         }
         if courslyCalendar.isDate(store.focusedDate, inSameDayAs: store.now) {
-            await scroll(proxy, to: "day-now", anchor: .center, animated: false)
+            beginScroll(
+                minute: TimelineAxis.minute(of: store.now),
+                anchor: .center,
+                viewportHeight: viewportHeight,
+                animated: false
+            )
             return
         }
         let minute = store.events(on: store.focusedDate).first.map { TimelineAxis.minute(of: $0.start) } ?? 8 * 60
-        await scroll(proxy, to: TimelineAxis.anchorID(prefix: "day", minute: minute), anchor: .center, animated: false)
+        beginScroll(minute: minute, anchor: .center, viewportHeight: viewportHeight, animated: false)
     }
 
-    private func fulfill(_ request: TimelineScrollRequest, proxy: ScrollViewProxy, animated: Bool) async {
-        let targetID: String
+    private func fulfill(_ request: TimelineScrollRequest, viewportHeight: CGFloat, animated: Bool) {
+        let minute: Int
         switch request.target {
         case .now:
-            targetID = "day-now"
+            minute = TimelineAxis.minute(of: store.now)
         case let .minute(minute):
-            targetID = TimelineAxis.anchorID(prefix: "day", minute: minute)
+            self.pendingRequestID = request.id
+            beginScroll(minute: minute, anchor: .center, viewportHeight: viewportHeight, animated: animated)
+            return
         }
-        await scroll(proxy, to: targetID, anchor: .center, animated: animated)
-        store.consumeTimelineScrollRequest(request.id)
+        pendingRequestID = request.id
+        beginScroll(minute: minute, anchor: .center, viewportHeight: viewportHeight, animated: animated)
     }
 
-    private func scroll(_ proxy: ScrollViewProxy, to id: String, anchor: UnitPoint, animated: Bool) async {
-        await Task.yield()
+    private func beginScroll(
+        minute: Int,
+        anchor: TimelineVerticalAnchor,
+        viewportHeight: CGFloat,
+        animated: Bool
+    ) {
+        let offset = TimelineAxis.contentOffset(
+            forMinute: minute,
+            anchor: anchor,
+            hourHeight: CGFloat(store.hourHeight),
+            viewportHeight: viewportHeight
+        )
+        verticalScrollState.beginRestoration(to: offset)
+        if verticalScrollState.observe(offset: currentVerticalOffset) {
+            completeVerticalPosition(oldOffset: currentVerticalOffset, newOffset: currentVerticalOffset)
+            return
+        }
         if animated {
-            withAnimation(.snappy(duration: 0.34)) { proxy.scrollTo(id, anchor: anchor) }
+            withAnimation(.snappy(duration: 0.34)) { verticalPosition.scrollTo(y: offset) }
         } else {
             var transaction = Transaction()
             transaction.disablesAnimations = true
-            withTransaction(transaction) { proxy.scrollTo(id, anchor: anchor) }
+            withTransaction(transaction) { verticalPosition.scrollTo(y: offset) }
         }
+    }
+
+    private func completeVerticalPosition(oldOffset: CGFloat, newOffset: CGFloat) {
+        store.recordTopMinute(
+            TimelineAxis.minute(forContentOffset: newOffset, hourHeight: CGFloat(store.hourHeight)),
+            for: .day
+        )
+        if let requestID = pendingRequestID {
+            store.consumeTimelineScrollRequest(requestID)
+            pendingRequestID = nil
+        }
+        scrollFeedback(oldOffset, newOffset)
     }
 
     private func preloadDayNeighbors() async {
@@ -201,7 +218,7 @@ private struct DayTimelineCanvas: View {
             let isPastDay = courslyCalendar.startOfDay(for: date) < courslyCalendar.startOfDay(for: store.now)
 
             ZStack(alignment: .topLeading) {
-                TimelineDayBackground(isPastDay: isPastDay)
+                TimelineDayBackground(isPastDay: isPastDay, pastEmphasis: .day)
 
                 TimelineHourGrid(hourHeight: hourHeight)
                     .padding(.leading, TimelineMetrics.timeColumnWidth)
