@@ -10,7 +10,7 @@ Ce dossier conserve des implémentations JavaScript historiques utilisées pour 
 | [`ical-core-reference.mjs`](ical-core-reference.mjs) | extraction des événements iCal |
 | [`fallback-strategy.mjs`](fallback-strategy.mjs) | illustration de la priorité POST puis du fallback |
 
-Le code Swift dans `Coursly/Core/Calendar` est l’implémentation de production et reste la seule autorité technique de l’app.
+Le code Swift dans `Coursly/Networking`, `Coursly/Parsing` et `Coursly/Services` est l’implémentation de production et reste la seule autorité technique de l’app.
 
 ## Ce qui doit rester équivalent
 
