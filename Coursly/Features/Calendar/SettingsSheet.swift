@@ -58,6 +58,11 @@ struct SettingsSheet: View {
                         Label("Date et heure simulées", systemImage: "clock.arrow.2.circlepath")
                     }
                     NavigationLink {
+                        CourseTypeRuleSettingsView().environment(store)
+                    } label: {
+                        Label("Regroupement des types", systemImage: "text.badge.checkmark")
+                    }
+                    NavigationLink {
                         DiagnosticSettingsView().environment(store)
                     } label: {
                         Label("Données et diagnostic", systemImage: "wrench.and.screwdriver")
