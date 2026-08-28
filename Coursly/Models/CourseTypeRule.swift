@@ -108,17 +108,17 @@ enum CourseTypeRulePreferences {
         CourseTypeRule(
             id: UUID(uuidString: "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A01")!,
             type: .cm,
-            pattern: #"\b(?:cours\s+)?magistral(?:e|es|s)?\b|\bcm\b"#
+            pattern: #"\b(?:(?:cours|enseignement)\s+)?magistral(?:e|es|s)?\b|\bcm\b"#
         ),
         CourseTypeRule(
             id: UUID(uuidString: "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A02")!,
             type: .td,
-            pattern: #"\btravaux?\s+dirige(?:e|es|s)?\b|\btd\b"#
+            pattern: #"\b(?:travaux|travail|cours)\s+dirige(?:e|es|s)?\b|\btd\b"#
         ),
         CourseTypeRule(
             id: UUID(uuidString: "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A03")!,
             type: .tp,
-            pattern: #"\btravaux?\s+pratique(?:s)?\b|\btp\b"#
+            pattern: #"\b(?:travaux|travail|cours)\s+pratique(?:s)?\b|\btp\b"#
         ),
         CourseTypeRule(
             id: UUID(uuidString: "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A04")!,
