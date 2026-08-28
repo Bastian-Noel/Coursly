@@ -236,7 +236,7 @@ final class V3BehaviorTests: XCTestCase {
     func testCustomRegexCanCreateAnInternalGroupingRule() {
         let custom = CourseTypeRule(
             type: .project,
-            pattern: #"atelier\\s+(?:transversal|client)"#
+            pattern: #"atelier\s+(?:transversal|client)"#
         )
         let classifier = CourseTypeClassifier(rules: [custom])
 
