@@ -37,7 +37,9 @@ struct CourseBlock: View {
             }
         }
         .overlay {
-            cornerTimes
+            if !weekLayout {
+                cornerTimes
+            }
         }
         .clipped()
         .contentShape(Rectangle())
@@ -47,52 +49,101 @@ struct CourseBlock: View {
 
     @ViewBuilder
     private var content: some View {
-        switch layout.density {
-        case .micro:
-            VStack(alignment: .leading, spacing: 1) {
-                Text(event.title)
-                    .font(layout.titleFont)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.5)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                if !event.room.isEmpty {
-                    Label(event.room, systemImage: "mappin")
-                        .font(layout.metadataFont)
-                        .foregroundStyle(.secondary)
+        if weekLayout {
+            weekContent
+        } else {
+            switch layout.density {
+            case .micro:
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(event.title)
+                        .font(layout.titleFont)
                         .lineLimit(1)
-                        .minimumScaleFactor(0.45)
+                        .minimumScaleFactor(0.5)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    if !event.room.isEmpty {
+                        metadataLine(icon: "mappin", text: event.room)
+                    }
                 }
-            }
 
-        case .compact:
-            VStack(alignment: .leading, spacing: 2) {
-                header
-                Text(event.title)
-                    .font(layout.titleFont)
-                    .lineLimit(layout.titleLines)
-                    .minimumScaleFactor(0.58)
-                compactMetadata
-            }
-
-        case .regular:
-            VStack(alignment: .leading, spacing: layout.lineSpacing) {
-                header
-                Text(event.title)
-                    .font(layout.titleFont)
-                    .lineLimit(layout.titleLines)
-                    .minimumScaleFactor(0.68)
-
-                if !event.room.isEmpty {
-                    metadataLine(icon: "mappin.and.ellipse", text: event.room)
+            case .compact:
+                VStack(alignment: .leading, spacing: 2) {
+                    header
+                    Text(event.title)
+                        .font(layout.titleFont)
+                        .lineLimit(layout.titleLines)
+                        .minimumScaleFactor(0.58)
+                    dayCompactMetadata
                 }
-                if !event.teachers.isEmpty {
-                    metadataLine(icon: "person.fill", text: event.teachers.joined(separator: " · "))
-                }
-                if !event.displayGroupsText.isEmpty {
-                    metadataLine(icon: "person.2.fill", text: event.displayGroupsText)
+
+            case .regular:
+                VStack(alignment: .leading, spacing: layout.lineSpacing) {
+                    header
+                    Text(event.title)
+                        .font(layout.titleFont)
+                        .lineLimit(layout.titleLines)
+                        .minimumScaleFactor(0.68)
+
+                    if !event.room.isEmpty {
+                        metadataLine(icon: "mappin.and.ellipse", text: event.room)
+                    }
+                    if !event.teachers.isEmpty {
+                        metadataLine(icon: "person.fill", text: event.teachers.joined(separator: " · "))
+                    }
+                    if !event.displayGroupsText.isEmpty {
+                        metadataLine(icon: "person.2.fill", text: event.displayGroupsText)
+                    }
                 }
             }
         }
+    }
+
+    private var weekContent: some View {
+        ViewThatFits(in: .vertical) {
+            weekContentVariant(metadataLimit: 3)
+            weekContentVariant(metadataLimit: 2)
+            weekContentVariant(metadataLimit: 1)
+            weekContentVariant(metadataLimit: 0)
+        }
+    }
+
+    private func weekContentVariant(metadataLimit: Int) -> some View {
+        let metadata = Array(weekMetadata.prefix(metadataLimit))
+        return VStack(alignment: .leading, spacing: layout.weekLineSpacing) {
+            HStack(spacing: 3) {
+                Text(shortTime(event.start))
+                Text("–").foregroundStyle(.tertiary)
+                Text(shortTime(event.end))
+            }
+            .font(layout.weekTimeFont)
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+            .frame(maxWidth: .infinity, alignment: .center)
+
+            Text(event.title)
+                .font(layout.titleFont)
+                .lineLimit(5)
+                .minimumScaleFactor(0.72)
+                .fixedSize(horizontal: false, vertical: true)
+
+            ForEach(Array(metadata.enumerated()), id: \.offset) { _, value in
+                Text(value)
+                    .font(layout.metadataFont)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.55)
+            }
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+    }
+
+    private var weekMetadata: [String] {
+        var values: [String] = []
+        if !event.room.isEmpty { values.append(event.room) }
+        if !event.teachers.isEmpty { values.append(event.teachers.joined(separator: " · ")) }
+        if !event.displayGroupsText.isEmpty { values.append(event.displayGroupsText) }
+        return values
     }
 
     private var header: some View {
@@ -128,22 +179,19 @@ struct CourseBlock: View {
         .accessibilityHidden(true)
     }
 
-    private var compactMetadata: some View {
-        HStack(spacing: 4) {
+    private var dayCompactMetadata: some View {
+        VStack(alignment: .leading, spacing: 1) {
             if !event.room.isEmpty {
-                compactMetadataItem(icon: "mappin", text: event.room)
+                metadataLine(icon: "mappin", text: event.room)
             }
             if layout.showsTeacher, !event.teachers.isEmpty {
-                compactMetadataItem(icon: "person.fill", text: event.teachers.joined(separator: ", "))
+                metadataLine(icon: "person.fill", text: event.teachers.joined(separator: " · "))
             }
             if layout.showsGroup, !event.displayGroupsText.isEmpty {
-                compactMetadataItem(icon: "person.2.fill", text: event.displayGroupsText)
+                metadataLine(icon: "person.2.fill", text: event.displayGroupsText)
             }
         }
-        .font(layout.metadataFont)
-        .foregroundStyle(.secondary)
-        .lineLimit(1)
-        .minimumScaleFactor(0.42)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func metadataLine(icon: String, text: String) -> some View {
@@ -154,11 +202,6 @@ struct CourseBlock: View {
             .minimumScaleFactor(0.6)
     }
 
-    private func compactMetadataItem(icon: String, text: String) -> some View {
-        Label(text, systemImage: icon)
-            .labelStyle(.titleAndIcon)
-            .lineLimit(1)
-    }
 
     private var baseHex: String {
         if event.source == .local { return "#AF52DE" }
@@ -211,9 +254,10 @@ private struct CourseCardLayout {
     var horizontalPadding: CGFloat { width < 90 ? 3 : 6 }
     var verticalPadding: CGFloat { height < 60 ? 2 : 4 }
     var lineSpacing: CGFloat { height < 125 ? 2 : 4 }
-    var titleLines: Int { height < 70 ? 1 : (weekLayout || width < 125 ? 2 : 3) }
-    var showsTeacher: Bool { height >= 62 && width >= 72 }
-    var showsGroup: Bool { height >= 72 && width >= 92 }
+    var weekLineSpacing: CGFloat { height < 70 ? 1 : 2 }
+    var titleLines: Int { height < 70 ? 1 : (width < 125 ? 2 : 3) }
+    var showsTeacher: Bool { height >= 62 }
+    var showsGroup: Bool { height >= 76 }
 
     var titleFont: Font {
         if height < 48 { return .system(size: 8, weight: .bold) }
@@ -228,7 +272,8 @@ private struct CourseCardLayout {
     }
 
     var typeFont: Font { .system(size: weekLayout || width < 100 ? 7 : 9, weight: .heavy) }
-    var timeFont: Font { .system(size: weekLayout || width < 100 ? 7 : 9, weight: .semibold, design: .rounded).monospacedDigit() }
+    var timeFont: Font { .system(size: width < 100 ? 7 : 9, weight: .semibold, design: .rounded).monospacedDigit() }
+    var weekTimeFont: Font { .system(size: width < 65 ? 6 : 7, weight: .medium, design: .rounded).monospacedDigit() }
 }
 
 struct CoursePressButtonStyle: ButtonStyle {
