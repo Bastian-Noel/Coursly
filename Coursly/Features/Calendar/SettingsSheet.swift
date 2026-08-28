@@ -34,12 +34,17 @@ struct SettingsSheet: View {
                     }
                 }
 
-                Section("Préférences") {
-                    NavigationLink {
-                        SimulationSettingsView().environment(store)
-                    } label: {
-                        Label("Date et heure simulées", systemImage: "clock.arrow.2.circlepath")
+                Section("Apparence et interactions") {
+                    Picker("Apparence", selection: Binding(
+                        get: { store.appAppearance },
+                        set: { store.appAppearance = $0 }
+                    )) {
+                        ForEach(AppAppearancePreference.allCases) { preference in
+                            Text(preference.frenchTitle).tag(preference)
+                        }
                     }
+                    .pickerStyle(.navigationLink)
+
                     Toggle("Retours haptiques", isOn: Binding(
                         get: { store.hapticsEnabled },
                         set: { store.hapticsEnabled = $0 }
@@ -47,6 +52,11 @@ struct SettingsSheet: View {
                 }
 
                 Section("Avancé") {
+                    NavigationLink {
+                        SimulationSettingsView().environment(store)
+                    } label: {
+                        Label("Date et heure simulées", systemImage: "clock.arrow.2.circlepath")
+                    }
                     NavigationLink {
                         DiagnosticSettingsView().environment(store)
                     } label: {
@@ -112,15 +122,6 @@ private struct CalendarAppearanceSettingsView: View {
                 }
             }
 
-            Section {
-                NavigationLink {
-                    LiveActivityColorSettingsView().environment(store)
-                } label: {
-                    Label("Teintes par type de cours", systemImage: "paintpalette.fill")
-                }
-            } footer: {
-                Text("Les mêmes teintes sont utilisées par les cartes et l’Activité en direct.")
-            }
         }
         .navigationTitle("Affichage et jours")
         .navigationBarTitleDisplayMode(.inline)
