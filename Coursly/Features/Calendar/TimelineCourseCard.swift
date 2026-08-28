@@ -109,20 +109,21 @@ struct CourseBlock: View {
     }
 
     private var cornerTimes: some View {
-        VStack(alignment: .trailing, spacing: 0) {
+        ZStack {
             Text(shortTime(event.start))
-            Spacer(minLength: 0)
+                .padding(.top, layout.verticalPadding)
+                .padding(.trailing, max(2, layout.horizontalPadding - 1))
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+
             Text(shortTime(event.end))
+                .padding(.trailing, max(2, layout.horizontalPadding - 1))
+                .padding(.bottom, layout.verticalPadding)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
         }
         .font(layout.timeFont)
         .foregroundStyle(.secondary)
         .lineLimit(1)
         .minimumScaleFactor(0.55)
-        .fixedSize(horizontal: true, vertical: false)
-        .padding(.top, layout.verticalPadding)
-        .padding(.trailing, max(2, layout.horizontalPadding - 1))
-        .padding(.bottom, layout.verticalPadding)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
     }
