@@ -66,7 +66,7 @@ enum LiveActivityManager {
                 nextTitle: showNext ? next?.title : nil,
                 nextRoom: showNext ? next?.room : nil,
                 nextType: showNext ? next?.displayTypeLabel : nil,
-                nextAccentHex: showNext ? next.map(accentHex(for:)) : nil,
+                nextAccentHex: showNext ? next.map { accentHex(for: $0) } : nil,
                 nextStart: showNext ? next?.start : nil,
                 isInProgress: true,
                 dayFinished: false
@@ -166,6 +166,8 @@ enum LiveActivityManager {
             timerEnd: systemNow,
             nextTitle: nil,
             nextRoom: nil,
+            nextType: nil,
+            nextAccentHex: nil,
             nextStart: nil,
             isInProgress: false,
             dayFinished: true
