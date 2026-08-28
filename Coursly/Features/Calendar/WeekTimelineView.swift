@@ -53,6 +53,15 @@ struct WeekTimelineView: View {
                         }
                     }
                     .frame(height: TimelineMetrics.weekHeaderHeight + CGFloat(store.hourHeight) * 24 + 1)
+                    .overlay(alignment: .topLeading) {
+                        TimelineCurrentTimeIndicator(
+                            hourHeight: CGFloat(store.hourHeight),
+                            width: viewport.size.width,
+                            leadingDot: false
+                        )
+                        .offset(y: TimelineMetrics.weekHeaderHeight)
+                        .zIndex(30)
+                    }
 
                     Color.clear
                         .frame(height: TimelineMetrics.floatingDockClearance)
@@ -293,7 +302,12 @@ private struct WeekDayColumn: View {
                 }
 
                 if isToday {
-                    TimelineCurrentTimeIndicator(hourHeight: hourHeight, width: width)
+                    TimelineCurrentTimeIndicator(
+                        hourHeight: hourHeight,
+                        width: width,
+                        leadingDot: true,
+                        showsLine: false
+                    )
                 }
             }
             .frame(height: hourHeight * 24 + 1)
