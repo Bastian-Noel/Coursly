@@ -212,6 +212,42 @@ final class V3BehaviorTests: XCTestCase {
         XCTAssertEqual(store.weekTopMinute, 10 * 60)
     }
 
+    func testAppearancePreferenceOffersSystemLightAndDarkModes() {
+        XCTAssertEqual(AppAppearancePreference.allCases, [.system, .light, .dark])
+        XCTAssertEqual(AppAppearancePreference.system.frenchTitle, "Selon l’iPhone")
+        XCTAssertEqual(AppAppearancePreference.light.frenchTitle, "Clair")
+        XCTAssertEqual(AppAppearancePreference.dark.frenchTitle, "Sombre")
+    }
+
+    func testLiveActivityStateCarriesNextCoursePresentation() {
+        let start = date("2026-09-10T13:30:00Z")
+        let end = date("2026-09-10T15:00:00Z")
+        let state = CourslyActivityAttributes.ContentState(
+            status: "BIENTÔT TERMINÉ",
+            title: "Développement",
+            room: "I22",
+            teachers: "Olivier",
+            groups: "MMI2-A",
+            type: "Travaux dirigés",
+            accentHex: "#FF5A52",
+            start: start,
+            end: end,
+            timerStart: start,
+            timerEnd: end,
+            nextTitle: "Anglais",
+            nextRoom: "E57",
+            nextType: "CM",
+            nextAccentHex: "#4A90FF",
+            nextStart: end,
+            isInProgress: true,
+            dayFinished: false
+        )
+
+        XCTAssertEqual(state.nextType, "CM")
+        XCTAssertEqual(state.nextAccentHex, "#4A90FF")
+        XCTAssertEqual(state.start, start, "Les horaires réels restent inchangés")
+    }
+
     private func event(id: String, title: String = "Développement iOS", start: Date, end: Date, room: String = "B204", teacher: String = "Mme Dupont") -> CalendarEvent {
         CalendarEvent(id: id, title: title, type: .tp, start: start, end: end, rooms: [room], teachers: [teacher], groups: [group], moduleCode: "R4.01", moduleName: "Développement iOS", source: .directPOST)
     }

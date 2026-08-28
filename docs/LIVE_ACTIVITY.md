@@ -34,15 +34,15 @@ Le prochain cours pendant un cours en cours n’apparaît que dans les 30 derni�
 
 Ordre visuel :
 
-1. état temporel en haut à gauche ;
-2. décompte en haut à droite ;
-3. horaires réels compacts et centrés ;
-4. matière ;
-5. type, salle, enseignants et groupe réel sans surcharge d’icônes ;
-6. barre de progression ;
-7. bloc « prochain cours » en bas avec matière, heure et salle lorsqu’il est utile.
+1. état temporel avec chronomètre et décompte regroupés en haut ;
+2. horaires réels compacts ;
+3. matière sur deux lignes au maximum ;
+4. badge de type avec pictogramme ;
+5. salle, enseignants et groupe réel sur une ligne secondaire ;
+6. barre de progression épaisse ;
+7. bloc « prochain cours » séparé en bas avec sa couleur de type, sa matière, son heure et sa salle lorsqu’il est utile.
 
-La surface reprend la DA des cartes Semaine : rectangle teinté, bande verticale et accents utilisant la couleur personnalisée du type. Aucun faux bouton n’est affiché tant qu’une route d’ouverture de cours testable n’existe pas.
+La surface reprend la DA des cartes Semaine : fond translucide sombre, bande verticale et accents utilisant la couleur personnalisée du type. Le prochain cours transporte aussi son type et sa teinte. Aucun faux bouton n’est affiché tant qu’une route d’ouverture de cours testable n’existe pas.
 
 ## 5. Couleurs
 

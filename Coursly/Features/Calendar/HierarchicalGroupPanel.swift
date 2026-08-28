@@ -24,8 +24,8 @@ struct HierarchicalGroupPanel: View {
             onClose: onClose,
             showsHeader: false
         ) {
-            HStack(spacing: 8) {
-                if !path.isEmpty {
+            if !path.isEmpty {
+                HStack(spacing: 8) {
                     Button {
                         path.removeLast()
                         HapticService.fire(.selection, enabled: store.hapticsEnabled)
@@ -35,23 +35,14 @@ struct HierarchicalGroupPanel: View {
                             .contentShape(Circle())
                     }
                     .buttonStyle(.plain)
-                }
+                    .accessibilityLabel("Niveau précédent")
 
-                Button(action: onClose) {
-                    HStack(spacing: 6) {
-                        Text(path.isEmpty ? store.compactSelectedGroupsLabel : path.joined(separator: " › "))
-                            .font(.subheadline.weight(.semibold))
-                            .lineLimit(1)
-                        Image(systemName: "chevron.down")
-                            .font(.caption2.weight(.bold))
-                            .foregroundStyle(.secondary)
-                    }
-                    .frame(minHeight: 40)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
+                    Text(path.joined(separator: " › "))
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(1)
 
-                Spacer()
+                    Spacer()
+                }
             }
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 86), spacing: 8)], spacing: 8) {

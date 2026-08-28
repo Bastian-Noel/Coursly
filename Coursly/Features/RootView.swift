@@ -21,19 +21,35 @@ struct RootView: View {
             CalendarScene(selectedEvent: $selectedEvent, panel: $panel)
                 .zIndex(0)
 
-            if let panel {
-                panelView(panel)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .zIndex(10)
+            FloatingControlDock(activePanel: $panel, namespace: dockNamespace)
+                .offset(y: 6)
+                .zIndex(20)
+
+            if panel != nil {
+                Color.black.opacity(0.001)
+                    .contentShape(Rectangle())
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        withAnimation(.snappy(duration: 0.28)) {
+                            panel = nil
+                        }
+                    }
+                    .accessibilityLabel("Fermer le panneau")
+                    .zIndex(30)
             }
 
-            FloatingControlDock(activePanel: $panel, namespace: dockNamespace)
-                .padding(.bottom, 2)
-                .zIndex(20)
+            if let panel {
+                panelView(panel)
+                    .transition(panelTransition(for: panel))
+                    .zIndex(40)
+            }
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .animation(.snappy(duration: 0.28), value: panel)
-        .sheet(item: $selectedEvent) { event in
+        .preferredColorScheme(preferredColorScheme)
+        .sheet(item: $selectedEvent, onDismiss: {
+            store.highlightedEventID = nil
+        }) { event in
             CourseDetailSheet(event: event).environment(store)
         }
         .sheet(isPresented: $showSettings) {
@@ -66,6 +82,23 @@ struct RootView: View {
             guard phase == .active else { return }
             store.prepareForForeground()
             Task { await store.load(around: store.focusedDate) }
+        }
+    }
+
+    private var preferredColorScheme: ColorScheme? {
+        switch store.appAppearance {
+        case .system: nil
+        case .light: .light
+        case .dark: .dark
+        }
+    }
+
+    private func panelTransition(for panel: FloatingPanel) -> AnyTransition {
+        switch panel {
+        case .groups, .more:
+            .identity
+        case .search, .date, .changes:
+            .move(edge: .bottom).combined(with: .opacity)
         }
     }
 
@@ -149,9 +182,15 @@ struct CalendarScene: View {
             Group {
                 switch store.displayMode {
                 case .day:
-                    DayTimelineView { event in selectedEvent = event }
+                    DayTimelineView { event in
+                        store.highlightedEventID = event.id
+                        selectedEvent = event
+                    }
                 case .week:
-                    WeekTimelineView { event in selectedEvent = event }
+                    WeekTimelineView { event in
+                        store.highlightedEventID = event.id
+                        selectedEvent = event
+                    }
                 }
             }
             .environment(store)
@@ -165,26 +204,6 @@ struct CalendarScene: View {
                 }
             }
         )
-        .overlay(alignment: .top) {
-            if store.simulationEnabled {
-                Button {
-                    panel = .more
-                    HapticService.fire(.panelOpened, enabled: store.hapticsEnabled)
-                } label: {
-                    Label(
-                        "Simulation · \(store.now.formatted(date: .abbreviated, time: .shortened))",
-                        systemImage: "clock.arrow.2.circlepath"
-                    )
-                    .font(.caption.weight(.semibold))
-                    .padding(.horizontal, 12)
-                    .frame(minHeight: 44)
-                    .contentShape(Capsule())
-                }
-                .buttonStyle(.plain)
-                .glassEffect(.regular.tint(Color(.systemGray5).opacity(0.72)).interactive(), in: Capsule())
-                .padding(.top, 62)
-            }
-        }
         .overlay(alignment: .bottom) {
             if !isOnToday, panel == nil {
                 Button {
@@ -279,36 +298,43 @@ struct FloatingControlDock: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            if activePanel != .more {
-                Button { toggle(.more) } label: {
-                    Image(systemName: "line.3.horizontal")
-                        .font(.system(size: 17, weight: .semibold))
-                        .frame(width: 50, height: 50)
-                        .contentShape(Circle())
+            ZStack {
+                Color.clear
+                    .frame(width: 50, height: 50)
+                    .allowsHitTesting(false)
+
+                if activePanel != .more {
+                    Button { toggle(.more) } label: {
+                        Image(systemName: "line.3.horizontal")
+                            .font(.system(size: 17, weight: .semibold))
+                            .frame(width: 50, height: 50)
+                            .contentShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .glassEffect(.regular.interactive(), in: Circle())
+                    .matchedGeometryEffect(id: "more-surface", in: namespace)
+                    .accessibilityLabel("Plus d’options")
                 }
-                .buttonStyle(.plain)
-                .glassEffect(.regular.interactive(), in: Circle())
-                .matchedGeometryEffect(id: "more-surface", in: namespace)
-                .accessibilityLabel("Plus d’options")
             }
 
-            if activePanel != .groups {
-                Button { toggle(.groups) } label: {
-                    Text(store.compactSelectedGroupsLabel)
-                        .font(.subheadline.weight(.semibold))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.72)
-                        .padding(.horizontal, 15)
-                        .frame(minWidth: 74, minHeight: 50)
-                        .contentShape(Capsule())
-                }
-                .buttonStyle(.plain)
-                .glassEffect(.regular.interactive(), in: Capsule())
-                .matchedGeometryEffect(id: "group-surface", in: namespace)
-                .accessibilityLabel("Choisir les groupes, sélection actuelle \(store.selectedGroupsLabel)")
-            }
+            ZStack {
+                groupLabel
+                    .opacity(0)
+                    .allowsHitTesting(false)
 
-            Spacer(minLength: 8)
+                if activePanel != .groups {
+                    Button { toggle(.groups) } label: {
+                        groupLabel
+                    }
+                    .buttonStyle(.plain)
+                    .glassEffect(.regular.interactive(), in: Capsule())
+                    .matchedGeometryEffect(id: "group-surface", in: namespace)
+                    .accessibilityLabel("Choisir les groupes, sélection actuelle \(store.selectedGroupsLabel)")
+                }
+            }
+            .fixedSize(horizontal: true, vertical: false)
+
+            Spacer(minLength: 10)
 
             HStack(spacing: 0) {
                 Button { toggle(.search) } label: {
@@ -318,13 +344,8 @@ struct FloatingControlDock: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .background(activePanel == .search ? Color.accentColor.opacity(0.14) : Color.clear)
                 .accessibilityLabel("Rechercher")
                 .accessibilityAddTraits(activePanel == .search ? .isSelected : [])
-
-                Rectangle()
-                    .fill(Color.secondary.opacity(0.18))
-                    .frame(width: 0.5, height: 24)
 
                 Button {
                     activePanel = nil
@@ -338,11 +359,20 @@ struct FloatingControlDock: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel(store.displayMode == .day ? "Afficher la semaine" : "Afficher le jour")
             }
-            .clipped()
-            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 19, style: .continuous))
+            .clipShape(Capsule())
+            .glassEffect(.regular, in: Capsule())
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 2)
+        .padding(.horizontal, 18)
+    }
+
+    private var groupLabel: some View {
+        Text(store.compactSelectedGroupsLabel)
+            .font(.subheadline.weight(.semibold))
+            .lineLimit(1)
+            .minimumScaleFactor(0.72)
+            .padding(.horizontal, 15)
+            .frame(minWidth: 74, minHeight: 50)
+            .contentShape(Capsule())
     }
 
     private func toggle(_ target: FloatingPanel) {

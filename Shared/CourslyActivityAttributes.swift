@@ -21,6 +21,8 @@ struct CourslyActivityAttributes: ActivityAttributes {
 
         let nextTitle: String?
         let nextRoom: String?
+        let nextType: String?
+        let nextAccentHex: String?
         let nextStart: Date?
         let isInProgress: Bool
         let dayFinished: Bool
