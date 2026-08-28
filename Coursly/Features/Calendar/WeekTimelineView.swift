@@ -285,6 +285,11 @@ private struct WeekDayColumn: View {
 
             ZStack(alignment: .topLeading) {
                 TimelineDayBackground(isPastDay: isPastDay)
+                if isToday {
+                    Color.accentColor
+                        .opacity(0.045)
+                        .allowsHitTesting(false)
+                }
                 TimelineHourGrid(hourHeight: hourHeight)
 
                 ForEach(engine.placements(for: events)) { placement in
@@ -347,7 +352,12 @@ private struct WeekDayHeader: View {
         .frame(maxWidth: .infinity, minHeight: TimelineMetrics.weekHeaderHeight, maxHeight: TimelineMetrics.weekHeaderHeight)
         .foregroundStyle(isPastDay ? Color.secondary : Color.primary)
         .background {
-            TimelineDayBackground(isPastDay: isPastDay)
+            ZStack {
+                TimelineDayBackground(isPastDay: isPastDay)
+                if isToday {
+                    Color.accentColor.opacity(0.075)
+                }
+            }
         }
         .overlay(alignment: .bottom) {
             Rectangle()
