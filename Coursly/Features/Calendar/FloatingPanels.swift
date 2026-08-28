@@ -6,6 +6,9 @@ struct FloatingPanelShell<Content: View>: View {
     let onClose: () -> Void
     var showsHeader = true
     var widthFraction: CGFloat = 1
+    var bottomInset: CGFloat = 82
+    var matchedSurfaceID: String?
+    var matchedNamespace: Namespace.ID?
     @ViewBuilder let content: () -> Content
 
     var body: some View {
@@ -32,8 +35,13 @@ struct FloatingPanelShell<Content: View>: View {
         .frame(maxWidth: 620)
         .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         .modifier(FloatingPanelWidth(fraction: widthFraction))
-        .padding(.horizontal, 12)
-        .padding(.bottom, 82)
+        .modifier(FloatingPanelSurfaceMatch(
+            id: matchedSurfaceID,
+            namespace: matchedNamespace
+        ))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 18)
+        .padding(.bottom, bottomInset)
     }
 }
 
@@ -272,6 +280,7 @@ struct DatePanel: View {
 
 struct MorePanel: View {
     @Environment(CalendarStore.self) private var store
+    let namespace: Namespace.ID
     let onChanges: () -> Void
     let onNewEvent: () -> Void
     let onSettings: () -> Void
@@ -283,7 +292,10 @@ struct MorePanel: View {
             systemImage: "line.3.horizontal",
             onClose: onClose,
             showsHeader: false,
-            widthFraction: 0.70
+            widthFraction: 0.70,
+            bottomInset: 8,
+            matchedSurfaceID: "more-surface",
+            matchedNamespace: namespace
         ) {
             VStack(spacing: 2) {
                 actionRow("Nouvel événement", icon: "plus.circle.fill", action: onNewEvent)
@@ -433,10 +445,29 @@ private struct FloatingPanelWidth: ViewModifier {
                 .containerRelativeFrame(.horizontal) { length, _ in
                     min(420, length * fraction)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
         } else {
             content
                 .frame(maxWidth: .infinity)
+        }
+    }
+}
+
+private struct FloatingPanelSurfaceMatch: ViewModifier {
+    let id: String?
+    let namespace: Namespace.ID?
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if let id, let namespace {
+            content.matchedGeometryEffect(
+                id: id,
+                in: namespace,
+                properties: .frame,
+                anchor: .bottomLeading,
+                isSource: false
+            )
+        } else {
+            content
         }
     }
 }
