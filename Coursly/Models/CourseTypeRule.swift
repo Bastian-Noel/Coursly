@@ -40,7 +40,7 @@ struct CourseTypeRule: Identifiable, Hashable, Codable, Sendable {
 struct CourseTypeClassifier: Sendable {
     let rules: [CourseTypeRule]
 
-    init(rules: [CourseTypeRule] = CourseTypeRulePreferences.rules) {
+    init(rules: [CourseTypeRule] = CourseTypeRulePreferences.load()) {
         self.rules = rules
     }
 
@@ -86,18 +86,17 @@ struct CourseTypeClassifier: Sendable {
 enum CourseTypeRulePreferences {
     private static let storageKey = "v3.courseTypeGroupingRules"
 
-    static var rules: [CourseTypeRule] {
-        get {
-            guard let data = UserDefaults.standard.data(forKey: storageKey),
-                  let decoded = try? JSONDecoder().decode([CourseTypeRule].self, from: data) else {
-                return defaultRules
-            }
-            return decoded
+    static func load() -> [CourseTypeRule] {
+        guard let data = UserDefaults.standard.data(forKey: storageKey),
+              let decoded = try? JSONDecoder().decode([CourseTypeRule].self, from: data) else {
+            return defaultRules
         }
-        set {
-            guard let data = try? JSONEncoder().encode(newValue) else { return }
-            UserDefaults.standard.set(data, forKey: storageKey)
-        }
+        return decoded
+    }
+
+    static func save(_ rules: [CourseTypeRule]) {
+        guard let data = try? JSONEncoder().encode(rules) else { return }
+        UserDefaults.standard.set(data, forKey: storageKey)
     }
 
     static func reset() {
