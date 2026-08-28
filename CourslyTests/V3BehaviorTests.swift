@@ -154,6 +154,36 @@ final class V3BehaviorTests: XCTestCase {
         XCTAssertEqual(TimelineAxis.pinnedHeaderOffset(forContentOffset: 420), 420)
     }
 
+    @MainActor func testReturningToDayRestoresItsDateWithoutWeekSwipe() {
+        let store = CalendarStore()
+        let day = date("2026-09-10T08:00:00Z")
+        store.goToDate(day)
+        store.setDisplayMode(.week)
+
+        store.focusedDate = date("2026-09-07T08:00:00Z")
+        store.setDisplayMode(.day)
+
+        XCTAssertTrue(courslyCalendar.isDate(store.focusedDate, inSameDayAs: day))
+    }
+
+    @MainActor func testWeekSwipeBecomesDayReturnDate() {
+        let store = CalendarStore()
+        let scrolledDay = date("2026-09-14T08:00:00Z")
+        store.setDisplayMode(.week)
+        store.setFocusedDateFromTimeline(scrolledDay)
+        store.setDisplayMode(.day)
+
+        XCTAssertTrue(courslyCalendar.isDate(store.focusedDate, inSameDayAs: scrolledDay))
+    }
+
+    @MainActor func testCompleteCohortUsesCompactGroupLabel() throws {
+        let store = CalendarStore()
+        let mmi2 = StudentGroup.all.filter { $0.name.hasPrefix("MMI2-") }
+        XCTAssertFalse(mmi2.isEmpty)
+        store.setSelectedGroups(mmi2)
+        XCTAssertEqual(store.compactSelectedGroupsLabel, "MMI2")
+    }
+
     @MainActor func testGoToTodayKeepsCurrentDisplayMode() {
         let store = CalendarStore()
         store.displayMode = .week
