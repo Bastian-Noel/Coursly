@@ -76,9 +76,9 @@ struct GroupPanel: View {
 
 struct SearchPanel: View {
     @Environment(CalendarStore.self) private var store
+    @Binding var filters: SearchFilters
     let onSelect: (CalendarEvent) -> Void
     let onClose: () -> Void
-    @Binding var filters: SearchFilters
 
     private var results: [CalendarEvent] { store.search(filters) }
     private var facets: SearchFacets { store.searchFacets }
