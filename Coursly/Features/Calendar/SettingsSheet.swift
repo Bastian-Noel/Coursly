@@ -7,141 +7,56 @@ struct SettingsSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Calendrier") {
-                    Picker("Week-ends", selection: Binding(get: { store.weekendPolicy }, set: { store.weekendPolicy = $0 })) {
-                        ForEach(WeekendDisplayPolicy.allCases) { policy in
-                            Text(policy.frenchTitle).tag(policy)
-                        }
+                Section("Emploi du temps") {
+                    LabeledContent("Groupes affichés", value: store.compactSelectedGroupsLabel)
+                    NavigationLink {
+                        CalendarAppearanceSettingsView().environment(store)
+                    } label: {
+                        Label("Affichage et jours", systemImage: "calendar.day.timeline.left")
                     }
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Text("Densité de la timeline")
-                            Spacer()
-                            Text("\(Int(store.hourHeight)) pt/h").foregroundStyle(.secondary)
-                        }
-                        Slider(value: Binding(get: { store.hourHeight }, set: { store.hourHeight = $0 }), in: 64...120, step: 4)
-                    }
-                }
-
-                Section {
                     NavigationLink {
                         LiveActivityColorSettingsView().environment(store)
                     } label: {
-                        Label("Couleurs des types de cours", systemImage: "paintpalette.fill")
+                        Label("Couleurs des cours", systemImage: "paintpalette.fill")
                     }
-                } header: {
-                    Text("Apparence")
-                } footer: {
-                    Text("Les types sont découverts dans CELCAT. Chaque réglage modifie uniquement la teinte des cartes et de l’Activité en direct.")
                 }
 
-                Section {
-                    Toggle("Me prévenir des changements", isOn: Binding(
-                        get: { store.notificationsEnabled },
-                        set: { enabled in Task { await store.setNotificationsEnabled(enabled) } }
-                    ))
-                    Picker("Surveiller les prochains", selection: Binding(
-                        get: { store.notificationHorizonDays },
-                        set: { store.notificationHorizonDays = $0 }
-                    )) {
-                        ForEach([1, 3, 7, 14, 30], id: \.self) { value in
-                            Text("\(value) jour\(value > 1 ? "s" : "")").tag(value)
-                        }
-                    }
-                    if store.notificationsEnabled {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Notifier pour").font(.subheadline.weight(.semibold))
-                            ForEach(CalendarChangeKind.allCases, id: \.self) { kind in
-                                Toggle(kind.frenchTitle, isOn: Binding(
-                                    get: { store.isNotificationKindEnabled(kind) },
-                                    set: { store.setNotificationKind(kind, enabled: $0) }
-                                ))
-                            }
-                        }
-                    }
-                    NavigationLink("Historique des changements") {
-                        ChangeHistorySettingsView().environment(store)
-                    }
-                } header: {
-                    Text("Changements d’emploi du temps")
-                } footer: {
-                    Text("Coursly compare uniquement deux snapshots POST CELCAT fiables. Un fallback iCal n’est jamais utilisé pour annoncer une suppression, un déplacement ou une modification.")
-                }
-
-                Section("Activité en direct") {
-                    Toggle("Activer globalement", isOn: Binding(
-                        get: { store.liveActivityEnabled },
-                        set: { enabled in Task { await store.setLiveActivityEnabled(enabled) } }
-                    ))
-                    LabeledContent("Autorisation iOS", value: store.liveActivitiesAuthorized ? "Autorisée" : "Désactivée")
-                    LabeledContent("État", value: store.liveActivityIsActive ? "Active" : "Aucune activité")
-
-                    Button {
-                        Task { await store.restartLiveActivity() }
+                Section("Alertes") {
+                    NavigationLink {
+                        ChangeTrackingSettingsView().environment(store)
                     } label: {
-                        Label("Réafficher l’activité", systemImage: "rectangle.stack.badge.play")
+                        Label("Changements et statuts", systemImage: "bell.badge")
                     }
-                    .disabled(!store.liveActivityEnabled || !store.liveActivitiesAuthorized)
-
-                    if store.liveActivityIsActive {
-                        Button(role: .destructive) {
-                            Task { await store.endLiveActivity() }
-                        } label: {
-                            Label("Terminer l’activité actuelle", systemImage: "xmark.circle")
-                        }
+                    NavigationLink {
+                        LiveActivitySettingsView().environment(store)
+                    } label: {
+                        Label("Activité en direct", systemImage: "rectangle.stack.badge.play")
                     }
                 }
 
-                Section("Simulation temporelle") {
-                    Toggle("Simuler une autre date et heure", isOn: Binding(
-                        get: { store.simulationEnabled },
-                        set: { enabled in
-                            store.setSimulationEnabled(enabled)
-                            Task { await store.load(around: store.focusedDate, force: true) }
-                        }
-                    ))
-                    if store.simulationEnabled {
-                        DatePicker("Date et heure", selection: Binding(
-                            get: { store.simulationDate },
-                            set: { value in
-                                store.simulationDate = value
-                                Task { await store.load(around: value, force: true) }
-                            }
-                        ), displayedComponents: [.date, .hourAndMinute])
-                        Button("Revenir à maintenant") {
-                            store.resetSimulation()
-                            Task { await store.load(around: store.focusedDate, force: true) }
-                        }
+                Section("Préférences") {
+                    NavigationLink {
+                        SimulationSettingsView().environment(store)
+                    } label: {
+                        Label("Date et heure simulées", systemImage: "clock.arrow.2.circlepath")
                     }
-                }
-
-                Section("Interactions") {
                     Toggle("Retours haptiques", isOn: Binding(
                         get: { store.hapticsEnabled },
                         set: { store.hapticsEnabled = $0 }
                     ))
                 }
 
-                Section("Diagnostic") {
-                    LabeledContent("Dernière synchronisation", value: store.lastSyncDate?.formatted(date: .abbreviated, time: .shortened) ?? "Jamais")
-                    LabeledContent("Groupes", value: store.selectedGroupsLabel)
-                    LabeledContent("Événements chargés", value: String(store.events.count))
-                    LabeledContent("Données affichées", value: store.isUsingCachedEvents ? "Dernière copie locale" : "CELCAT à jour")
-                    LabeledContent("Fallback iCal", value: store.fallbackGroups.isEmpty ? "Non utilisé" : store.fallbackGroups.map(\.name).joined(separator: ", "))
-                    if !store.failedGroups.isEmpty {
-                        LabeledContent("Groupes en erreur", value: store.failedGroups.map(\.name).joined(separator: ", "))
-                    }
-                    if let error = store.errorMessage {
-                        Text(error).font(.caption).foregroundStyle(.red)
-                    }
-                    Button("Vérifier maintenant") {
-                        Task { await store.refresh() }
+                Section("Avancé") {
+                    NavigationLink {
+                        DiagnosticSettingsView().environment(store)
+                    } label: {
+                        Label("Données et diagnostic", systemImage: "wrench.and.screwdriver")
                     }
                 }
 
                 Section("À propos") {
                     LabeledContent("Version", value: versionText)
-                    Text("Coursly utilise le POST CELCAT comme source de vérité et iCal uniquement comme solution de secours.")
+                    Text("POST CELCAT prioritaire. iCal est utilisé uniquement comme solution de secours.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -159,6 +74,216 @@ struct SettingsSheet: View {
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"
         return "\(version) (\(build))"
+    }
+}
+
+private struct CalendarAppearanceSettingsView: View {
+    @Environment(CalendarStore.self) private var store
+
+    var body: some View {
+        Form {
+            Section("Jours affichés") {
+                Picker("Week-ends", selection: Binding(
+                    get: { store.weekendPolicy },
+                    set: { store.weekendPolicy = $0 }
+                )) {
+                    ForEach(WeekendDisplayPolicy.allCases) { policy in
+                        Text(policy.frenchTitle).tag(policy)
+                    }
+                }
+            }
+
+            Section("Densité") {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Hauteur d’une heure")
+                        Spacer()
+                        Text("\(Int(store.hourHeight)) pt")
+                            .foregroundStyle(.secondary)
+                    }
+                    Slider(
+                        value: Binding(
+                            get: { store.hourHeight },
+                            set: { store.hourHeight = $0 }
+                        ),
+                        in: 64...120,
+                        step: 4
+                    )
+                }
+            }
+
+            Section {
+                NavigationLink {
+                    LiveActivityColorSettingsView().environment(store)
+                } label: {
+                    Label("Teintes par type de cours", systemImage: "paintpalette.fill")
+                }
+            } footer: {
+                Text("Les mêmes teintes sont utilisées par les cartes et l’Activité en direct.")
+            }
+        }
+        .navigationTitle("Affichage et jours")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct ChangeTrackingSettingsView: View {
+    @Environment(CalendarStore.self) private var store
+
+    var body: some View {
+        Form {
+            Section("Surveillance") {
+                Toggle("Me prévenir des changements", isOn: Binding(
+                    get: { store.notificationsEnabled },
+                    set: { enabled in Task { await store.setNotificationsEnabled(enabled) } }
+                ))
+                Picker("Période surveillée", selection: Binding(
+                    get: { store.notificationHorizonDays },
+                    set: { store.notificationHorizonDays = $0 }
+                )) {
+                    ForEach([1, 3, 7, 14, 30], id: \.self) { value in
+                        Text("\(value) jour\(value > 1 ? "s" : "")").tag(value)
+                    }
+                }
+            }
+
+            Section("Statuts notifiés") {
+                ForEach(CalendarChangeKind.allCases, id: \.self) { kind in
+                    Toggle(kind.frenchTitle, isOn: Binding(
+                        get: { store.isNotificationKindEnabled(kind) },
+                        set: { store.setNotificationKind(kind, enabled: $0) }
+                    ))
+                }
+            }
+
+            Section {
+                NavigationLink("Historique") {
+                    ChangeHistorySettingsView().environment(store)
+                }
+            } footer: {
+                Text("Les changements reposent uniquement sur deux snapshots POST CELCAT fiables.")
+            }
+        }
+        .navigationTitle("Changements")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct LiveActivitySettingsView: View {
+    @Environment(CalendarStore.self) private var store
+
+    var body: some View {
+        Form {
+            Section("Activation") {
+                Toggle("Activité en direct", isOn: Binding(
+                    get: { store.liveActivityEnabled },
+                    set: { enabled in Task { await store.setLiveActivityEnabled(enabled) } }
+                ))
+                Toggle("Proposer de la réactiver si fermée", isOn: Binding(
+                    get: { store.liveActivityRestorePromptEnabled },
+                    set: { store.liveActivityRestorePromptEnabled = $0 }
+                ))
+                .disabled(!store.liveActivityEnabled)
+            }
+
+            Section("État") {
+                LabeledContent("Autorisation iOS", value: store.liveActivitiesAuthorized ? "Autorisée" : "Désactivée")
+                LabeledContent("Activité", value: store.liveActivityIsActive ? "Active" : "Aucune")
+            }
+
+            Section {
+                Button {
+                    Task { await store.restartLiveActivity() }
+                } label: {
+                    Label("Réafficher maintenant", systemImage: "rectangle.stack.badge.play")
+                }
+                .disabled(!store.liveActivityEnabled || !store.liveActivitiesAuthorized)
+
+                if store.liveActivityIsActive {
+                    Button(role: .destructive) {
+                        Task { await store.endLiveActivity() }
+                    } label: {
+                        Label("Terminer l’activité actuelle", systemImage: "xmark.circle")
+                    }
+                }
+            } footer: {
+                Text("Si l’activité est fermée alors qu’un cours reste aujourd’hui, Coursly peut proposer sa réactivation à la prochaine ouverture.")
+            }
+        }
+        .navigationTitle("Activité en direct")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct SimulationSettingsView: View {
+    @Environment(CalendarStore.self) private var store
+
+    var body: some View {
+        Form {
+            Section {
+                Toggle("Simuler une autre date et heure", isOn: Binding(
+                    get: { store.simulationEnabled },
+                    set: { enabled in
+                        store.setSimulationEnabled(enabled)
+                        Task { await store.load(around: store.focusedDate, force: true) }
+                    }
+                ))
+
+                if store.simulationEnabled {
+                    DatePicker("Date et heure", selection: Binding(
+                        get: { store.simulationDate },
+                        set: { value in
+                            store.simulationDate = value
+                            Task { await store.load(around: value, force: true) }
+                        }
+                    ), displayedComponents: [.date, .hourAndMinute])
+
+                    Button("Revenir à maintenant") {
+                        store.resetSimulation()
+                        Task { await store.load(around: store.focusedDate, force: true) }
+                    }
+                }
+            } footer: {
+                Text("La simulation modifie la logique temporelle, jamais les horaires CELCAT affichés.")
+            }
+        }
+        .navigationTitle("Simulation")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct DiagnosticSettingsView: View {
+    @Environment(CalendarStore.self) private var store
+
+    var body: some View {
+        Form {
+            Section("Synchronisation") {
+                LabeledContent("Dernière", value: store.lastSyncDate?.formatted(date: .abbreviated, time: .shortened) ?? "Jamais")
+                LabeledContent("Groupes", value: store.selectedGroupsLabel)
+                LabeledContent("Cours chargés", value: String(store.events.count))
+                LabeledContent("Source affichée", value: store.isUsingCachedEvents ? "Dernière copie locale" : "CELCAT à jour")
+                LabeledContent("Fallback iCal", value: store.fallbackGroups.isEmpty ? "Non utilisé" : store.fallbackGroups.map(\.name).joined(separator: ", "))
+            }
+
+            if !store.failedGroups.isEmpty || store.errorMessage != nil {
+                Section("Erreurs") {
+                    if !store.failedGroups.isEmpty {
+                        LabeledContent("Groupes", value: store.failedGroups.map(\.name).joined(separator: ", "))
+                    }
+                    if let error = store.errorMessage {
+                        Text(error).font(.caption).foregroundStyle(.red)
+                    }
+                }
+            }
+
+            Section {
+                Button("Vérifier maintenant") {
+                    Task { await store.refresh() }
+                }
+            }
+        }
+        .navigationTitle("Diagnostic")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 

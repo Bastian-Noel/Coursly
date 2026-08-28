@@ -4,6 +4,7 @@ enum TimelineMetrics {
     static let timeColumnWidth: CGFloat = 44
     static let weekHeaderHeight: CGFloat = 54
     static let courseBottomGap: CGFloat = 4
+    static let weekCourseBottomGap: CGFloat = 2
     static let parallelCourseGap: CGFloat = 2
     static let floatingDockClearance: CGFloat = 132
 }

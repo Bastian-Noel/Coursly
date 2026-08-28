@@ -1,108 +1,273 @@
 import SwiftUI
 
-enum FloatingPanel: String, Identifiable { case search, groups, date, more, changes; var id: String { rawValue } }
+enum FloatingPanel: String, Identifiable {
+    case search, groups, date, more, changes
+    var id: String { rawValue }
+}
 
 struct RootView: View {
     @Environment(CalendarStore.self) private var store
     @Environment(\.scenePhase) private var scenePhase
+    @Namespace private var dockNamespace
     @State private var panel: FloatingPanel?
     @State private var selectedEvent: CalendarEvent?
+    @State private var searchFilters = SearchFilters()
     @State private var showSettings = false
     @State private var showNewEvent = false
 
     var body: some View {
         ZStack(alignment: .bottom) {
             CourslyBackdrop()
-            CalendarScene(selectedEvent: $selectedEvent, panel: $panel).zIndex(0)
-            if let panel { panelView(panel).transition(.move(edge: .bottom).combined(with: .opacity)).zIndex(10) }
-            FloatingControlDock(activePanel: $panel, showSettings: $showSettings, showNewEvent: $showNewEvent)
-                .padding(.bottom, 8).zIndex(20)
+            CalendarScene(selectedEvent: $selectedEvent, panel: $panel)
+                .zIndex(0)
+
+            if let panel {
+                panelView(panel)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .zIndex(10)
+            }
+
+            FloatingControlDock(activePanel: $panel, namespace: dockNamespace)
+                .padding(.bottom, 2)
+                .zIndex(20)
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
-        .animation(.snappy(duration: 0.24), value: panel)
-        .sheet(item: $selectedEvent) { event in CourseDetailSheet(event: event).environment(store) }
-        .sheet(isPresented: $showSettings) { SettingsSheet().environment(store) }
-        .sheet(isPresented: $showNewEvent) { LocalEventSheet(defaultDate: store.focusedDate).environment(store) }
-        .task { await store.load(around: store.focusedDate, force: true) }
-        .onChange(of: scenePhase) { _, phase in guard phase == .active else { return }; Task { await store.load(around: store.focusedDate) } }
+        .animation(.snappy(duration: 0.28), value: panel)
+        .sheet(item: $selectedEvent) { event in
+            CourseDetailSheet(event: event).environment(store)
+        }
+        .sheet(isPresented: $showSettings) {
+            SettingsSheet().environment(store)
+        }
+        .sheet(isPresented: $showNewEvent) {
+            LocalEventSheet(defaultDate: store.focusedDate).environment(store)
+        }
+        .alert(
+            "Réactiver l’Activité en direct ?",
+            isPresented: Binding(
+                get: { store.shouldPresentLiveActivityRestorePrompt },
+                set: { if !$0 { store.dismissLiveActivityRestorePrompt() } }
+            )
+        ) {
+            Button("Plus tard", role: .cancel) {
+                store.dismissLiveActivityRestorePrompt()
+            }
+            Button("Réactiver") {
+                Task { await store.restoreLiveActivityFromPrompt() }
+            }
+        } message: {
+            Text("Elle a été fermée alors que des cours restent aujourd’hui. Ce rappel peut être désactivé dans les réglages.")
+        }
+        .task {
+            store.prepareForForeground()
+            await store.load(around: store.focusedDate, force: true)
+        }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            store.prepareForForeground()
+            Task { await store.load(around: store.focusedDate) }
+        }
     }
 
-    @ViewBuilder private func panelView(_ panel: FloatingPanel) -> some View {
+    @ViewBuilder
+    private func panelView(_ panel: FloatingPanel) -> some View {
         switch panel {
-        case .search: SearchPanel(onSelect: { event in store.goTo(event: event); self.panel = nil }, onClose: { self.panel = nil }).environment(store)
-        case .groups: HierarchicalGroupPanel(onClose: { self.panel = nil }).environment(store)
-        case .date: DatePanel(onClose: { self.panel = nil }).environment(store)
-        case .more: MorePanel(onChanges: { self.panel = .changes }, onNewEvent: { self.panel = nil; showNewEvent = true }, onSettings: { self.panel = nil; showSettings = true }, onClose: { self.panel = nil }).environment(store)
-        case .changes: ChangeHistoryPanel(onSelect: { event in store.goTo(event: event); self.panel = nil }, onClose: { self.panel = nil }).environment(store)
+        case .search:
+            SearchPanel(
+                filters: $searchFilters,
+                onSelect: { event in
+                    store.goTo(event: event)
+                    self.panel = nil
+                },
+                onClose: { self.panel = nil }
+            )
+            .environment(store)
+
+        case .groups:
+            HierarchicalGroupPanel(onClose: { self.panel = nil })
+                .environment(store)
+                .matchedGeometryEffect(id: "group-surface", in: dockNamespace)
+
+        case .date:
+            DatePanel(onClose: { self.panel = nil }).environment(store)
+
+        case .more:
+            MorePanel(
+                onChanges: { self.panel = .changes },
+                onNewEvent: {
+                    self.panel = nil
+                    showNewEvent = true
+                },
+                onSettings: {
+                    self.panel = nil
+                    showSettings = true
+                },
+                onClose: { self.panel = nil }
+            )
+            .environment(store)
+            .matchedGeometryEffect(id: "more-surface", in: dockNamespace)
+
+        case .changes:
+            ChangeHistoryPanel(
+                onSelect: { event in
+                    store.goTo(event: event)
+                    self.panel = nil
+                },
+                onClose: { self.panel = nil }
+            )
+            .environment(store)
         }
     }
 }
 
 struct CourslyBackdrop: View {
-    var body: some View { ZStack { Color(.systemBackground); LinearGradient(colors: [Color.accentColor.opacity(0.12), Color.clear, Color.indigo.opacity(0.06)], startPoint: .topLeading, endPoint: .bottomTrailing) }.ignoresSafeArea() }
+    var body: some View {
+        ZStack {
+            Color(.systemBackground)
+            LinearGradient(
+                colors: [Color.accentColor.opacity(0.08), Color.clear, Color.indigo.opacity(0.04)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+        .ignoresSafeArea()
+    }
 }
 
 struct CalendarScene: View {
     @Environment(CalendarStore.self) private var store
     @Binding var selectedEvent: CalendarEvent?
     @Binding var panel: FloatingPanel?
-    private var isOnToday: Bool { Calendar.current.isDate(store.focusedDate, inSameDayAs: store.now) }
+
+    private var isOnToday: Bool {
+        Calendar.current.isDate(store.focusedDate, inSameDayAs: store.now)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
-            CalendarHeader(panel: $panel).padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 6)
+            CalendarHeader(panel: $panel)
             Group {
                 switch store.displayMode {
-                case .day: DayTimelineView { event in selectedEvent = event }
-                case .week: WeekTimelineView { event in selectedEvent = event }
+                case .day:
+                    DayTimelineView { event in selectedEvent = event }
+                case .week:
+                    WeekTimelineView { event in selectedEvent = event }
                 }
-            }.environment(store)
+            }
+            .environment(store)
         }
-        .simultaneousGesture(MagnifyGesture(minimumScaleDelta: 0.14).onEnded { value in
-            if value.magnification < 0.88, store.displayMode == .day { store.setDisplayMode(.week) }
-            else if value.magnification > 1.12, store.displayMode == .week { store.setDisplayMode(.day) }
-        })
+        .simultaneousGesture(
+            MagnifyGesture(minimumScaleDelta: 0.14).onEnded { value in
+                if value.magnification < 0.88, store.displayMode == .day {
+                    store.setDisplayMode(.week)
+                } else if value.magnification > 1.12, store.displayMode == .week {
+                    store.setDisplayMode(.day)
+                }
+            }
+        )
         .overlay(alignment: .top) {
             if store.simulationEnabled {
-                Button { panel = .more; HapticService.fire(.panelOpened, enabled: store.hapticsEnabled) } label: {
-                    Label("Simulation · \(store.now.formatted(date: .abbreviated, time: .shortened))", systemImage: "clock.arrow.2.circlepath")
-                        .font(.caption.weight(.semibold)).padding(.horizontal, 12).frame(minHeight: 44).contentShape(Capsule())
-                }.buttonStyle(.plain).glassEffect(.regular.tint(Color(.systemGray5).opacity(0.72)).interactive(), in: Capsule()).padding(.top, 58)
+                Button {
+                    panel = .more
+                    HapticService.fire(.panelOpened, enabled: store.hapticsEnabled)
+                } label: {
+                    Label(
+                        "Simulation · \(store.now.formatted(date: .abbreviated, time: .shortened))",
+                        systemImage: "clock.arrow.2.circlepath"
+                    )
+                    .font(.caption.weight(.semibold))
+                    .padding(.horizontal, 12)
+                    .frame(minHeight: 44)
+                    .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .glassEffect(.regular.tint(Color(.systemGray5).opacity(0.72)).interactive(), in: Capsule())
+                .padding(.top, 62)
             }
         }
-        .overlay(alignment: .bottomLeading) {
+        .overlay(alignment: .bottom) {
             if !isOnToday, panel == nil {
-                Button { store.goToToday(); Task { await store.ensureLoaded(around: store.focusedDate) } } label: {
-                    Label("Aujourd’hui", systemImage: "scope").font(.subheadline.weight(.semibold)).padding(.horizontal, 14).frame(minHeight: 48).contentShape(Capsule())
-                }.buttonStyle(.plain).glassEffect(.regular.tint(Color.accentColor.opacity(0.16)).interactive(), in: Capsule()).padding(.leading, 14).padding(.bottom, 84)
-                    .transition(.move(edge: .bottom).combined(with: .opacity).combined(with: .scale(scale: 0.92)))
+                Button {
+                    store.goToToday()
+                    Task { await store.ensureLoaded(around: store.focusedDate) }
+                } label: {
+                    Label("Aujourd’hui", systemImage: "scope")
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, 14)
+                        .frame(minHeight: 46)
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .glassEffect(.regular.tint(Color.accentColor.opacity(0.16)).interactive(), in: Capsule())
+                .padding(.bottom, 72)
+                .transition(.move(edge: .bottom).combined(with: .opacity).combined(with: .scale(scale: 0.92)))
             }
-        }.animation(.snappy(duration: 0.24), value: isOnToday)
+        }
+        .animation(.snappy(duration: 0.24), value: isOnToday)
     }
 }
 
 struct CalendarHeader: View {
     @Environment(CalendarStore.self) private var store
     @Binding var panel: FloatingPanel?
+
     var body: some View {
-        HStack(alignment: .center, spacing: 12) {
-            Button { panel = panel == .date ? nil : .date; HapticService.fire(.panelOpened, enabled: store.hapticsEnabled) } label: {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(store.focusedDate.formatted(.dateTime.weekday(.wide)).capitalized).font(.title2.weight(.bold))
-                    Text(store.focusedDate.formatted(.dateTime.day().month(.wide))).font(.subheadline.weight(.medium)).foregroundStyle(.secondary)
-                }.frame(minHeight: 48, alignment: .leading).contentShape(Rectangle())
-            }.buttonStyle(.plain).accessibilityLabel("Choisir une date")
-            Spacer()
-            VStack(alignment: .trailing, spacing: 2) {
-                TimelineView(.periodic(from: .now, by: 30)) { context in Text(store.effectiveNow(from: context.date), style: .time).font(.headline.monospacedDigit()) }
-                Text(store.selectedGroupsLabel).font(.caption).foregroundStyle(.secondary)
+        HStack(spacing: 12) {
+            Button {
+                panel = panel == .date ? nil : .date
+                HapticService.fire(.panelOpened, enabled: store.hapticsEnabled)
+            } label: {
+                HStack(spacing: 10) {
+                    Text(store.focusedDate.formatted(.dateTime.day()))
+                        .font(.title2.monospacedDigit().weight(.bold))
+                        .frame(width: 42, height: 42)
+                        .background(Color.primary.opacity(0.07), in: Circle())
+
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(store.focusedDate.formatted(.dateTime.weekday(.wide)).capitalized)
+                            .font(.headline.weight(.bold))
+                        Text(store.focusedDate.formatted(.dateTime.month(.wide).year()))
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .frame(minHeight: 52, alignment: .leading)
+                .contentShape(Rectangle())
             }
-            if store.isLoading { ProgressView().controlSize(.small).frame(width: 48, height: 48) }
-            else {
-                Button { HapticService.fire(.selection, enabled: store.hapticsEnabled); Task { await store.refresh() } } label: {
-                    Image(systemName: "arrow.clockwise").font(.subheadline.weight(.semibold)).frame(width: 48, height: 48).contentShape(Circle())
-                }.buttonStyle(.plain).glassEffect(.regular.interactive(), in: Circle()).accessibilityLabel("Actualiser")
+            .buttonStyle(.plain)
+            .accessibilityLabel("Choisir une date")
+
+            Spacer(minLength: 8)
+
+            TimelineView(.periodic(from: .now, by: 30)) { context in
+                Text(store.effectiveNow(from: context.date), style: .time)
+                    .font(.headline.monospacedDigit().weight(.semibold))
             }
+
+            if store.isLoading {
+                ProgressView().controlSize(.small).frame(width: 44, height: 44)
+            } else {
+                Button {
+                    HapticService.fire(.selection, enabled: store.hapticsEnabled)
+                    Task { await store.refresh() }
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.subheadline.weight(.semibold))
+                        .frame(width: 44, height: 44)
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .glassEffect(.regular.interactive(), in: Circle())
+                .accessibilityLabel("Actualiser")
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 5)
+        .background {
+            TimelineDayBackground(isPastDay: false)
+        }
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(Color.secondary.opacity(0.14)).frame(height: 0.5)
         }
     }
 }
@@ -110,34 +275,78 @@ struct CalendarHeader: View {
 struct FloatingControlDock: View {
     @Environment(CalendarStore.self) private var store
     @Binding var activePanel: FloatingPanel?
-    @Binding var showSettings: Bool
-    @Binding var showNewEvent: Bool
+    let namespace: Namespace.ID
+
     var body: some View {
-        HStack(spacing: 6) {
-            dockButton(title: store.displayMode == .day ? "Semaine" : "Jour", icon: store.displayMode == .day ? "calendar" : "rectangle.split.1x2") { activePanel = nil; store.setDisplayMode(store.displayMode == .day ? .week : .day) }
-            dockButton(title: "Chercher", icon: "magnifyingglass", active: activePanel == .search) { toggle(.search) }
-            dockButton(title: "Groupes", icon: "person.2.fill", active: activePanel == .groups, badge: store.selectedGroups.count) { toggle(.groups) }
-            dockButton(title: "Plus", icon: "ellipsis", active: activePanel == .more || activePanel == .changes) { toggle(.more) }
-        }
-        .padding(7)
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .padding(.horizontal, 10)
-        .padding(.vertical, 4)
-    }
-    private func toggle(_ panel: FloatingPanel) { activePanel = activePanel == panel ? nil : panel; HapticService.fire(.panelOpened, enabled: store.hapticsEnabled) }
-    private func dockButton(title: String, icon: String, active: Bool = false, badge: Int? = nil, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            VStack(spacing: 3) {
-                ZStack(alignment: .topTrailing) {
-                    Image(systemName: icon).font(.system(size: 16, weight: .semibold)).frame(width: 24, height: 22)
-                    if let badge, badge > 0 { Text(String(badge)).font(.system(size: 8, weight: .bold, design: .rounded)).foregroundStyle(.white).frame(minWidth: 14, minHeight: 14).background(Color.accentColor, in: Circle()).offset(x: 7, y: -5) }
+        HStack(spacing: 8) {
+            if activePanel != .more {
+                Button { toggle(.more) } label: {
+                    Image(systemName: "line.3.horizontal")
+                        .font(.system(size: 17, weight: .semibold))
+                        .frame(width: 50, height: 50)
+                        .contentShape(Circle())
                 }
-                Text(title).font(.system(size: 9.5, weight: .semibold, design: .rounded)).lineLimit(1).minimumScaleFactor(0.75)
-            }.frame(minWidth: 62, minHeight: 52).padding(.horizontal, 4).contentShape(Rectangle())
+                .buttonStyle(.plain)
+                .glassEffect(.regular.interactive(), in: Circle())
+                .matchedGeometryEffect(id: "more-surface", in: namespace)
+                .accessibilityLabel("Plus d’options")
+            }
+
+            if activePanel != .groups {
+                Button { toggle(.groups) } label: {
+                    Text(store.compactSelectedGroupsLabel)
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.72)
+                        .padding(.horizontal, 15)
+                        .frame(minWidth: 74, minHeight: 50)
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .glassEffect(.regular.interactive(), in: Capsule())
+                .matchedGeometryEffect(id: "group-surface", in: namespace)
+                .accessibilityLabel("Choisir les groupes, sélection actuelle \(store.selectedGroupsLabel)")
+            }
+
+            Spacer(minLength: 8)
+
+            HStack(spacing: 0) {
+                Button { toggle(.search) } label: {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 17, weight: .semibold))
+                        .frame(width: 48, height: 50)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .background(activePanel == .search ? Color.accentColor.opacity(0.14) : Color.clear)
+                .accessibilityLabel("Rechercher")
+                .accessibilityAddTraits(activePanel == .search ? .isSelected : [])
+
+                Rectangle()
+                    .fill(Color.secondary.opacity(0.18))
+                    .frame(width: 0.5, height: 24)
+
+                Button {
+                    activePanel = nil
+                    store.setDisplayMode(store.displayMode == .day ? .week : .day)
+                } label: {
+                    Image(systemName: store.displayMode == .day ? "calendar" : "rectangle.split.1x2")
+                        .font(.system(size: 17, weight: .semibold))
+                        .frame(width: 48, height: 50)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(store.displayMode == .day ? "Afficher la semaine" : "Afficher le jour")
+            }
+            .clipped()
+            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 19, style: .continuous))
         }
-        .buttonStyle(.plain)
-        .background(active ? Color.accentColor.opacity(0.12) : Color.clear, in: RoundedRectangle(cornerRadius: 17, style: .continuous))
-        .accessibilityLabel(title)
-        .accessibilityAddTraits(active ? .isSelected : [])
+        .padding(.horizontal, 12)
+        .padding(.vertical, 2)
+    }
+
+    private func toggle(_ target: FloatingPanel) {
+        activePanel = activePanel == target ? nil : target
+        HapticService.fire(.panelOpened, enabled: store.hapticsEnabled)
     }
 }

@@ -24,7 +24,9 @@ final class CalendarStore {
     var lastSyncDate: Date?
     var isUsingCachedEvents = false
     var focusedDate: Date = Calendar.current.startOfDay(for: Date())
+    var dayFocusedDate: Date = Calendar.current.startOfDay(for: Date())
     var displayMode: CalendarDisplayMode = .day
+    private(set) var didNavigateWeekHorizontally = false
     var highlightedEventID: String?
     /// La navigation de date et la position verticale sont volontairement séparées.
     /// Un swipe horizontal ne produit jamais de requête de recentrage.
@@ -40,6 +42,8 @@ final class CalendarStore {
     var notificationHorizonDays: Int { didSet { UserDefaults.standard.set(notificationHorizonDays, forKey: "v3.notificationHorizonDays") } }
     var notificationChangeKinds: Set<CalendarChangeKind> { didSet { UserDefaults.standard.set(notificationChangeKinds.map(\.rawValue).sorted(), forKey: "v3.notificationChangeKinds") } }
     var liveActivityEnabled: Bool { didSet { UserDefaults.standard.set(liveActivityEnabled, forKey: "v3.liveActivityEnabled") } }
+    var liveActivityRestorePromptEnabled: Bool { didSet { UserDefaults.standard.set(liveActivityRestorePromptEnabled, forKey: "v3.liveActivityRestorePromptEnabled") } }
+    private(set) var shouldPresentLiveActivityRestorePrompt = false
     var hapticsEnabled: Bool { didSet { UserDefaults.standard.set(hapticsEnabled, forKey: "v3.hapticsEnabled") } }
     var recentChanges: [CalendarChange] = []
     var courseColorRevision = UUID()
@@ -53,6 +57,9 @@ final class CalendarStore {
     private let localEventStore = LocalEventStore()
     private let notificationService = NotificationService()
     private static let observedTypesKey = "v3.observedCourseTypeLabels"
+    private static let liveActivityWasActiveKey = "v3.liveActivityWasActive"
+    private var liveActivityWasActive: Bool
+    private var suppressLiveActivityAutoStart = false
     private var loadedIntervals: [DateInterval] = []
     private var activeLoadTask: Task<Void, Never>?
     private var activeLoadID: UUID?
@@ -66,11 +73,14 @@ final class CalendarStore {
         notificationHorizonDays = max(1, defaults.integer(forKey: "v3.notificationHorizonDays") == 0 ? 7 : defaults.integer(forKey: "v3.notificationHorizonDays"))
         if let storedKinds = defaults.stringArray(forKey: "v3.notificationChangeKinds") { notificationChangeKinds = Set(storedKinds.compactMap(CalendarChangeKind.init(rawValue:))) } else { notificationChangeKinds = Set(CalendarChangeKind.allCases) }
         liveActivityEnabled = defaults.object(forKey: "v3.liveActivityEnabled") as? Bool ?? true
+        liveActivityRestorePromptEnabled = defaults.object(forKey: "v3.liveActivityRestorePromptEnabled") as? Bool ?? true
+        liveActivityWasActive = defaults.bool(forKey: Self.liveActivityWasActiveKey)
         hapticsEnabled = defaults.object(forKey: "v3.hapticsEnabled") as? Bool ?? true
         hourHeight = defaults.double(forKey: "v3.hourHeight") == 0 ? 88 : defaults.double(forKey: "v3.hourHeight")
         weekendPolicy = WeekendDisplayPolicy(rawValue: defaults.string(forKey: "v3.weekendPolicy") ?? "") ?? .smart
         let effectiveNow = simulationEnabled ? Date().addingTimeInterval(simulationOffset) : Date()
         focusedDate = Calendar.current.startOfDay(for: effectiveNow)
+        dayFocusedDate = focusedDate
         recentChanges = historyStore.all()
         if let cached = calendarCache.load(for: selectedGroups) {
             remoteEvents = cached.events
@@ -91,6 +101,15 @@ final class CalendarStore {
         }
     }
     var selectedGroupsLabel: String { switch selectedGroups.count { case 0: "Aucun groupe"; case 1: selectedGroups[0].name; default: "\(selectedGroups.count) groupes" } }
+    var compactSelectedGroupsLabel: String {
+        guard !selectedGroups.isEmpty else { return "Groupes" }
+        let cohorts = Set(selectedGroups.compactMap { $0.name.split(separator: "-").first.map(String.init) })
+        if cohorts.count == 1, let cohort = cohorts.first {
+            let allInCohort = StudentGroup.all.filter { $0.name.hasPrefix(cohort + "-") }
+            if !allInCohort.isEmpty, Set(allInCohort) == Set(selectedGroups) { return cohort }
+        }
+        return selectedGroups.count == 1 ? selectedGroups[0].name : "\(selectedGroups.count) groupes"
+    }
     var searchFacets: SearchFacets { searchEngine.facets(from: events) }
     var liveActivityIsActive: Bool { LiveActivityManager.hasActiveActivity }
     var liveActivitiesAuthorized: Bool { LiveActivityManager.areActivitiesEnabled }
@@ -188,8 +207,12 @@ final class CalendarStore {
                 let notifyChanges = changesWithinNotificationHorizon(newChanges)
                 if notificationsEnabled, !notifyChanges.isEmpty { await notificationService.notify(changes: notifyChanges) }
             } else { recentChanges = historyStore.all() }
-            if liveActivityEnabled { await LiveActivityManager.update(events: events(on: now), now: now, enabled: true) }
-            else { await LiveActivityManager.endAll(now: now) }
+            if liveActivityEnabled, !suppressLiveActivityAutoStart {
+                await LiveActivityManager.update(events: events(on: now), now: now, enabled: true)
+                recordLiveActivityIfActive()
+            } else if !liveActivityEnabled {
+                await LiveActivityManager.endAll(now: now)
+            }
         } catch {
             errorMessage = error.localizedDescription
             failedGroups = selectedGroups
@@ -209,12 +232,14 @@ final class CalendarStore {
     func moveDay(_ direction: Int) {
         guard direction != 0 else { return }
         focusedDate = Calendar.current.startOfDay(for: nextVisibleDate(from: focusedDate, direction: direction))
+        dayFocusedDate = focusedDate
         highlightedEventID = nil
         HapticService.fire(.dayChanged, enabled: hapticsEnabled)
     }
 
     func setFocusedDateFromTimeline(_ date: Date) {
         focusedDate = Calendar.current.startOfDay(for: date)
+        didNavigateWeekHorizontally = true
         highlightedEventID = nil
     }
 
@@ -238,6 +263,15 @@ final class CalendarStore {
 
     func setDisplayMode(_ mode: CalendarDisplayMode) {
         guard displayMode != mode else { return }
+        if mode == .week {
+            dayFocusedDate = focusedDate
+            didNavigateWeekHorizontally = false
+        } else if !didNavigateWeekHorizontally {
+            focusedDate = dayFocusedDate
+            dateNavigationToken = UUID()
+        } else {
+            dayFocusedDate = focusedDate
+        }
         displayMode = mode
         HapticService.fire(.displayModeChanged, enabled: hapticsEnabled)
     }
@@ -271,12 +305,59 @@ final class CalendarStore {
     }
     func deleteLocalEvent(_ event: CalendarEvent) { guard event.source == .local else { return }; localEventStore.delete(id: event.id); refreshCombinedEvents(); HapticService.fire(.success, enabled: hapticsEnabled) }
     func setNotificationsEnabled(_ enabled: Bool) async { notificationsEnabled = enabled ? await notificationService.requestAuthorization() : false }
-    func setLiveActivityEnabled(_ enabled: Bool) async { liveActivityEnabled = enabled; if enabled { await restartLiveActivity() } else { await LiveActivityManager.endAll(now: now) } }
-    func restartLiveActivity() async { guard liveActivityEnabled else { return }; await LiveActivityManager.restart(events: events(on: now), now: now); HapticService.fire(.success, enabled: hapticsEnabled) }
-    func endLiveActivity() async { await LiveActivityManager.endAll(now: now) }
+    func setLiveActivityEnabled(_ enabled: Bool) async {
+        liveActivityEnabled = enabled
+        shouldPresentLiveActivityRestorePrompt = false
+        suppressLiveActivityAutoStart = false
+        if enabled {
+            await restartLiveActivity()
+        } else {
+            liveActivityWasActive = false
+            UserDefaults.standard.set(false, forKey: Self.liveActivityWasActiveKey)
+            await LiveActivityManager.endAll(now: now)
+        }
+    }
+    func prepareForForeground() {
+        let hasRemainingCourse = events(on: now).contains { $0.end > now }
+        let shouldPrompt = liveActivityRestorePromptEnabled
+            && liveActivityEnabled
+            && liveActivitiesAuthorized
+            && liveActivityWasActive
+            && hasRemainingCourse
+            && !liveActivityIsActive
+        shouldPresentLiveActivityRestorePrompt = shouldPrompt
+        suppressLiveActivityAutoStart = shouldPrompt
+    }
+    func dismissLiveActivityRestorePrompt() {
+        shouldPresentLiveActivityRestorePrompt = false
+    }
+    func restoreLiveActivityFromPrompt() async {
+        shouldPresentLiveActivityRestorePrompt = false
+        suppressLiveActivityAutoStart = false
+        await restartLiveActivity()
+    }
+    func restartLiveActivity() async {
+        guard liveActivityEnabled else { return }
+        suppressLiveActivityAutoStart = false
+        await LiveActivityManager.restart(events: events(on: now), now: now)
+        recordLiveActivityIfActive()
+        HapticService.fire(.success, enabled: hapticsEnabled)
+    }
+    func endLiveActivity() async {
+        suppressLiveActivityAutoStart = true
+        liveActivityWasActive = false
+        UserDefaults.standard.set(false, forKey: Self.liveActivityWasActiveKey)
+        await LiveActivityManager.endAll(now: now)
+    }
     func clearChangeHistory() { historyStore.clear(); recentChanges = [] }
     func courseColorsDidChange() { courseColorRevision = UUID() }
     func recentChangeKind(for event: CalendarEvent) -> CalendarChangeKind? { let cutoff = now.addingTimeInterval(-48 * 60 * 60); return recentChanges.first(where: { $0.detectedAt >= cutoff && ($0.newEvent?.id == event.id || $0.oldEvent?.id == event.id) })?.kind }
+
+    private func recordLiveActivityIfActive() {
+        guard liveActivityIsActive else { return }
+        liveActivityWasActive = true
+        UserDefaults.standard.set(true, forKey: Self.liveActivityWasActiveKey)
+    }
 
     private func encompassingLoadedInterval() -> DateInterval? {
         guard let first = loadedIntervals.first else { return nil }
@@ -317,6 +398,7 @@ final class CalendarStore {
     private func makeLoadInterval(around date: Date) -> DateInterval { let calendar = Calendar.current; let day = calendar.startOfDay(for: date); let start = calendar.date(byAdding: .day, value: -7, to: day) ?? day; let horizon = max(35, notificationHorizonDays + 14); let end = calendar.date(byAdding: .day, value: horizon, to: day) ?? day.addingTimeInterval(Double(horizon) * 86_400); return DateInterval(start: start, end: end) }
     private func navigate(to date: Date, scrollTarget: TimelineScrollTarget?) {
         focusedDate = Calendar.current.startOfDay(for: date)
+        dayFocusedDate = focusedDate
         highlightedEventID = scrollTarget == nil ? nil : highlightedEventID
         dateNavigationToken = UUID()
         if let scrollTarget {

@@ -4,31 +4,36 @@ struct FloatingPanelShell<Content: View>: View {
     let title: String
     let systemImage: String
     let onClose: () -> Void
+    var showsHeader = true
+    var widthFraction: CGFloat = 1
     @ViewBuilder let content: () -> Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Label(title, systemImage: systemImage)
-                    .font(.headline)
-                Spacer()
-                Button(action: onClose) {
-                    Image(systemName: "xmark")
-                        .font(.caption.weight(.bold))
-                        .frame(width: 44, height: 44)
-                        .contentShape(Circle())
+        VStack(alignment: .leading, spacing: 12) {
+            if showsHeader {
+                HStack {
+                    Label(title, systemImage: systemImage)
+                        .font(.headline)
+                    Spacer()
+                    Button(action: onClose) {
+                        Image(systemName: "xmark")
+                            .font(.caption.weight(.bold))
+                            .frame(width: 44, height: 44)
+                            .contentShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .glassEffect(.regular.interactive(), in: Circle())
+                    .accessibilityLabel("Fermer")
                 }
-                .buttonStyle(.plain)
-                .glassEffect(.regular.interactive(), in: Circle())
-                .accessibilityLabel("Fermer")
             }
             content()
         }
-        .padding(16)
+        .padding(14)
         .frame(maxWidth: 620)
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .modifier(FloatingPanelWidth(fraction: widthFraction))
         .padding(.horizontal, 12)
-        .padding(.bottom, 72)
+        .padding(.bottom, 82)
     }
 }
 
@@ -71,9 +76,9 @@ struct GroupPanel: View {
 
 struct SearchPanel: View {
     @Environment(CalendarStore.self) private var store
+    @Binding var filters: SearchFilters
     let onSelect: (CalendarEvent) -> Void
     let onClose: () -> Void
-    @State private var filters = SearchFilters()
 
     private var results: [CalendarEvent] { store.search(filters) }
     private var facets: SearchFacets { store.searchFacets }
@@ -273,43 +278,95 @@ struct MorePanel: View {
     let onClose: () -> Void
 
     var body: some View {
-        FloatingPanelShell(title: "Actions", systemImage: "ellipsis.circle", onClose: onClose) {
-            VStack(spacing: 6) {
+        FloatingPanelShell(
+            title: "",
+            systemImage: "line.3.horizontal",
+            onClose: onClose,
+            showsHeader: false,
+            widthFraction: 0.70
+        ) {
+            Button(action: onClose) {
+                Image(systemName: "line.3.horizontal")
+                    .font(.system(size: 17, weight: .semibold))
+                    .frame(width: 42, height: 36, alignment: .leading)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Replier les options")
+
+            VStack(spacing: 2) {
                 actionRow("Nouvel événement", icon: "plus.circle.fill", action: onNewEvent)
-                actionRow("Changements récents", icon: "arrow.triangle.2.circlepath", action: onChanges)
+                actionRow("Changements", icon: "arrow.triangle.2.circlepath", action: onChanges)
+            }
+
+            Rectangle()
+                .fill(Color.secondary.opacity(0.16))
+                .frame(height: 0.5)
+
+            VStack(spacing: 2) {
+                quickToggle(
+                    "Activité en direct",
+                    icon: "rectangle.stack.badge.play",
+                    isOn: Binding(
+                        get: { store.liveActivityEnabled },
+                        set: { enabled in Task { await store.setLiveActivityEnabled(enabled) } }
+                    )
+                )
+                quickToggle(
+                    "Retours haptiques",
+                    icon: "hand.tap",
+                    isOn: Binding(
+                        get: { store.hapticsEnabled },
+                        set: { store.hapticsEnabled = $0 }
+                    )
+                )
                 if store.simulationEnabled {
-                    actionRow("Revenir à l’heure réelle", icon: "clock.arrow.circlepath") {
+                    actionRow("Heure réelle", icon: "clock.arrow.circlepath") {
                         store.resetSimulation()
                         Task { await store.load(around: store.focusedDate, force: true) }
                         HapticService.fire(.returnedToNow, enabled: store.hapticsEnabled)
                     }
                 }
-                actionRow("Réglages", icon: "gearshape.fill", action: onSettings)
             }
 
+            Rectangle()
+                .fill(Color.secondary.opacity(0.16))
+                .frame(height: 0.5)
+
+            actionRow("Tous les réglages", icon: "gearshape.fill", action: onSettings)
+
             if !store.fallbackGroups.isEmpty {
-                Label(
-                    "Données de secours utilisées pour \(store.fallbackGroups.map(\.name).joined(separator: ", ")). Les changements ne sont pas détectés pour ces groupes.",
-                    systemImage: "exclamationmark.triangle.fill"
-                )
-                .font(.caption)
-                .foregroundStyle(.orange)
+                Label("Données de secours actives", systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
             }
         }
     }
 
     private func actionRow(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack {
-                Image(systemName: icon).frame(width: 24)
-                Text(title).font(.subheadline.weight(.medium))
-                Spacer()
-                Image(systemName: "chevron.right").font(.caption2.bold()).foregroundStyle(.tertiary)
+            HStack(spacing: 10) {
+                Image(systemName: icon).frame(width: 22)
+                Text(title).font(.subheadline.weight(.medium)).lineLimit(1)
+                Spacer(minLength: 4)
+                Image(systemName: "chevron.right")
+                    .font(.caption2.bold())
+                    .foregroundStyle(.tertiary)
             }
-            .frame(minHeight: 48)
+            .frame(minHeight: 46)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+
+    private func quickToggle(_ title: String, icon: String, isOn: Binding<Bool>) -> some View {
+        Toggle(isOn: isOn) {
+            Label(title, systemImage: icon)
+                .font(.subheadline.weight(.medium))
+                .lineLimit(1)
+        }
+        .frame(minHeight: 46)
+        .tint(.accentColor)
     }
 }
 
@@ -371,6 +428,24 @@ struct ChangeHistoryPanel: View {
         case .removed: return Color.red
         case .moved: return Color.orange
         case .modified: return Color.blue
+        }
+    }
+}
+
+private struct FloatingPanelWidth: ViewModifier {
+    let fraction: CGFloat
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if fraction < 0.99 {
+            content
+                .containerRelativeFrame(.horizontal) { length, _ in
+                    min(420, length * fraction)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            content
+                .frame(maxWidth: .infinity)
         }
     }
 }
