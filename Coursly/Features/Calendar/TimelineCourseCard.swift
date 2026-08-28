@@ -35,7 +35,7 @@ struct CourseBlock: View {
         .background(Rectangle().fill(cardFill))
         .overlay {
             if highlighted {
-                Rectangle().stroke(Color.accentColor, lineWidth: 2)
+                Rectangle().stroke(Color.white.opacity(0.42), lineWidth: 1)
             }
         }
         .overlay {
@@ -218,14 +218,18 @@ struct CourseBlock: View {
     private var baseColor: Color { Color(courslyHex: baseHex) }
 
     private var primaryTextColor: Color {
-        colorScheme == .dark
+        if highlighted { return .white }
+        return colorScheme == .dark
             ? Color(courslyHex: baseHex, saturationScale: 0.52, brightnessScale: 1.55)
             : Color(courslyHex: baseHex, saturationScale: 0.78, brightnessScale: 0.48)
     }
 
-    private var metadataTextColor: Color { primaryTextColor.opacity(0.78) }
+    private var metadataTextColor: Color {
+        highlighted ? Color.white.opacity(0.86) : primaryTextColor.opacity(0.78)
+    }
 
     private var stripeColor: Color {
+        if highlighted { return Color.white.opacity(0.92) }
         guard isPast else { return baseColor }
         return weekLayout
             ? Color(courslyHex: baseHex, saturationScale: 0.72, brightnessScale: 0.64)
@@ -233,6 +237,7 @@ struct CourseBlock: View {
     }
 
     private var cardFill: Color {
+        if highlighted { return baseColor }
         if isPast {
             return weekLayout
                 ? Color(courslyHex: baseHex, saturationScale: 0.58, brightnessScale: 0.62).opacity(0.27)
