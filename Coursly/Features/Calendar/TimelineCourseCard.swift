@@ -36,6 +36,9 @@ struct CourseBlock: View {
                 Rectangle().stroke(Color.accentColor, lineWidth: 2)
             }
         }
+        .overlay {
+            cornerTimes
+        }
         .clipped()
         .contentShape(Rectangle())
         .accessibilityElement(children: .ignore)
@@ -47,14 +50,11 @@ struct CourseBlock: View {
         switch layout.density {
         case .micro:
             VStack(alignment: .leading, spacing: 1) {
-                HStack(alignment: .top, spacing: 3) {
-                    Text(event.title)
-                        .font(layout.titleFont)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.5)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    trailingTimes
-                }
+                Text(event.title)
+                    .font(layout.titleFont)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 if !event.room.isEmpty {
                     Label(event.room, systemImage: "mappin")
                         .font(layout.metadataFont)
@@ -104,14 +104,14 @@ struct CourseBlock: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.62)
             }
-            Spacer(minLength: 2)
-            trailingTimes
+            Spacer(minLength: 0)
         }
     }
 
-    private var trailingTimes: some View {
+    private var cornerTimes: some View {
         VStack(alignment: .trailing, spacing: 0) {
             Text(shortTime(event.start))
+            Spacer(minLength: 0)
             Text(shortTime(event.end))
         }
         .font(layout.timeFont)
@@ -119,7 +119,12 @@ struct CourseBlock: View {
         .lineLimit(1)
         .minimumScaleFactor(0.55)
         .fixedSize(horizontal: true, vertical: false)
-        .accessibilityLabel("de \(shortTime(event.start)) à \(shortTime(event.end))")
+        .padding(.top, layout.verticalPadding)
+        .padding(.trailing, max(2, layout.horizontalPadding - 1))
+        .padding(.bottom, layout.verticalPadding)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 
     private var compactMetadata: some View {
