@@ -21,6 +21,10 @@ struct CourseTypeRuleSettingsView: View {
                         }
                     }
                 }
+                .onMove { source, destination in
+                    rules.move(fromOffsets: source, toOffset: destination)
+                    persist()
+                }
 
                 NavigationLink {
                     CourseTypeRuleEditor(
@@ -51,6 +55,9 @@ struct CourseTypeRuleSettingsView: View {
         }
         .navigationTitle("Regroupement des types")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            EditButton()
+        }
     }
 
     private func ruleRow(_ rule: CourseTypeRule) -> some View {
