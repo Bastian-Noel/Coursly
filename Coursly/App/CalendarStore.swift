@@ -1,6 +1,22 @@
 import Foundation
 import Observation
 
+enum AppAppearancePreference: String, CaseIterable, Identifiable, Sendable {
+    case system
+    case light
+    case dark
+
+    var id: String { rawValue }
+
+    var frenchTitle: String {
+        switch self {
+        case .system: "Selon l’iPhone"
+        case .light: "Clair"
+        case .dark: "Sombre"
+        }
+    }
+}
+
 enum TimelineScrollTarget: Equatable, Sendable {
     case now
     case minute(Int)
@@ -35,6 +51,7 @@ final class CalendarStore {
     var dayTopMinute: Int?
     var weekTopMinute: Int?
     var weekendPolicy: WeekendDisplayPolicy { didSet { UserDefaults.standard.set(weekendPolicy.rawValue, forKey: "v3.weekendPolicy") } }
+    var appAppearance: AppAppearancePreference { didSet { UserDefaults.standard.set(appAppearance.rawValue, forKey: "v3.appAppearance") } }
     var hourHeight: Double { didSet { UserDefaults.standard.set(hourHeight, forKey: "v3.hourHeight") } }
     var simulationEnabled: Bool { didSet { UserDefaults.standard.set(simulationEnabled, forKey: "simulationEnabled") } }
     var simulationOffset: TimeInterval { didSet { UserDefaults.standard.set(simulationOffset, forKey: "simulationOffset") } }
@@ -67,6 +84,7 @@ final class CalendarStore {
     init() {
         let defaults = UserDefaults.standard
         selectedGroups = CalendarStore.loadSelectedGroups()
+        appAppearance = AppAppearancePreference(rawValue: defaults.string(forKey: "v3.appAppearance") ?? "") ?? .system
         simulationEnabled = defaults.bool(forKey: "simulationEnabled")
         simulationOffset = defaults.double(forKey: "simulationOffset")
         notificationsEnabled = defaults.object(forKey: "v3.notificationsEnabled") as? Bool ?? true
