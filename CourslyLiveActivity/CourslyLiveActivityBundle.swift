@@ -52,43 +52,44 @@ struct CourslyLiveActivityWidget: Widget {
         let accent = accentColor(state)
 
         if state.dayFinished {
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.title2)
+                    .font(.title3)
                     .foregroundStyle(.green)
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 1) {
                     Text("JOURNÉE TERMINÉE")
-                        .font(.caption.weight(.heavy))
+                        .font(.caption2.weight(.heavy))
                         .foregroundStyle(.green)
                     Text("Tous les cours sont terminés")
-                        .font(.headline)
+                        .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.white)
                 }
                 Spacer()
             }
-            .padding(16)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
         } else {
             HStack(spacing: 0) {
                 Rectangle()
                     .fill(accent)
                     .frame(width: 4)
 
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 9) {
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack(spacing: 7) {
                         Label(state.status, systemImage: "stopwatch")
-                            .font(.caption.weight(.heavy))
+                            .font(.caption2.weight(.heavy))
                             .foregroundStyle(accent)
                             .lineLimit(1)
 
                         countdown(state)
-                            .font(.headline.monospacedDigit().weight(.bold))
+                            .font(.caption.monospacedDigit().weight(.bold))
                             .foregroundStyle(accent)
                             .contentTransition(.numericText())
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 3)
-                            .background(accent.opacity(0.13), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 2)
+                            .background(accent.opacity(0.13), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
                             .overlay {
-                                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                RoundedRectangle(cornerRadius: 6, style: .continuous)
                                     .stroke(accent.opacity(0.38), lineWidth: 0.8)
                             }
 
@@ -99,29 +100,32 @@ struct CourslyLiveActivityWidget: Widget {
                         Text(state.start, style: .time)
                         Text("–")
                         Text(state.end, style: .time)
+
+                        Spacer(minLength: 5)
+
+                        if let type = state.type, !type.isEmpty {
+                            Label(type, systemImage: "graduationcap.fill")
+                                .font(.caption2.weight(.bold))
+                                .foregroundStyle(accent)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.7)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(accent.opacity(0.10), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                        .stroke(accent.opacity(0.38), lineWidth: 0.7)
+                                }
+                        }
                     }
-                    .font(.subheadline.monospacedDigit().weight(.medium))
+                    .font(.caption.monospacedDigit().weight(.medium))
                     .foregroundStyle(.white.opacity(0.68))
 
                     Text(state.title)
-                        .font(.title3.weight(.bold))
+                        .font(.headline.weight(.bold))
                         .foregroundStyle(.white)
                         .lineLimit(2)
-                        .minimumScaleFactor(0.78)
-
-                    if let type = state.type, !type.isEmpty {
-                        Label(type, systemImage: "graduationcap.fill")
-                            .font(.subheadline.weight(.bold))
-                            .foregroundStyle(accent)
-                            .lineLimit(1)
-                            .padding(.horizontal, 9)
-                            .padding(.vertical, 4)
-                            .background(accent.opacity(0.10), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                            .overlay {
-                                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                    .stroke(accent.opacity(0.42), lineWidth: 0.8)
-                            }
-                    }
+                        .minimumScaleFactor(0.72)
 
                     let metadata = [
                         state.room.isEmpty ? nil : state.room,
@@ -131,17 +135,17 @@ struct CourslyLiveActivityWidget: Widget {
 
                     if !metadata.isEmpty {
                         Text(metadata.joined(separator: " · "))
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.68))
-                            .lineLimit(2)
-                            .minimumScaleFactor(0.68)
+                            .font(.caption2)
+                            .foregroundStyle(.white.opacity(0.66))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.58)
                     }
 
                     progressBar(state, accent: accent)
 
                     if let nextTitle = state.nextTitle,
                        let nextStart = state.nextStart {
-                        nextCourse(
+                        compactNextCourse(
                             title: nextTitle,
                             room: state.nextRoom,
                             type: state.nextType,
@@ -150,70 +154,65 @@ struct CourslyLiveActivityWidget: Widget {
                         )
                     }
                 }
-                .padding(.vertical, 13)
-                .padding(.horizontal, 13)
+                .padding(.vertical, 9)
+                .padding(.horizontal, 11)
             }
-            .background(accent.opacity(0.055))
+            .background(accent.opacity(0.05))
         }
     }
 
-    private func nextCourse(
+    private func compactNextCourse(
         title: String,
         room: String?,
         type: String?,
         start: Date,
         accent: Color
     ) -> some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 5) {
             Rectangle()
                 .fill(Color.white.opacity(0.16))
                 .frame(height: 0.5)
 
-            HStack(alignment: .center, spacing: 10) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Label("PROCHAIN COURS", systemImage: "calendar")
-                        .font(.caption2.weight(.heavy))
-                        .foregroundStyle(accent)
+            HStack(alignment: .center, spacing: 8) {
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 5) {
+                        Label("PROCHAIN", systemImage: "calendar")
+                            .font(.system(size: 9, weight: .heavy))
+                            .foregroundStyle(accent)
+
+                        if let type, !type.isEmpty {
+                            Text(type)
+                                .font(.system(size: 8, weight: .bold))
+                                .foregroundStyle(accent)
+                                .lineLimit(1)
+                        }
+                    }
 
                     Text(title)
-                        .font(.subheadline.weight(.bold))
+                        .font(.caption.weight(.semibold))
                         .foregroundStyle(.white)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.75)
-
-                    if let type, !type.isEmpty {
-                        Label(type, systemImage: "book.closed.fill")
-                            .font(.caption2.weight(.bold))
-                            .foregroundStyle(accent)
-                            .lineLimit(1)
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 3)
-                            .background(accent.opacity(0.10), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
-                            .overlay {
-                                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                    .stroke(accent.opacity(0.40), lineWidth: 0.8)
-                            }
-                    }
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.66)
                 }
 
-                Spacer(minLength: 4)
+                Spacer(minLength: 3)
 
                 Rectangle()
                     .fill(Color.white.opacity(0.18))
-                    .frame(width: 0.5, height: 52)
+                    .frame(width: 0.5, height: 32)
 
-                VStack(alignment: .trailing, spacing: 3) {
+                VStack(alignment: .trailing, spacing: 1) {
                     Text(start, style: .time)
-                        .font(.title3.monospacedDigit().weight(.semibold))
+                        .font(.subheadline.monospacedDigit().weight(.semibold))
                         .foregroundStyle(.white)
                     if let room, !room.isEmpty {
                         Text(room)
-                            .font(.caption)
+                            .font(.caption2)
                             .foregroundStyle(.white.opacity(0.62))
                             .lineLimit(1)
                     }
                 }
-                .frame(minWidth: 54, alignment: .trailing)
+                .frame(minWidth: 48, alignment: .trailing)
             }
         }
     }
