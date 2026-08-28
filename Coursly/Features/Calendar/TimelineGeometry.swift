@@ -195,16 +195,24 @@ struct TimelineCurrentTimeIndicator: View {
     let hourHeight: CGFloat
     let width: CGFloat
     var leadingDot = true
+    var showsLine = true
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 30)) { context in
             let y = TimelineAxis.y(for: store.effectiveNow(from: context.date), hourHeight: hourHeight)
             HStack(spacing: 0) {
-                if leadingDot { Circle().fill(.red).frame(width: 8, height: 8) }
-                Rectangle().fill(.red).frame(height: 1.5)
+                if leadingDot {
+                    Circle().fill(.red).frame(width: 8, height: 8)
+                }
+                if showsLine {
+                    Rectangle().fill(.red).frame(height: 1.5)
+                }
             }
             .frame(width: width, alignment: .leading)
-            .offset(x: leadingDot ? -4 : 0, y: y - 4)
+            .offset(
+                x: leadingDot ? -4 : 0,
+                y: y - (leadingDot ? 4 : 0.75)
+            )
             .accessibilityHidden(true)
         }
         .allowsHitTesting(false)
