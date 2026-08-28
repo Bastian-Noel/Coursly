@@ -89,8 +89,7 @@ enum CourseTypeRulePreferences {
     static var rules: [CourseTypeRule] {
         get {
             guard let data = UserDefaults.standard.data(forKey: storageKey),
-                  let decoded = try? JSONDecoder().decode([CourseTypeRule].self, from: data),
-                  !decoded.isEmpty else {
+                  let decoded = try? JSONDecoder().decode([CourseTypeRule].self, from: data) else {
                 return defaultRules
             }
             return decoded
