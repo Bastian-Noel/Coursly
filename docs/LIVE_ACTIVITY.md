@@ -42,7 +42,7 @@ Ordre visuel :
 6. barre de progression épaisse ;
 7. bloc « prochain cours » séparé en bas avec sa couleur de type, sa matière, son heure et sa salle lorsqu’il est utile.
 
-La surface reprend la DA des cartes Semaine : fond translucide sombre, bande verticale et accents utilisant la couleur personnalisée du type. Le prochain cours transporte aussi son type et sa teinte. Aucun faux bouton n’est affiché tant qu’une route d’ouverture de cours testable n’existe pas.
+La surface reprend la DA des cartes Semaine : fond translucide sombre, bande verticale et accents utilisant la couleur personnalisée du type. Le prochain cours transporte aussi son type et sa teinte. La variante Lock Screen doit rester compacte dans la hauteur proposée par ActivityKit : marges verticales bornées, métadonnées sur une ligne et bloc suivant condensé, sans rognage supérieur ou inférieur. Aucun faux bouton n’est affiché tant qu’une route d’ouverture de cours testable n’existe pas.
 
 ## 5. Couleurs
 
