@@ -3,6 +3,7 @@ import UIKit
 
 struct CourseBlock: View {
     @Environment(CalendarStore.self) private var store
+    @Environment(\.colorScheme) private var colorScheme
     let event: CalendarEvent
     let availableWidth: CGFloat
     let height: CGFloat
@@ -28,6 +29,7 @@ struct CourseBlock: View {
                 .padding(.vertical, layout.verticalPadding)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
+        .foregroundStyle(primaryTextColor)
         .frame(maxHeight: .infinity, alignment: .top)
         .frame(width: max(1, availableWidth), height: max(1, height), alignment: .topLeading)
         .background(Rectangle().fill(cardFill))
@@ -115,7 +117,7 @@ struct CourseBlock: View {
                 Text(shortTime(event.end))
             }
             .font(layout.weekTimeFont)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(metadataTextColor)
             .lineLimit(1)
             .minimumScaleFactor(0.7)
             .frame(maxWidth: .infinity, alignment: .center)
@@ -129,7 +131,7 @@ struct CourseBlock: View {
             ForEach(Array(metadata.enumerated()), id: \.offset) { _, value in
                 Text(value)
                     .font(layout.metadataFont)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(metadataTextColor)
                     .lineLimit(1)
                     .minimumScaleFactor(0.55)
             }
@@ -172,7 +174,7 @@ struct CourseBlock: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
         }
         .font(layout.timeFont)
-        .foregroundStyle(.secondary)
+        .foregroundStyle(metadataTextColor)
         .lineLimit(1)
         .minimumScaleFactor(0.55)
         .allowsHitTesting(false)
@@ -195,11 +197,15 @@ struct CourseBlock: View {
     }
 
     private func metadataLine(icon: String, text: String) -> some View {
-        Label(text, systemImage: icon)
-            .font(layout.metadataFont)
-            .foregroundStyle(.secondary)
-            .lineLimit(1)
-            .minimumScaleFactor(0.6)
+        HStack(spacing: 4) {
+            Image(systemName: icon)
+                .frame(width: layout.metadataIconWidth, alignment: .center)
+            Text(text)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+        }
+        .font(layout.metadataFont)
+        .foregroundStyle(metadataTextColor)
     }
 
 
@@ -210,6 +216,14 @@ struct CourseBlock: View {
     }
 
     private var baseColor: Color { Color(courslyHex: baseHex) }
+
+    private var primaryTextColor: Color {
+        colorScheme == .dark
+            ? Color(courslyHex: baseHex, saturationScale: 0.52, brightnessScale: 1.55)
+            : Color(courslyHex: baseHex, saturationScale: 0.78, brightnessScale: 0.48)
+    }
+
+    private var metadataTextColor: Color { primaryTextColor.opacity(0.78) }
 
     private var stripeColor: Color {
         guard isPast else { return baseColor }
@@ -251,6 +265,7 @@ private struct CourseCardLayout {
     }
 
     var stripeWidth: CGFloat { width < 85 ? 2.5 : 3.5 }
+    var metadataIconWidth: CGFloat { width < 90 ? 11 : 15 }
     var horizontalPadding: CGFloat { width < 90 ? 3 : 6 }
     var verticalPadding: CGFloat { height < 60 ? 2 : 4 }
     var lineSpacing: CGFloat { height < 125 ? 2 : 4 }
