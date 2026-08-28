@@ -68,6 +68,8 @@ CalendarLoadResult
 
 Les propriétés `displayTypeLabel` et `displayGroupLabels` centralisent les règles d’affichage. Les vues ne reconstruisent pas ces valeurs.
 
+`CourseTypeClassifier` applique une liste ordonnée de regex configurables. Son résultat `CourseType` est une clé interne de regroupement et de couleur ; `displayTypeLabel` conserve toujours le libellé CELCAT. Les règles invalides ou désactivées ne classent aucun événement.
+
 ## 5. État du calendrier
 
 Les axes suivants sont indépendants :
@@ -185,6 +187,7 @@ L’extension ne connaît ni `CalendarStore` ni les clients CELCAT.
 Coursly/
 ├── App/
 ├── Models/
+│   └── CourseTypeRule.swift
 ├── Networking/
 ├── Parsing/
 ├── Services/
