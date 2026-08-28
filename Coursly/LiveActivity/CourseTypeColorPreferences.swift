@@ -9,7 +9,16 @@ enum CourseTypeColorPreferences {
     ]
 
     static func hex(for label: String) -> String {
-        UserDefaults.standard.string(forKey: key(for: label)) ?? defaultHex(for: label)
+        let defaults = UserDefaults.standard
+        let groupedKey = key(for: label)
+        if let grouped = defaults.string(forKey: groupedKey) {
+            return grouped
+        }
+        if let legacy = defaults.string(forKey: legacyKey(for: label)) {
+            defaults.set(legacy, forKey: groupedKey)
+            return legacy
+        }
+        return defaultHex(for: label)
     }
 
     static func setHex(_ hex: String, for label: String) {
@@ -19,6 +28,7 @@ enum CourseTypeColorPreferences {
     static func reset(labels: [String]) {
         for label in labels {
             UserDefaults.standard.removeObject(forKey: key(for: label))
+            UserDefaults.standard.removeObject(forKey: legacyKey(for: label))
         }
     }
 
@@ -48,6 +58,10 @@ enum CourseTypeColorPreferences {
     private static func key(for label: String) -> String {
         let groupingKey = CourseTypeClassifier().groupingKey(for: label)
         return keyPrefix + Data(groupingKey.utf8).base64EncodedString()
+    }
+
+    private static func legacyKey(for label: String) -> String {
+        keyPrefix + Data(normalize(label).utf8).base64EncodedString()
     }
 
     private static func normalize(_ label: String) -> String {
