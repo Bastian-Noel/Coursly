@@ -285,6 +285,15 @@ struct MorePanel: View {
             showsHeader: false,
             widthFraction: 0.70
         ) {
+            Button(action: onClose) {
+                Image(systemName: "line.3.horizontal")
+                    .font(.system(size: 17, weight: .semibold))
+                    .frame(width: 42, height: 36, alignment: .leading)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Replier les options")
+
             VStack(spacing: 2) {
                 actionRow("Nouvel événement", icon: "plus.circle.fill", action: onNewEvent)
                 actionRow("Changements", icon: "arrow.triangle.2.circlepath", action: onChanges)
