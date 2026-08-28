@@ -216,8 +216,8 @@ struct SearchResultRow: View {
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
-                    if let type = event.type {
-                        Text(type.rawValue).font(.caption2.bold()).foregroundStyle(.secondary)
+                    if let type = event.displayTypeLabel, !type.isEmpty {
+                        Text(type).font(.caption2.bold()).foregroundStyle(.secondary)
                     }
                     Text(event.title).font(.subheadline.weight(.semibold)).lineLimit(1)
                 }
