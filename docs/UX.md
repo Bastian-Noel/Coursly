@@ -34,7 +34,7 @@ L’ordre de superposition doit garantir :
 - Heure logique et groupes à droite.
 - Actualisation explicite avec état de chargement.
 - Toucher la date ouvre le panneau de choix de date.
-- L’indicateur de simulation utilise un gris neutre et reste identifiable par son icône/texte.
+- La simulation ne crée aucun bandeau dans le calendrier ; sa date et son heure sont visibles et modifiables uniquement dans les réglages avancés.
 
 ## 4. Timeline Jour
 
@@ -118,7 +118,7 @@ Au touch-down :
 - légère baisse de luminosité/opacité ;
 - haptique doux unique.
 
-Au relâchement valide : ouverture du détail. Les grilles, indicateurs et ancres sont `allowsHitTesting(false)`.
+Au relâchement valide : ouverture du détail. Tant que le détail est ouvert, la carte utilise un fond plein dans la teinte du type et un texte blanc ; elle retrouve son rendu normal à la fermeture. Les grilles, indicateurs et ancres sont `allowsHitTesting(false)`.
 
 ## 7. Couleurs et passé
 
@@ -152,7 +152,10 @@ Au relâchement valide : ouverture du détail. Les grilles, indicateurs et ancre
 Le dock regroupe : Jour/Semaine, Chercher, Groupes et Plus. Aujourd’hui apparaît séparément lorsqu’il est utile.
 
 - Cibles tactiles minimales de 44 points.
-- État actif visible par fond teinté et trait d’accessibilité sélectionné.
+- Les bulles Plus et Groupes conservent leur emplacement et se transforment en panneau avec les transitions SwiftUI natives.
+- La bulle Recherche ne reçoit pas de fond bleu lorsqu’elle est active.
+- Un tap hors d’un panneau le ferme et est absorbé sans agir sur la timeline.
+- La bulle droite est une capsule continue sans séparateur visible.
 - Le dock n’occupe pas une TabBar opaque pleine largeur.
 - La timeline ajoute une réserve de scroll supérieure à la hauteur réelle du dock.
 
@@ -160,7 +163,9 @@ Le dock regroupe : Jour/Semaine, Chercher, Groupes et Plus. Aujourd’hui appara
 
 - Recherche, Groupes, Date, Plus et Changements sont des panneaux flottants.
 - Réglages, création et détail sont des sheets.
-- Les réglages sont regroupés par intention : Calendrier, Apparence, Changements, Live Activity, Simulation, Interactions, Diagnostic.
+- Les réglages sont regroupés par intention : Calendrier, Apparence, Changements, Live Activity, Interactions et Avancé.
+- L’apparence globale propose Selon l’iPhone, Clair ou Sombre indépendamment de l’apparence courante du téléphone.
+- La simulation et le diagnostic sont rangés dans Avancé ; les teintes restent uniquement dans Couleurs des cours.
 - Une explication courte accompagne toute option métier non évidente.
 
 ## 12. Accessibilité
