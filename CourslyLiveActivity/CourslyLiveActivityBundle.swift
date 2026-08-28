@@ -15,50 +15,32 @@ struct CourslyLiveActivityWidget: Widget {
             lockScreen(context)
                 .environment(\.timeZone, parisTimeZone)
                 .environment(\.locale, Locale(identifier: "fr_FR"))
-                .activityBackgroundTint(accentColor(context.state).opacity(0.10))
-                .activitySystemActionForegroundColor(.primary)
+                .activityBackgroundTint(Color.black.opacity(0.38))
+                .activitySystemActionForegroundColor(.white)
         } dynamicIsland: { context in
             let accent = accentColor(context.state)
-            let contrast = contrastColor(context.state)
 
             return DynamicIsland {
-                DynamicIslandExpandedRegion(.leading) {
-                    Text(context.state.type ?? "Cours")
-                        .font(.caption.bold())
-                        .foregroundStyle(contrast)
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 4)
-                        .background(accent, in: Capsule())
-                }
                 DynamicIslandExpandedRegion(.center) {
-                    Text(context.state.title).font(.headline).lineLimit(1)
-                }
-                DynamicIslandExpandedRegion(.trailing) {
-                    countdown(context.state)
-                        .font(.caption.monospacedDigit().weight(.semibold))
-                        .foregroundStyle(accent)
-                }
-                DynamicIslandExpandedRegion(.bottom) {
-                    VStack(spacing: 5) {
-                        HStack {
-                            Text(context.state.room.isEmpty ? "Salle à confirmer" : context.state.room)
-                            Spacer()
-                            if !context.state.teachers.isEmpty {
-                                Text(context.state.teachers).lineLimit(1)
-                            }
-                        }
-                        .font(.caption)
-                        progressBar(context.state, accent: accent)
+                    HStack(spacing: 8) {
+                        Circle().fill(accent).frame(width: 9, height: 9)
+                        Text(context.state.title)
+                            .font(.caption.weight(.semibold))
+                            .lineLimit(1)
+                        Spacer(minLength: 4)
+                        countdown(context.state)
+                            .font(.caption2.monospacedDigit())
+                            .foregroundStyle(accent)
                     }
                 }
             } compactLeading: {
-                Circle().fill(accent).frame(width: 10, height: 10)
+                Circle().fill(accent).frame(width: 9, height: 9)
             } compactTrailing: {
                 countdown(context.state)
                     .font(.caption2.monospacedDigit())
                     .foregroundStyle(accent)
             } minimal: {
-                Circle().fill(accent).frame(width: 12, height: 12)
+                Circle().fill(accent).frame(width: 10, height: 10)
             }
             .keylineTint(accent)
         }
@@ -66,116 +48,173 @@ struct CourslyLiveActivityWidget: Widget {
 
     @ViewBuilder
     private func lockScreen(_ context: ActivityViewContext<CourslyActivityAttributes>) -> some View {
-        let accent = accentColor(context.state)
+        let state = context.state
+        let accent = accentColor(state)
 
-        HStack(spacing: 0) {
-            Rectangle()
-                .fill(accent)
-                .frame(width: 5)
-
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(context.state.status)
-                        .font(.caption2.weight(.heavy))
-                        .foregroundStyle(context.state.dayFinished ? Color.green : accent)
-
-                    Spacer(minLength: 8)
-
-                    if !context.state.dayFinished {
-                        countdown(context.state)
-                            .font(.subheadline.monospacedDigit().weight(.semibold))
-                            .foregroundStyle(accent)
-                            .contentTransition(.numericText())
-                    }
+        if state.dayFinished {
+            HStack(spacing: 12) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.title2)
+                    .foregroundStyle(.green)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("JOURNÉE TERMINÉE")
+                        .font(.caption.weight(.heavy))
+                        .foregroundStyle(.green)
+                    Text("Tous les cours sont terminés")
+                        .font(.headline)
+                        .foregroundStyle(.white)
                 }
+                Spacer()
+            }
+            .padding(16)
+        } else {
+            HStack(spacing: 0) {
+                Rectangle()
+                    .fill(accent)
+                    .frame(width: 4)
 
-                if context.state.dayFinished {
-                    HStack(spacing: 8) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
-                        Text("Journée terminée")
-                            .font(.headline)
-                    }
-                    .frame(maxWidth: .infinity, minHeight: 54, alignment: .leading)
-                } else {
-                    HStack(spacing: 4) {
-                        Text(context.state.start, style: .time)
-                        Text("–").foregroundStyle(.tertiary)
-                        Text(context.state.end, style: .time)
-                    }
-                    .font(.caption2.monospacedDigit().weight(.medium))
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .center)
-
-                    Text(context.state.title)
-                        .font(.headline.weight(.bold))
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.82)
-
-                    if let type = context.state.type, !type.isEmpty {
-                        Text(type)
-                            .font(.caption2.weight(.heavy))
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 9) {
+                        Label(state.status, systemImage: "stopwatch")
+                            .font(.caption.weight(.heavy))
                             .foregroundStyle(accent)
                             .lineLimit(1)
+
+                        countdown(state)
+                            .font(.headline.monospacedDigit().weight(.bold))
+                            .foregroundStyle(accent)
+                            .contentTransition(.numericText())
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(accent.opacity(0.13), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                    .stroke(accent.opacity(0.38), lineWidth: 0.8)
+                            }
+
+                        Spacer(minLength: 0)
+                    }
+
+                    HStack(spacing: 5) {
+                        Text(state.start, style: .time)
+                        Text("–")
+                        Text(state.end, style: .time)
+                    }
+                    .font(.subheadline.monospacedDigit().weight(.medium))
+                    .foregroundStyle(.white.opacity(0.68))
+
+                    Text(state.title)
+                        .font(.title3.weight(.bold))
+                        .foregroundStyle(.white)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.78)
+
+                    if let type = state.type, !type.isEmpty {
+                        Label(type, systemImage: "graduationcap.fill")
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(accent)
+                            .lineLimit(1)
+                            .padding(.horizontal, 9)
+                            .padding(.vertical, 4)
+                            .background(accent.opacity(0.10), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .stroke(accent.opacity(0.42), lineWidth: 0.8)
+                            }
                     }
 
                     let metadata = [
-                        context.state.room.isEmpty ? nil : context.state.room,
-                        context.state.teachers.isEmpty ? nil : context.state.teachers,
-                        context.state.groups.isEmpty ? nil : context.state.groups
+                        state.room.isEmpty ? nil : state.room,
+                        state.teachers.isEmpty ? nil : state.teachers,
+                        state.groups.isEmpty ? nil : state.groups
                     ].compactMap { $0 }
 
                     if !metadata.isEmpty {
                         Text(metadata.joined(separator: " · "))
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.white.opacity(0.68))
                             .lineLimit(2)
-                            .minimumScaleFactor(0.72)
+                            .minimumScaleFactor(0.68)
                     }
 
-                    progressBar(context.state, accent: accent)
+                    progressBar(state, accent: accent)
 
-                    if let nextTitle = context.state.nextTitle,
-                       let nextStart = context.state.nextStart {
-                        Rectangle()
-                            .fill(accent.opacity(0.18))
-                            .frame(height: 0.5)
-
-                        HStack(alignment: .center, spacing: 8) {
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text("PROCHAIN COURS")
-                                    .font(.system(size: 9, weight: .heavy))
-                                    .foregroundStyle(accent)
-                                Text(nextTitle)
-                                    .font(.caption.weight(.semibold))
-                                    .lineLimit(1)
-                            }
-
-                            Spacer(minLength: 6)
-
-                            VStack(alignment: .trailing, spacing: 1) {
-                                Text(nextStart, style: .time)
-                                    .font(.caption.monospacedDigit().weight(.semibold))
-                                if let room = context.state.nextRoom, !room.isEmpty {
-                                    Text(room)
-                                        .font(.caption2)
-                                        .foregroundStyle(.secondary)
-                                        .lineLimit(1)
-                                }
-                            }
-                        }
-                        .padding(.vertical, 3)
-                        .padding(.horizontal, 6)
-                        .background(accent.opacity(0.08))
+                    if let nextTitle = state.nextTitle,
+                       let nextStart = state.nextStart {
+                        nextCourse(
+                            title: nextTitle,
+                            room: state.nextRoom,
+                            type: state.nextType,
+                            start: nextStart,
+                            accent: nextAccentColor(state)
+                        )
                     }
                 }
+                .padding(.vertical, 13)
+                .padding(.horizontal, 13)
             }
-            .padding(.vertical, 10)
-            .padding(.horizontal, 12)
+            .background(accent.opacity(0.055))
         }
-        .background(accent.opacity(context.state.dayFinished ? 0.03 : 0.07))
-        .overlay {
-            Rectangle().stroke(accent.opacity(0.16), lineWidth: 0.5)
+    }
+
+    private func nextCourse(
+        title: String,
+        room: String?,
+        type: String?,
+        start: Date,
+        accent: Color
+    ) -> some View {
+        VStack(spacing: 8) {
+            Rectangle()
+                .fill(Color.white.opacity(0.16))
+                .frame(height: 0.5)
+
+            HStack(alignment: .center, spacing: 10) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Label("PROCHAIN COURS", systemImage: "calendar")
+                        .font(.caption2.weight(.heavy))
+                        .foregroundStyle(accent)
+
+                    Text(title)
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(.white)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.75)
+
+                    if let type, !type.isEmpty {
+                        Label(type, systemImage: "book.closed.fill")
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(accent)
+                            .lineLimit(1)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 3)
+                            .background(accent.opacity(0.10), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                    .stroke(accent.opacity(0.40), lineWidth: 0.8)
+                            }
+                    }
+                }
+
+                Spacer(minLength: 4)
+
+                Rectangle()
+                    .fill(Color.white.opacity(0.18))
+                    .frame(width: 0.5, height: 52)
+
+                VStack(alignment: .trailing, spacing: 3) {
+                    Text(start, style: .time)
+                        .font(.title3.monospacedDigit().weight(.semibold))
+                        .foregroundStyle(.white)
+                    if let room, !room.isEmpty {
+                        Text(room)
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.62))
+                            .lineLimit(1)
+                    }
+                }
+                .frame(minWidth: 54, alignment: .trailing)
+            }
         }
     }
 
@@ -188,13 +227,13 @@ struct CourslyLiveActivityWidget: Widget {
 
             GeometryReader { proxy in
                 ZStack(alignment: .leading) {
-                    Capsule().fill(accent.opacity(0.16))
+                    Capsule().fill(Color.white.opacity(0.16))
                     Capsule()
                         .fill(accent)
                         .frame(width: max(0, proxy.size.width * progress))
                 }
             }
-            .frame(height: 5)
+            .frame(height: 6)
             .accessibilityLabel("Avancement du cours")
             .accessibilityValue("\(Int(progress * 100)) pour cent")
         }
@@ -204,8 +243,9 @@ struct CourslyLiveActivityWidget: Widget {
         state.dayFinished ? .green : Color(hex: state.accentHex)
     }
 
-    private func contrastColor(_ state: CourslyActivityAttributes.ContentState) -> Color {
-        Color.contrast(forHex: state.dayFinished ? "#34C759" : state.accentHex)
+    private func nextAccentColor(_ state: CourslyActivityAttributes.ContentState) -> Color {
+        guard let hex = state.nextAccentHex else { return .blue }
+        return Color(hex: hex)
     }
 
     @ViewBuilder
@@ -224,12 +264,6 @@ private extension Color {
     init(hex: String) {
         let components = Self.rgb(fromHex: hex)
         self.init(red: components.red, green: components.green, blue: components.blue)
-    }
-
-    static func contrast(forHex hex: String) -> Color {
-        let rgb = rgb(fromHex: hex)
-        let luminance = 0.2126 * rgb.red + 0.7152 * rgb.green + 0.0722 * rgb.blue
-        return luminance > 0.62 ? .black : .white
     }
 
     static func rgb(fromHex hex: String) -> (red: Double, green: Double, blue: Double) {
