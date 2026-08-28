@@ -15,7 +15,7 @@ struct CourslyLiveActivityWidget: Widget {
             lockScreen(context)
                 .environment(\.timeZone, parisTimeZone)
                 .environment(\.locale, Locale(identifier: "fr_FR"))
-                .activityBackgroundTint(.clear)
+                .activityBackgroundTint(accentColor(context.state).opacity(0.10))
                 .activitySystemActionForegroundColor(.primary)
         } dynamicIsland: { context in
             let accent = accentColor(context.state)
@@ -67,121 +67,116 @@ struct CourslyLiveActivityWidget: Widget {
     @ViewBuilder
     private func lockScreen(_ context: ActivityViewContext<CourslyActivityAttributes>) -> some View {
         let accent = accentColor(context.state)
-        let contrast = contrastColor(context.state)
 
-        HStack(spacing: 12) {
+        HStack(spacing: 0) {
             Rectangle()
                 .fill(accent)
-                .frame(width: 6)
+                .frame(width: 5)
 
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 6) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(context.state.status)
-                        .font(.caption.weight(.heavy))
+                        .font(.caption2.weight(.heavy))
                         .foregroundStyle(context.state.dayFinished ? Color.green : accent)
 
                     Spacer(minLength: 8)
 
                     if !context.state.dayFinished {
                         countdown(context.state)
-                            .font(.headline.monospacedDigit().weight(.bold))
+                            .font(.subheadline.monospacedDigit().weight(.semibold))
                             .foregroundStyle(accent)
                             .contentTransition(.numericText())
                     }
                 }
 
                 if context.state.dayFinished {
-                    HStack(spacing: 10) {
+                    HStack(spacing: 8) {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.title2)
                             .foregroundStyle(.green)
-                        Text("Journée terminée").font(.headline)
+                        Text("Journée terminée")
+                            .font(.headline)
                     }
+                    .frame(maxWidth: .infinity, minHeight: 54, alignment: .leading)
                 } else {
-                    if context.state.status == "PAUSE" {
-                        Text("Prochain cours")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                    }
-
-                    Text(context.state.title)
-                        .font(.title3.weight(.bold))
-                        .lineLimit(2)
-
-                    HStack(spacing: 8) {
-                        if let type = context.state.type, !type.isEmpty {
-                            Text(type)
-                                .font(.caption.weight(.heavy))
-                                .foregroundStyle(contrast)
-                                .padding(.horizontal, 9)
-                                .padding(.vertical, 4)
-                                .background(accent, in: Capsule())
-                        }
-
-                        Spacer(minLength: 6)
-
-                        if !context.state.groups.isEmpty {
-                            Text(context.state.groups)
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.75)
-                        }
-                    }
-
-                    HStack(spacing: 8) {
-                        Label(
-                            context.state.room.isEmpty ? "Salle à confirmer" : context.state.room,
-                            systemImage: "mappin.and.ellipse"
-                        )
-                        .font(.subheadline.weight(.medium))
-                        .lineLimit(1)
-
-                        Spacer(minLength: 6)
-
-                        if !context.state.teachers.isEmpty {
-                            Label(context.state.teachers, systemImage: "person.fill")
-                                .font(.caption.weight(.medium))
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.7)
-                        }
-                    }
-
-                    HStack(spacing: 6) {
-                        Image(systemName: "clock")
-                            .foregroundStyle(accent)
+                    HStack(spacing: 4) {
                         Text(context.state.start, style: .time)
-                        Text("→")
-                            .foregroundStyle(.tertiary)
+                        Text("–").foregroundStyle(.tertiary)
                         Text(context.state.end, style: .time)
                     }
-                    .font(.caption.monospacedDigit().weight(.semibold))
+                    .font(.caption2.monospacedDigit().weight(.medium))
                     .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
 
-                    if let nextTitle = context.state.nextTitle, let nextStart = context.state.nextStart {
-                        HStack(spacing: 6) {
-                            Text("Ensuite")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.secondary)
-                            Text(nextTitle).font(.caption.weight(.medium)).lineLimit(1)
-                            Spacer(minLength: 6)
-                            Text(nextStart, style: .time).font(.caption.monospacedDigit())
-                            if let room = context.state.nextRoom, !room.isEmpty {
-                                Text("· \(room)")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                            }
-                        }
+                    Text(context.state.title)
+                        .font(.headline.weight(.bold))
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.82)
+
+                    if let type = context.state.type, !type.isEmpty {
+                        Text(type)
+                            .font(.caption2.weight(.heavy))
+                            .foregroundStyle(accent)
+                            .lineLimit(1)
+                    }
+
+                    let metadata = [
+                        context.state.room.isEmpty ? nil : context.state.room,
+                        context.state.teachers.isEmpty ? nil : context.state.teachers,
+                        context.state.groups.isEmpty ? nil : context.state.groups
+                    ].compactMap { $0 }
+
+                    if !metadata.isEmpty {
+                        Text(metadata.joined(separator: " · "))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.72)
                     }
 
                     progressBar(context.state, accent: accent)
+
+                    if let nextTitle = context.state.nextTitle,
+                       let nextStart = context.state.nextStart {
+                        Rectangle()
+                            .fill(accent.opacity(0.18))
+                            .frame(height: 0.5)
+
+                        HStack(alignment: .center, spacing: 8) {
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text("PROCHAIN COURS")
+                                    .font(.system(size: 9, weight: .heavy))
+                                    .foregroundStyle(accent)
+                                Text(nextTitle)
+                                    .font(.caption.weight(.semibold))
+                                    .lineLimit(1)
+                            }
+
+                            Spacer(minLength: 6)
+
+                            VStack(alignment: .trailing, spacing: 1) {
+                                Text(nextStart, style: .time)
+                                    .font(.caption.monospacedDigit().weight(.semibold))
+                                if let room = context.state.nextRoom, !room.isEmpty {
+                                    Text(room)
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                }
+                            }
+                        }
+                        .padding(.vertical, 3)
+                        .padding(.horizontal, 6)
+                        .background(accent.opacity(0.08))
+                    }
                 }
             }
+            .padding(.vertical, 10)
+            .padding(.horizontal, 12)
         }
-        .padding(.vertical, 14)
-        .padding(.trailing, 16)
+        .background(accent.opacity(context.state.dayFinished ? 0.03 : 0.07))
+        .overlay {
+            Rectangle().stroke(accent.opacity(0.16), lineWidth: 0.5)
+        }
     }
 
     @ViewBuilder
