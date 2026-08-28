@@ -6,6 +6,7 @@ struct WeekTimelineView: View {
 
     @State private var days: [Date] = []
     @State private var horizontalDayID: String?
+    @State private var programmaticHorizontalDayID: String?
     @State private var verticalPosition = ScrollPosition(edge: .top)
     @State private var verticalScrollState = TimelineVerticalScrollState()
     @State private var pendingRequestID: UUID?
@@ -47,7 +48,11 @@ struct WeekTimelineView: View {
                         .onChange(of: horizontalDayID) { _, newID in
                             guard let newID,
                                   let day = days.first(where: { timelineDayID($0) == newID }) else { return }
-                            store.setFocusedDateFromTimeline(day)
+                            if programmaticHorizontalDayID == newID {
+                                programmaticHorizontalDayID = nil
+                            } else {
+                                store.setFocusedDateFromTimeline(day)
+                            }
                             extendWindowIfNeeded(around: day)
                             Task { await preloadFiveDays(startingAt: day) }
                         }
@@ -94,7 +99,9 @@ struct WeekTimelineView: View {
         guard days.isEmpty else { return }
         let first = firstVisibleDay(containing: store.focusedDate)
         days = makeWindow(around: first, radius: 120)
-        horizontalDayID = timelineDayID(first)
+        let initialID = timelineDayID(first)
+        programmaticHorizontalDayID = initialID
+        horizontalDayID = initialID
         await preloadFiveDays(startingAt: first)
 
         guard !verticalScrollState.isUserControlled,
@@ -119,8 +126,10 @@ struct WeekTimelineView: View {
             days = makeWindow(around: first, radius: 120)
         }
         await preloadFiveDays(startingAt: first)
+        let targetID = timelineDayID(first)
+        programmaticHorizontalDayID = targetID
         withAnimation(.snappy(duration: 0.32)) {
-            horizontalDayID = timelineDayID(first)
+            horizontalDayID = targetID
         }
     }
 
@@ -284,7 +293,7 @@ private struct WeekDayColumn: View {
                     let x = CGFloat(placement.column) * (lane + TimelineMetrics.parallelCourseGap)
                     let top = TimelineAxis.y(for: placement.event.start, hourHeight: hourHeight)
                     let bottom = TimelineAxis.y(for: placement.event.end, hourHeight: hourHeight)
-                    let cardHeight = max(1, bottom - top - TimelineMetrics.courseBottomGap)
+                    let cardHeight = max(1, bottom - top - TimelineMetrics.weekCourseBottomGap)
 
                     Button { onSelect(placement.event) } label: {
                         CourseBlock(
@@ -325,22 +334,27 @@ private struct WeekDayHeader: View {
     let isPinned: Bool
 
     var body: some View {
-        VStack(spacing: 2) {
-            Text(capitalizedWeekday(day))
-                .font(.caption2.weight(.semibold))
+        VStack(spacing: 1) {
+            Text(capitalizedWeekday(day).uppercased())
+                .font(.system(size: 9, weight: .semibold, design: .rounded))
+                .foregroundStyle(.secondary)
                 .lineLimit(1)
             Text(day.formatted(.dateTime.day()))
-                .font(.subheadline.monospacedDigit().bold())
-                .frame(minWidth: 28, minHeight: 28)
-                .background(isToday ? Color(.systemGray5) : Color.clear, in: Circle())
+                .font(.title3.monospacedDigit().weight(.bold))
+                .frame(minWidth: 30, minHeight: 30)
+                .background(isToday ? Color.primary.opacity(0.08) : Color.clear, in: Circle())
         }
         .frame(maxWidth: .infinity, minHeight: TimelineMetrics.weekHeaderHeight, maxHeight: TimelineMetrics.weekHeaderHeight)
         .foregroundStyle(isPastDay ? Color.secondary : Color.primary)
-        .background(isPastDay ? Color(.systemGray6) : Color(.systemBackground))
-        .overlay(alignment: .bottom) {
-            Rectangle().fill(Color.secondary.opacity(0.16)).frame(height: 0.5)
+        .background {
+            TimelineDayBackground(isPastDay: isPastDay)
         }
-        .shadow(color: .black.opacity(isPinned ? 0.09 : 0), radius: 5, y: 2)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(isToday ? Color.accentColor.opacity(0.75) : Color.secondary.opacity(0.16))
+                .frame(height: isToday ? 2 : 0.5)
+        }
+        .shadow(color: .black.opacity(isPinned ? 0.07 : 0), radius: 4, y: 2)
         .accessibilityElement(children: .combine)
     }
 }
