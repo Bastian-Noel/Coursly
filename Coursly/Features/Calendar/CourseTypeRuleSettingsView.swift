@@ -2,7 +2,7 @@ import SwiftUI
 
 struct CourseTypeRuleSettingsView: View {
     @Environment(CalendarStore.self) private var store
-    @State private var rules = CourseTypeRulePreferences.rules
+    @State private var rules = CourseTypeRulePreferences.load()
 
     var body: some View {
         List {
@@ -96,7 +96,7 @@ struct CourseTypeRuleSettingsView: View {
     }
 
     private func persist() {
-        CourseTypeRulePreferences.rules = rules
+        CourseTypeRulePreferences.save(rules)
         applyChanges()
     }
 
