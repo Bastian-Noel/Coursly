@@ -212,6 +212,49 @@ final class V3BehaviorTests: XCTestCase {
         XCTAssertEqual(store.weekTopMinute, 10 * 60)
     }
 
+    func testDefaultTypeRulesGroupKnownVariantsWithoutRenamingThem() {
+        let classifier = CourseTypeClassifier(rules: CourseTypeRulePreferences.defaultRules)
+        XCTAssertEqual(classifier.classify("Cours magistral (CM)"), .cm)
+        XCTAssertEqual(classifier.classify("TRAVAUX DIRIGÉS"), .td)
+        XCTAssertEqual(classifier.classify("Travaux pratiques"), .tp)
+        XCTAssertEqual(
+            classifier.groupingKey(for: "Cours magistral (CM)"),
+            classifier.groupingKey(for: "CM")
+        )
+
+        var event = event(
+            id: "type-label",
+            start: date("2026-09-10T08:00:00Z"),
+            end: date("2026-09-10T09:00:00Z")
+        )
+        event.categoryLabel = "Cours magistral (CM)"
+        let reclassified = classifier.reclassify(event)
+        XCTAssertEqual(reclassified.type, .cm)
+        XCTAssertEqual(reclassified.displayTypeLabel, "Cours magistral (CM)")
+    }
+
+    func testCustomRegexCanCreateAnInternalGroupingRule() {
+        let custom = CourseTypeRule(
+            type: .project,
+            pattern: #"atelier\\s+(?:transversal|client)"#
+        )
+        let classifier = CourseTypeClassifier(rules: [custom])
+
+        XCTAssertTrue(custom.isValid)
+        XCTAssertEqual(classifier.classify("Atelier transversal"), .project)
+        XCTAssertEqual(classifier.classify("ATELIER CLIENT"), .project)
+        XCTAssertNil(classifier.classify("Cours magistral"))
+    }
+
+    func testInvalidOrDisabledRegexNeverClassifiesAType() {
+        let invalid = CourseTypeRule(type: .cm, pattern: #"("#)
+        let disabled = CourseTypeRule(type: .td, pattern: #"dirige"#, isEnabled: false)
+        let classifier = CourseTypeClassifier(rules: [invalid, disabled])
+
+        XCTAssertFalse(invalid.isValid)
+        XCTAssertNil(classifier.classify("Travaux dirigés"))
+    }
+
     func testAppearancePreferenceOffersSystemLightAndDarkModes() {
         XCTAssertEqual(AppAppearancePreference.allCases, [.system, .light, .dark])
         XCTAssertEqual(AppAppearancePreference.system.frenchTitle, "Selon l’iPhone")
