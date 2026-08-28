@@ -152,7 +152,8 @@ Au relâchement valide : ouverture du détail. Tant que le détail est ouvert, l
 Le dock regroupe : Jour/Semaine, Chercher, Groupes et Plus. Aujourd’hui apparaît séparément lorsqu’il est utile.
 
 - Cibles tactiles minimales de 44 points.
-- Les bulles Plus et Groupes conservent leur emplacement et se transforment en panneau avec les transitions SwiftUI natives.
+- Les bulles Plus et Groupes restent dans la hiérarchie et se transforment en panneau depuis leur surface Liquid Glass.
+- Le bas du panneau transformé reste au niveau du dock ; aucune marge invisible ne doit le faire apparaître loin au-dessus.
 - La bulle Recherche ne reçoit pas de fond bleu lorsqu’elle est active.
 - Un tap hors d’un panneau le ferme et est absorbé sans agir sur la timeline.
 - La bulle droite est une capsule continue sans séparateur visible.
@@ -165,7 +166,8 @@ Le dock regroupe : Jour/Semaine, Chercher, Groupes et Plus. Aujourd’hui appara
 - Réglages, création et détail sont des sheets.
 - Les réglages sont regroupés par intention : Calendrier, Apparence, Changements, Live Activity, Interactions et Avancé.
 - L’apparence globale propose Selon l’iPhone, Clair ou Sombre indépendamment de l’apparence courante du téléphone.
-- La simulation et le diagnostic sont rangés dans Avancé ; les teintes restent uniquement dans Couleurs des cours.
+- La simulation, le regroupement regex des types et le diagnostic sont rangés dans Avancé ; les teintes restent uniquement dans Couleurs des cours.
+- Une règle regex classe et regroupe un type sans jamais modifier le libellé CELCAT visible.
 - Une explication courte accompagne toute option métier non évidente.
 
 ## 12. Accessibilité
