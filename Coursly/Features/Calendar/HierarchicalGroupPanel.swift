@@ -2,6 +2,7 @@ import SwiftUI
 
 struct HierarchicalGroupPanel: View {
     @Environment(CalendarStore.self) private var store
+    let namespace: Namespace.ID
     let onClose: () -> Void
     @State private var path: [String] = []
 
@@ -22,7 +23,10 @@ struct HierarchicalGroupPanel: View {
             title: "",
             systemImage: "person.2.fill",
             onClose: onClose,
-            showsHeader: false
+            showsHeader: false,
+            bottomInset: 8,
+            matchedSurfaceID: "group-surface",
+            matchedNamespace: namespace
         ) {
             if !path.isEmpty {
                 HStack(spacing: 8) {
