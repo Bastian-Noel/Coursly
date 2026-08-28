@@ -64,7 +64,9 @@ Jour et Semaine utilisent la même conversion heure → position. Un cours comme
 
 ## D-011 — Types dynamiques et réglage Hue uniquement
 
-Le libellé du type provient des données CELCAT. Une enum peut normaliser les catégories connues mais ne limite pas l’interface. Le réglage utilisateur modifie uniquement la hue ; saturation et luminosité sont déterminées par le design.
+Le libellé du type provient des données CELCAT et reste le texte affiché dans toutes les surfaces. Une classification interne peut regrouper les catégories connues mais ne renomme jamais le libellé et ne limite pas l’interface.
+
+Les règles de regroupement sont ordonnées, activables et configurables par expressions régulières dans les réglages avancés. Elles peuvent partager une classification et une couleur entre plusieurs variantes. Le réglage utilisateur modifie uniquement la hue ; saturation et luminosité sont déterminées par le design.
 
 ## D-012 — Temps logique simulé
 
