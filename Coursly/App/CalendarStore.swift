@@ -101,7 +101,8 @@ final class CalendarStore {
         dayFocusedDate = focusedDate
         recentChanges = historyStore.all()
         if let cached = calendarCache.load(for: selectedGroups) {
-            remoteEvents = cached.events
+            let classifier = CourseTypeClassifier()
+            remoteEvents = cached.events.map { classifier.reclassify($0) }
             lastSyncDate = cached.savedAt
             isUsingCachedEvents = true
         }
@@ -369,6 +370,12 @@ final class CalendarStore {
     }
     func clearChangeHistory() { historyStore.clear(); recentChanges = [] }
     func courseColorsDidChange() { courseColorRevision = UUID() }
+    func courseTypeRulesDidChange() {
+        let classifier = CourseTypeClassifier()
+        remoteEvents = remoteEvents.map { classifier.reclassify($0) }
+        refreshCombinedEvents()
+        courseColorRevision = UUID()
+    }
     func recentChangeKind(for event: CalendarEvent) -> CalendarChangeKind? { let cutoff = now.addingTimeInterval(-48 * 60 * 60); return recentChanges.first(where: { $0.detectedAt >= cutoff && ($0.newEvent?.id == event.id || $0.oldEvent?.id == event.id) })?.kind }
 
     private func recordLiveActivityIfActive() {

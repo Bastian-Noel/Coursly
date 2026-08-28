@@ -26,6 +26,8 @@ Toute modification fonctionnelle doit conserver des tests de non-régression pou
 - le groupe de requête et le groupe réel du cours restent distincts ;
 - une sélection multi-groupes ne mélange pas POST et iCal pour compléter un succès ;
 - les types inconnus sont conservés et colorables ;
+- une règle regex regroupe les variantes sans modifier leur libellé CELCAT ;
+- une regex invalide ou désactivée ne classe aucun cours ;
 - deux cours consécutifs gardent leurs coordonnées temporelles et un espace visuel ;
 - la navigation horizontale ne produit pas spontanément une intention de scroll vertical ;
 - le temps simulé modifie l’état logique, pas les horaires affichés ;
@@ -85,6 +87,7 @@ Tester successivement un cours futur, imminent, en cours et terminé :
 - couleur issue de la teinte personnalisée du type ;
 - simulation changeant uniquement le temps logique ;
 - retour au temps réel restaurant immédiatement le bon état ;
+- absence de rognage en haut et en bas, avec ou sans prochain cours ;
 - absence de promesse produit spécifique à la Dynamic Island.
 
 ## Performance

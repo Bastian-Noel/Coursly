@@ -117,15 +117,18 @@ struct RootView: View {
             .environment(store)
 
         case .groups:
-            HierarchicalGroupPanel(onClose: { self.panel = nil })
-                .environment(store)
-                .matchedGeometryEffect(id: "group-surface", in: dockNamespace)
+            HierarchicalGroupPanel(
+                namespace: dockNamespace,
+                onClose: { self.panel = nil }
+            )
+            .environment(store)
 
         case .date:
             DatePanel(onClose: { self.panel = nil }).environment(store)
 
         case .more:
             MorePanel(
+                namespace: dockNamespace,
                 onChanges: { self.panel = .changes },
                 onNewEvent: {
                     self.panel = nil
@@ -138,7 +141,6 @@ struct RootView: View {
                 onClose: { self.panel = nil }
             )
             .environment(store)
-            .matchedGeometryEffect(id: "more-surface", in: dockNamespace)
 
         case .changes:
             ChangeHistoryPanel(
@@ -298,41 +300,42 @@ struct FloatingControlDock: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            ZStack {
-                Color.clear
+            Button { toggle(.more) } label: {
+                Image(systemName: "line.3.horizontal")
+                    .font(.system(size: 17, weight: .semibold))
                     .frame(width: 50, height: 50)
-                    .allowsHitTesting(false)
-
-                if activePanel != .more {
-                    Button { toggle(.more) } label: {
-                        Image(systemName: "line.3.horizontal")
-                            .font(.system(size: 17, weight: .semibold))
-                            .frame(width: 50, height: 50)
-                            .contentShape(Circle())
-                    }
-                    .buttonStyle(.plain)
-                    .glassEffect(.regular.interactive(), in: Circle())
-                    .matchedGeometryEffect(id: "more-surface", in: namespace)
-                    .accessibilityLabel("Plus d’options")
-                }
+                    .contentShape(Circle())
             }
+            .buttonStyle(.plain)
+            .glassEffect(.regular.interactive(), in: Circle())
+            .matchedGeometryEffect(
+                id: "more-surface",
+                in: namespace,
+                properties: .frame,
+                anchor: .bottomLeading,
+                isSource: true
+            )
+            .opacity(activePanel == .more ? 0 : 1)
+            .allowsHitTesting(activePanel != .more)
+            .accessibilityHidden(activePanel == .more)
+            .accessibilityLabel("Plus d’options")
 
-            ZStack {
+            Button { toggle(.groups) } label: {
                 groupLabel
-                    .opacity(0)
-                    .allowsHitTesting(false)
-
-                if activePanel != .groups {
-                    Button { toggle(.groups) } label: {
-                        groupLabel
-                    }
-                    .buttonStyle(.plain)
-                    .glassEffect(.regular.interactive(), in: Capsule())
-                    .matchedGeometryEffect(id: "group-surface", in: namespace)
-                    .accessibilityLabel("Choisir les groupes, sélection actuelle \(store.selectedGroupsLabel)")
-                }
             }
-            .fixedSize(horizontal: true, vertical: false)
+            .buttonStyle(.plain)
+            .glassEffect(.regular.interactive(), in: Capsule())
+            .matchedGeometryEffect(
+                id: "group-surface",
+                in: namespace,
+                properties: .frame,
+                anchor: .bottomLeading,
+                isSource: true
+            )
+            .opacity(activePanel == .groups ? 0 : 1)
+            .allowsHitTesting(activePanel != .groups)
+            .accessibilityHidden(activePanel == .groups)
+            .accessibilityLabel("Choisir les groupes, sélection actuelle \(store.selectedGroupsLabel)")
 
             Spacer(minLength: 10)
 

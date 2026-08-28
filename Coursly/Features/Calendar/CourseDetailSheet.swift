@@ -9,7 +9,7 @@ struct CourseDetailSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     VStack(alignment: .leading, spacing: 8) {
-                        HStack(spacing: 8) { if let type = event.type { Text(type.rawValue).font(.caption.bold()).padding(.horizontal, 9).padding(.vertical, 5).background(Color.accentColor.opacity(0.14), in: Capsule()) }; if event.source == .local { Label("Personnel", systemImage: "person.crop.circle").font(.caption.weight(.semibold)).foregroundStyle(.secondary) } }
+                        HStack(spacing: 8) { if let type = event.displayTypeLabel, !type.isEmpty { Text(type).font(.caption.bold()).padding(.horizontal, 9).padding(.vertical, 5).background(Color.accentColor.opacity(0.14), in: Capsule()) }; if event.source == .local { Label("Personnel", systemImage: "person.crop.circle").font(.caption.weight(.semibold)).foregroundStyle(.secondary) } }
                         Text(event.title).font(.largeTitle.bold()).fixedSize(horizontal: false, vertical: true)
                         Text(event.start.formatted(.dateTime.weekday(.wide).day().month(.wide))).font(.headline).foregroundStyle(.secondary)
                     }

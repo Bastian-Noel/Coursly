@@ -9,7 +9,16 @@ enum CourseTypeColorPreferences {
     ]
 
     static func hex(for label: String) -> String {
-        UserDefaults.standard.string(forKey: key(for: label)) ?? defaultHex(for: label)
+        let defaults = UserDefaults.standard
+        let groupedKey = key(for: label)
+        if let grouped = defaults.string(forKey: groupedKey) {
+            return grouped
+        }
+        if let legacy = defaults.string(forKey: legacyKey(for: label)) {
+            defaults.set(legacy, forKey: groupedKey)
+            return legacy
+        }
+        return defaultHex(for: label)
     }
 
     static func setHex(_ hex: String, for label: String) {
@@ -19,29 +28,27 @@ enum CourseTypeColorPreferences {
     static func reset(labels: [String]) {
         for label in labels {
             UserDefaults.standard.removeObject(forKey: key(for: label))
+            UserDefaults.standard.removeObject(forKey: legacyKey(for: label))
         }
     }
 
     static func defaultHex(for label: String) -> String {
-        let normalized = normalize(label)
-        let known: [String: String] = [
-            "CM": "#007AFF",
-            "COURS MAGISTRAL": "#007AFF",
-            "TD": "#5856D6",
-            "TRAVAUX DIRIGES": "#5856D6",
-            "TP": "#34C759",
-            "TRAVAUX PRATIQUES": "#34C759",
-            "PROJET": "#FF9500",
-            "INT": "#00A7B5",
-            "INTEGRATION": "#00A7B5",
-            "REUNION": "#AF52DE",
-            "DS": "#FF3B30",
-            "DEVOIR SURVEILLE": "#FF3B30",
-            "EXAM": "#FF2D55",
-            "EXAMEN": "#FF2D55"
+        let knownColors: [CourseType: String] = [
+            .cm: "#007AFF",
+            .td: "#5856D6",
+            .tp: "#34C759",
+            .project: "#FF9500",
+            .integration: "#00A7B5",
+            .meeting: "#AF52DE",
+            .test: "#FF3B30",
+            .exam: "#FF2D55"
         ]
-        if let exact = known[normalized] { return exact }
+        if let type = CourseTypeClassifier().classify(label),
+           let color = knownColors[type] {
+            return color
+        }
 
+        let normalized = normalize(label)
         let hash = normalized.unicodeScalars.reduce(UInt64(5381)) { value, scalar in
             ((value << 5) &+ value) &+ UInt64(scalar.value)
         }
@@ -49,6 +56,11 @@ enum CourseTypeColorPreferences {
     }
 
     private static func key(for label: String) -> String {
+        let groupingKey = CourseTypeClassifier().groupingKey(for: label)
+        return keyPrefix + Data(groupingKey.utf8).base64EncodedString()
+    }
+
+    private static func legacyKey(for label: String) -> String {
         keyPrefix + Data(normalize(label).utf8).base64EncodedString()
     }
 

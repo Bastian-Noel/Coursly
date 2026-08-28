@@ -1,44 +1,71 @@
 import SwiftUI
 import UIKit
 
+private struct CourseColorGroup: Identifiable {
+    let id: String
+    let label: String
+    let aliases: [String]
+}
+
 struct LiveActivityColorSettingsView: View {
     @Environment(CalendarStore.self) private var store
     @State private var refreshToken = UUID()
     @State private var expandedType: String?
 
-    private var detectedTypes: [String] { store.observedCourseTypeLabels }
+    private var detectedGroups: [CourseColorGroup] {
+        let classifier = CourseTypeClassifier()
+        let grouped = Dictionary(
+            grouping: store.observedCourseTypeLabels,
+            by: { classifier.groupingKey(for: $0) }
+        )
+        return grouped.map { key, labels in
+            let sorted = labels.sorted { first, second in
+                if first.count == second.count {
+                    return first.localizedCaseInsensitiveCompare(second) == .orderedAscending
+                }
+                return first.count > second.count
+            }
+            return CourseColorGroup(
+                id: key,
+                label: sorted.first ?? "Type",
+                aliases: Array(sorted.dropFirst())
+            )
+        }
+        .sorted { $0.label.localizedCaseInsensitiveCompare($1.label) == .orderedAscending }
+    }
 
     var body: some View {
         List {
             Section {
-                if detectedTypes.isEmpty {
+                if detectedGroups.isEmpty {
                     ContentUnavailableView("Aucun type détecté", systemImage: "paintpalette", description: Text("Les types sont découverts automatiquement dans les données CELCAT chargées."))
                 } else {
-                    ForEach(detectedTypes, id: \.self) { label in
+                    ForEach(detectedGroups) { group in
                         HueTypeRow(
-                            label: label,
-                            hex: CourseTypeColorPreferences.hex(for: label),
-                            expanded: expandedType == label,
+                            label: group.label,
+                            aliases: group.aliases,
+                            hex: CourseTypeColorPreferences.hex(for: group.label),
+                            expanded: expandedType == group.id,
                             onToggle: {
-                                withAnimation(.snappy(duration: 0.22)) { expandedType = expandedType == label ? nil : label }
+                                withAnimation(.snappy(duration: 0.22)) { expandedType = expandedType == group.id ? nil : group.id }
                                 HapticService.fire(.selection, enabled: store.hapticsEnabled)
                             },
                             onCommit: { hue in
-                                CourseTypeColorPreferences.setHex(Color.hueHex(hue), for: label)
+                                CourseTypeColorPreferences.setHex(Color.hueHex(hue), for: group.label)
                                 store.courseColorsDidChange()
                                 HapticService.fire(.selection, enabled: store.hapticsEnabled)
                                 Task { await store.restartLiveActivity() }
                             }
-                        ).id("\(label)-\(refreshToken.uuidString)")
+                        ).id("\(group.id)-\(refreshToken.uuidString)")
                     }
                 }
             } header: { Text("Couleurs par type") }
-            footer: { Text("Fais glisser le curseur horizontalement : seule la teinte change, en continu.") }
+            footer: { Text("Les libellés associés par une regex partagent la même teinte sans être renommés. Fais glisser le curseur horizontalement pour la modifier.") }
 
-            if !detectedTypes.isEmpty {
+            if !detectedGroups.isEmpty {
                 Section {
                     Button("Rétablir les couleurs par défaut") {
-                        CourseTypeColorPreferences.reset(labels: detectedTypes)
+                        CourseTypeColorPreferences.reset(labels: detectedGroups.map(\.label))
                         expandedType = nil; refreshToken = UUID()
                         store.courseColorsDidChange()
                         HapticService.fire(.selection, enabled: store.hapticsEnabled)
@@ -53,12 +80,12 @@ struct LiveActivityColorSettingsView: View {
 }
 
 private struct HueTypeRow: View {
-    let label: String; let hex: String; let expanded: Bool
+    let label: String; let aliases: [String]; let hex: String; let expanded: Bool
     let onToggle: () -> Void; let onCommit: (Double) -> Void
     @State private var hue: Double
 
-    init(label: String, hex: String, expanded: Bool, onToggle: @escaping () -> Void, onCommit: @escaping (Double) -> Void) {
-        self.label = label; self.hex = hex; self.expanded = expanded; self.onToggle = onToggle; self.onCommit = onCommit
+    init(label: String, aliases: [String], hex: String, expanded: Bool, onToggle: @escaping () -> Void, onCommit: @escaping (Double) -> Void) {
+        self.label = label; self.aliases = aliases; self.hex = hex; self.expanded = expanded; self.onToggle = onToggle; self.onCommit = onCommit
         _hue = State(initialValue: Color.hue(fromHex: hex))
     }
 
@@ -67,7 +94,15 @@ private struct HueTypeRow: View {
             Button(action: onToggle) {
                 HStack(spacing: 12) {
                     RoundedRectangle(cornerRadius: 7, style: .continuous).fill(Color(hue: hue, saturation: 0.82, brightness: 0.95)).frame(width: 30, height: 30)
-                    Text(label).font(.body.weight(.semibold)).foregroundStyle(.primary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(label).font(.body.weight(.semibold)).foregroundStyle(.primary)
+                        if !aliases.isEmpty {
+                            Text("Regroupe aussi : \(aliases.joined(separator: " · "))")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(2)
+                        }
+                    }
                     Spacer()
                     Image(systemName: "chevron.down").font(.caption.bold()).foregroundStyle(.secondary).rotationEffect(.degrees(expanded ? 180 : 0))
                 }.frame(minHeight: 44).contentShape(Rectangle())

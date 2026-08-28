@@ -24,6 +24,7 @@ struct DirectEventParser: Sendable {
 
     func parse(_ data: Data, group requestedGroup: StudentGroup) throws -> [CalendarEvent] {
         let payloads = try JSONDecoder().decode([Payload].self, from: data)
+        let classifier = CourseTypeClassifier()
         return try payloads.filter { $0.allDay != true }.map { payload in
             let parts = htmlLines(payload.description ?? "")
             let siteCount = payload.sites?.count ?? 0
@@ -48,12 +49,13 @@ struct DirectEventParser: Sendable {
             let rooms = siteCount > 0 && groupIndex + 1 + siteCount <= parts.count
                 ? Array(parts[(groupIndex + 1)..<(groupIndex + 1 + siteCount)]).map(cleanRoom) : []
             let teachers = groupIndex > 0 ? Array(parts[..<groupIndex]) : []
+            let categoryLabel = cleanCategory(payload.eventCategory)
 
             return CalendarEvent(
                 id: payload.id?.value ?? UUID().uuidString,
                 title: title.isEmpty ? "Sans titre" : title,
-                type: courseType(payload.eventCategory),
-                categoryLabel: cleanCategory(payload.eventCategory),
+                type: classifier.classify(categoryLabel),
+                categoryLabel: categoryLabel,
                 start: try parseDate(payload.start),
                 end: try parseDate(payload.end ?? payload.start),
                 rooms: rooms,
@@ -95,14 +97,6 @@ struct DirectEventParser: Sendable {
         guard let category else { return nil }
         let value = decodeHTML(category).trimmingCharacters(in: .whitespacesAndNewlines)
         return value.isEmpty ? nil : value
-    }
-    private func courseType(_ category: String?) -> CourseType? {
-        let text = category?.folding(options: .diacriticInsensitive, locale: .current).lowercased() ?? ""
-        if text.contains("magistr") { return .cm }; if text.contains("dirig") { return .td }
-        if text.contains("prati") { return .tp }; if text.contains("projet") { return .project }
-        if text.contains("integration") { return .integration }; if text.contains("reunion") { return .meeting }
-        if text.contains("examen") || text.contains("partiel") { return .exam }
-        if text.contains("devoir surveille") || text == "ds" { return .test }; return nil
     }
     private func parseDate(_ value: String) throws -> Date {
         let iso = ISO8601DateFormatter()
