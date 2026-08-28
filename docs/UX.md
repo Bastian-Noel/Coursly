@@ -65,6 +65,8 @@ Positionnements :
 - L’en-tête reste attaché à sa colonne horizontale mais compense le scroll vertical afin que le numéro du jour demeure visible.
 - Les traits horaires traversent chaque colonne jusqu’à 24:00.
 - Les séparateurs verticaux restent subtils.
+- La ligne rouge traverse tout le viewport et reste visible pendant le déplacement horizontal.
+- Le point rouge reste attaché uniquement à la colonne d’aujourd’hui.
 - Le ruban se cale sur les limites de journée.
 
 Les jours passés utilisent un fond légèrement plus sombre et un texte secondaire. Aujourd’hui et les jours futurs utilisent le fond normal.
@@ -91,9 +93,9 @@ Priorité :
 
 Le code module n’est jamais rendu sur la carte. Il reste disponible dans le détail et la recherche.
 
-Le contenu reste aligné en haut, quelle que soit la hauteur disponible. Les heures de début et de fin forment une pile compacte alignée à droite du haut de la carte.
+Le contenu reste aligné en haut, quelle que soit la hauteur disponible. En Jour, le début reste en haut à droite et la fin en bas à droite sans réserver une colonne dans le layout. En Semaine, les deux horaires forment une ligne compacte centrée en haut.
 
-Les métadonnées utilisent :
+En Jour, les métadonnées utilisent :
 
 - `mappin` ou `mappin.and.ellipse` pour la salle ;
 - `person.fill` pour les enseignants ;
@@ -101,10 +103,11 @@ Les métadonnées utilisent :
 
 ### Adaptation
 
-- Une carte très courte utilise deux lignes compactes.
-- Un cours d’environ une heure utilise type/horaires, matière puis une ligne compressible de métadonnées.
+- Une carte très courte conserve d’abord la matière et la salle.
+- En Jour, salle, enseignants et groupe restent empilés verticalement même lorsque plusieurs cours se partagent la largeur.
 - Une carte haute sépare salle, enseignants et groupe sur plusieurs lignes.
-- Une colonne Semaine étroite réduit la typographie, le nombre de lignes et les métadonnées secondaires.
+- En Semaine, aucune icône n’est affichée ; le titre peut occuper jusqu’à cinq lignes.
+- `ViewThatFits` ajoute ensuite salle, enseignants puis groupe seulement si la hauteur réelle le permet.
 - `minimumScaleFactor` évite les coupures brutales sans rendre le texte illisible.
 
 ### Pression
