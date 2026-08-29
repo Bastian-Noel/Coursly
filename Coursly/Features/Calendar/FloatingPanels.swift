@@ -408,7 +408,7 @@ struct ChangeHistoryPanel: View {
                         ContentUnavailableView(
                             "Aucun changement détecté",
                             systemImage: "checkmark.circle",
-                            description: Text("Coursly compare les snapshots POST CELCAT fiables.")
+                            description: Text("Ora compare les snapshots POST CELCAT fiables.")
                         )
                         .frame(height: 190)
                     }
