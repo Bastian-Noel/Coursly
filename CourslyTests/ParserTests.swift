@@ -10,7 +10,8 @@ final class ParserTests: XCTestCase {
         let json = #"[{"id":"42","start":"2026-08-13T08:00:00+02:00","end":"2026-08-13T10:00:00+02:00","description":"Mme Prof<br />MMI1-A1<br />A101 - VELIZY<br />R101 - Développement web [R101]","eventCategory":"Travaux dirigés","modules":["R101"],"sites":["VELIZY"]}]"#
         let event = try XCTUnwrap(DirectEventParser().parse(Data(json.utf8), group: .init(name: "MMI1-A1")).first)
         XCTAssertEqual(event.title, "Développement web")
-        XCTAssertEqual(event.type, .td)
+        XCTAssertNil(event.type, "Le regroupement ne transforme plus le type CELCAT")
+        XCTAssertEqual(event.displayTypeLabel, "Travaux dirigés")
         XCTAssertEqual(event.rooms, ["A101"])
         XCTAssertEqual(event.groups.map(\.name), ["MMI1-A1"])
     }
