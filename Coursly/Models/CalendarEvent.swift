@@ -6,17 +6,6 @@ enum EventSource: String, Codable, Sendable {
     case local
 }
 
-enum CourseType: String, Codable, CaseIterable, Sendable {
-    case cm = "CM"
-    case td = "TD"
-    case tp = "TP"
-    case project = "PROJET"
-    case integration = "INT"
-    case meeting = "RÉUNION"
-    case test = "DS"
-    case exam = "EXAM"
-}
-
 struct StudentGroup: Identifiable, Hashable, Codable, Sendable {
     let name: String
     var id: String { name }
@@ -32,7 +21,6 @@ struct StudentGroup: Identifiable, Hashable, Codable, Sendable {
 struct CalendarEvent: Identifiable, Hashable, Codable, Sendable {
     let id: String
     let title: String
-    let type: CourseType?
     var categoryLabel: String? = nil
     var typeDisplayOverride: String? = nil
     let start: Date
@@ -53,7 +41,7 @@ struct CalendarEvent: Identifiable, Hashable, Codable, Sendable {
         if let renamed, !renamed.isEmpty { return renamed }
         let raw = categoryLabel?.trimmingCharacters(in: .whitespacesAndNewlines)
         if let raw, !raw.isEmpty { return raw }
-        return type?.rawValue
+        return nil
     }
     var colorTypeLabel: String? {
         let raw = categoryLabel?.trimmingCharacters(in: .whitespacesAndNewlines)
