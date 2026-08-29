@@ -1,5 +1,5 @@
 import XCTest
-@testable import Coursly
+@testable import Ora
 
 final class V3BehaviorTests: XCTestCase {
     private let group = StudentGroup(name: "MMI2-A1")
