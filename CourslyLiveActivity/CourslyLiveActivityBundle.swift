@@ -170,7 +170,7 @@ struct CourslyLiveActivityWidget: Widget {
         let metadata = [type, room, teachers, groups]
             .compactMap { $0 }
             .filter { !$0.isEmpty }
-        VStack(spacing: comfortable ? 6 : 4) {
+        return VStack(spacing: comfortable ? 6 : 4) {
             Divider().overlay(Color.white.opacity(0.14))
             VStack(alignment: .leading, spacing: 3) {
                 HStack {
