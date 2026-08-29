@@ -28,7 +28,7 @@ Le groupe affiché est `displayGroupsText`, jamais automatiquement `groups`.
 | `DERNIER COURS` | cours actuel sans cours suivant | jusqu’à la fin |
 | `JOURNÉE TERMINÉE` | aucun cours restant | état final temporaire |
 
-Le prochain cours pendant un cours en cours n’apparaît que dans les 30 dernières minutes.
+Le prochain cours est transporté avec l’état courant afin de rester immédiatement consultable et de permettre une transition locale fiable à la fin du cours.
 
 ## 4. Hiérarchie Lock Screen
 
@@ -37,12 +37,12 @@ Ordre visuel :
 1. état temporel avec chronomètre et décompte regroupés en haut ;
 2. horaires réels compacts ;
 3. matière sur deux lignes au maximum ;
-4. badge de type avec pictogramme ;
+4. badge de type textuel, sans pictogramme ;
 5. salle, enseignants et groupe réel sur une ligne secondaire ;
 6. barre de progression épaisse ;
 7. bloc « prochain cours » séparé en bas avec sa couleur de type, sa matière, son heure et sa salle lorsqu’il est utile.
 
-La surface reprend la DA des cartes Semaine : fond translucide sombre, bande verticale et accents utilisant la couleur personnalisée du type. Le prochain cours transporte aussi son type et sa teinte. La variante Lock Screen doit rester compacte dans la hauteur proposée par ActivityKit : marges verticales bornées, métadonnées sur une ligne et bloc suivant condensé, sans rognage supérieur ou inférieur. Aucun faux bouton n’est affiché tant qu’une route d’ouverture de cours testable n’existe pas.
+La surface reprend la DA des cartes Semaine avec un fond translucide sombre et des accents utilisant la couleur personnalisée du type, sans bande verticale. Le prochain cours transporte aussi son type, sa teinte, ses horaires et ses métadonnées. `ViewThatFits` choisit entre une variante confortable et une variante compacte dans la hauteur proposée par ActivityKit, sans rognage supérieur ou inférieur. Aucun faux bouton n’est affiché tant qu’une route d’ouverture de cours testable n’existe pas.
 
 ## 5. Couleurs
 
@@ -75,6 +75,9 @@ Le décompte représente ainsi la simulation tandis que `08:00 → 10:00` reste 
 - Si aucun cours dans la journée : terminer immédiatement.
 - Si une activité existe : la mettre à jour et terminer les doublons.
 - Sinon : demander une activité pour le jour logique.
+- Les appels concurrents sont ordonnés par révision ; une réponse ancienne ne peut pas écraser l’état le plus récent.
+- Le widget recalcule localement `PREMIER COURS`, `PAUSE`, `EN COURS`, `BIENTÔT TERMINÉ`, `DERNIER COURS` et la transition vers le cours suivant à partir des dates ActivityKit.
+- `staleDate` couvre le cours suivant transporté, avec une marge, plutôt que de rendre l’activité périmée exactement au changement d’état.
 - `Réafficher l’activité` termine puis recrée.
 - `Terminer l’activité actuelle` termine manuellement.
 

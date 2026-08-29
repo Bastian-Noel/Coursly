@@ -68,7 +68,7 @@ CalendarLoadResult
 
 Les propriétés `displayTypeLabel` et `displayGroupLabels` centralisent les règles d’affichage. Les vues ne reconstruisent pas ces valeurs.
 
-`CourseTypeClassifier` applique une liste ordonnée de regex configurables. Son résultat `CourseType` est une clé interne de regroupement et de couleur ; `displayTypeLabel` conserve toujours le libellé CELCAT. Les règles invalides ou désactivées ne classent aucun événement.
+`CourseTypeClassifier` applique une liste ordonnée de regroupements configurables. Chaque regroupement possède un identifiant stable, un nom réservé aux réglages, plusieurs regex et un renommage visible facultatif. La clé de couleur repose sur l’identifiant du regroupement, jamais sur l’enum historique `CourseType`. `displayTypeLabel` conserve le libellé CELCAT sauf renommage explicitement activé ; `colorTypeLabel` conserve le libellé brut pour le partage des teintes. Les anciennes règles v3 sont migrées vers ce modèle.
 
 ## 5. État du calendrier
 
@@ -173,6 +173,8 @@ Toute règle temporelle demande `store.now` ou `effectiveNow`. Les propriétés 
 ## 12. Live Activity
 
 `LiveActivityManager` reçoit les événements normalisés du jour logique, choisit un état et construit `CourslyActivityAttributes.ContentState`.
+
+L’état transporte le cours courant et le cours suivant avec leurs dates réelles et leurs dates de timer. Le widget peut ainsi franchir localement une fin de cours, afficher une pause puis le prochain cours sans attendre un réveil de l’app. Un numéro de révision empêche une mise à jour asynchrone ancienne de republier un état dépassé.
 
 - `start/end` : horaires réels affichés ;
 - `timerStart/timerEnd` : dates translatées pour les timers ActivityKit ;
