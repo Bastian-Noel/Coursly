@@ -1,4 +1,4 @@
-name: Coursly
+name: Ora
 options:
   bundleIdPrefix: fr.bastiannoel
   deploymentTarget:
@@ -11,7 +11,7 @@ settings:
     TARGETED_DEVICE_FAMILY: "1"
     DEVELOPMENT_LANGUAGE: fr
 targets:
-  Coursly:
+  Ora:
     type: application
     platform: iOS
     sources:
@@ -20,9 +20,9 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: fr.bastiannoel.coursly
-        PRODUCT_NAME: Coursly
+        PRODUCT_NAME: Ora
         GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: Coursly
+        INFOPLIST_KEY_CFBundleDisplayName: Ora
         INFOPLIST_KEY_CFBundleDevelopmentRegion: fr
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
@@ -32,8 +32,8 @@ targets:
         CODE_SIGN_STYLE: Manual
         INFOPLIST_KEY_NSSupportsLiveActivities: YES
     dependencies:
-      - target: CourslyLiveActivity
-  CourslyLiveActivity:
+      - target: OraLiveActivity
+  OraLiveActivity:
     type: app-extension
     platform: iOS
     sources:
@@ -44,25 +44,25 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: fr.bastiannoel.coursly.liveactivity
-        PRODUCT_NAME: CourslyLiveActivity
+        PRODUCT_NAME: OraLiveActivity
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: CourslyLiveActivity/Info.plist
         MARKETING_VERSION: 0.3.0
         CURRENT_PROJECT_VERSION: 1
         SKIP_INSTALL: YES
-  CourslyTests:
+  OraTests:
     type: bundle.unit-test
     platform: iOS
     sources:
       - path: CourslyTests
     dependencies:
-      - target: Coursly
+      - target: Ora
 schemes:
-  Coursly:
+  Ora:
     build:
       targets:
-        Coursly: all
-        CourslyTests: [test]
+        Ora: all
+        OraTests: [test]
     run:
       config: Debug
     archive:
@@ -71,4 +71,4 @@ schemes:
       config: Debug
       gatherCoverageData: true
       targets:
-        - name: CourslyTests
+        - name: OraTests
