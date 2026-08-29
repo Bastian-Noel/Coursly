@@ -333,7 +333,7 @@ final class CalendarStore {
         let event = CalendarEvent(
             id: "local-\(UUID().uuidString)",
             title: title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Événement personnel" : title.trimmingCharacters(in: .whitespacesAndNewlines),
-                        categoryLabel: typeLabel?.nilIfBlank,
+            categoryLabel: typeLabel?.nilIfBlank,
             start: start,
             end: max(end, start.addingTimeInterval(15 * 60)),
             rooms: room?.nilIfBlank.map { [$0] } ?? [],
