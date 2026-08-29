@@ -267,7 +267,7 @@ final class V3BehaviorTests: XCTestCase {
     func testColorSettingsDistinguishUnknownTypeFromEmptyRegexGroup() {
         XCTAssertEqual(
             CourseColorDetectionStatus.dynamic(variants: []).text,
-            "Type CELCAT non regroupé"
+            nil
         )
         XCTAssertEqual(
             CourseColorDetectionStatus.configured(matches: []).text,
@@ -275,6 +275,12 @@ final class V3BehaviorTests: XCTestCase {
         )
         XCTAssertFalse(CourseColorDetectionStatus.dynamic(variants: []).isEmptyConfiguredGroup)
         XCTAssertTrue(CourseColorDetectionStatus.configured(matches: []).isEmptyConfiguredGroup)
+    }
+
+    func testCourseColorsAreOrderedByFrequencyThenName() {
+        XCTAssertTrue(CourseColorFrequencyOrder.precedes(firstFrequency: 8, firstLabel: "TD", secondFrequency: 3, secondLabel: "CM"))
+        XCTAssertTrue(CourseColorFrequencyOrder.precedes(firstFrequency: 3, firstLabel: "CM", secondFrequency: 3, secondLabel: "TD"))
+        XCTAssertFalse(CourseColorFrequencyOrder.precedes(firstFrequency: 1, firstLabel: "CM", secondFrequency: 7, secondLabel: "TP"))
     }
 
     func testHorizontalDayGestureSuppressesCourseOpening() {
@@ -307,6 +313,7 @@ final class V3BehaviorTests: XCTestCase {
             timerEnd: end,
             progressStart: start,
             progressEnd: end,
+            tomorrowStart: nil,
             nextTitle: "Anglais",
             nextRoom: "E57",
             nextType: "CM",
@@ -358,7 +365,7 @@ final class V3BehaviorTests: XCTestCase {
         XCTAssertNil(LiveActivitySchedule.pauseInterval(previous: nil, upcoming: upcoming, now: now))
     }
 
-    func testLiveActivityAnnouncesTomorrowCourse() {
+    func testLiveActivityKeepsTomorrowCourseAsCompactPreviewOnly() {
         let upcoming = event(
             id: "tomorrow",
             start: date("2026-09-11T06:30:00Z"),
@@ -366,10 +373,8 @@ final class V3BehaviorTests: XCTestCase {
         )
         let now = date("2026-09-10T16:00:00Z")
 
-        XCTAssertEqual(
-            LiveActivitySchedule.upcomingStatus(previous: nil, upcoming: upcoming, now: now),
-            "PROCHAIN COURS DEMAIN À 08h30"
-        )
+        XCTAssertEqual(LiveActivitySchedule.tomorrowEvent(from: [upcoming], now: now)?.id, "tomorrow")
+        XCTAssertEqual(LiveActivitySchedule.upcomingStatus(previous: nil, upcoming: upcoming, now: now), "PREMIER COURS")
     }
 
     func testLiveActivityAccentRaisesDarkColorLuminance() throws {

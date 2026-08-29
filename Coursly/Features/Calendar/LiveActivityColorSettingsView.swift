@@ -6,28 +6,34 @@ private struct CourseColorGroup: Identifiable {
     let label: String
     let detectionStatus: CourseColorDetectionStatus
     let groupID: UUID?
+    let frequency: Int
 }
 
 enum CourseColorDetectionStatus: Equatable {
     case configured(matches: [String])
     case dynamic(variants: [String])
 
-    var text: String {
+    var text: String? {
         switch self {
         case let .configured(matches) where !matches.isEmpty:
             return "Types détectés : \(matches.joined(separator: " · "))"
         case .configured:
             return "Aucun cours correspondant dans les données chargées"
-        case let .dynamic(variants) where !variants.isEmpty:
-            return "Variantes CELCAT : \(variants.joined(separator: " · "))"
         case .dynamic:
-            return "Type CELCAT non regroupé"
+            return nil
         }
     }
 
     var isEmptyConfiguredGroup: Bool {
         if case let .configured(matches) = self { return matches.isEmpty }
         return false
+    }
+}
+
+enum CourseColorFrequencyOrder {
+    static func precedes(firstFrequency: Int, firstLabel: String, secondFrequency: Int, secondLabel: String) -> Bool {
+        if firstFrequency != secondFrequency { return firstFrequency > secondFrequency }
+        return firstLabel.localizedCaseInsensitiveCompare(secondLabel) == .orderedAscending
     }
 }
 
@@ -38,12 +44,17 @@ struct LiveActivityColorSettingsView: View {
 
     private var detectedGroups: [CourseColorGroup] {
         let classifier = CourseTypeClassifier()
+        // La fréquence vient des cours réellement chargés ; les anciens types mémorisés restent visibles avec un poids nul.
+        let frequencies = Dictionary(grouping: store.remoteEvents.compactMap(\.colorTypeLabel), by: { $0 })
+            .mapValues(\.count)
         let configured = classifier.groups.map { group in
+            let matches = store.observedCourseTypeLabels.filter(group.matches)
             CourseColorGroup(
                 id: "group:\(group.id.uuidString)",
                 label: group.name,
-                detectionStatus: .configured(matches: store.observedCourseTypeLabels.filter(group.matches)),
-                groupID: group.id
+                detectionStatus: .configured(matches: matches),
+                groupID: group.id,
+                frequency: matches.reduce(0) { $0 + (frequencies[$1] ?? 0) }
             )
         }
         let ungroupedLabels = store.observedCourseTypeLabels.filter { classifier.match($0) == nil }
@@ -58,11 +69,17 @@ struct LiveActivityColorSettingsView: View {
                 id: key,
                 label: sorted.first ?? "Type",
                 detectionStatus: .dynamic(variants: Array(sorted.dropFirst())),
-                groupID: nil
+                groupID: nil,
+                frequency: sorted.reduce(0) { $0 + (frequencies[$1] ?? 0) }
             )
         }
         return (configured + dynamic).sorted {
-            $0.label.localizedCaseInsensitiveCompare($1.label) == .orderedAscending
+            CourseColorFrequencyOrder.precedes(
+                firstFrequency: $0.frequency,
+                firstLabel: $0.label,
+                secondFrequency: $1.frequency,
+                secondLabel: $1.label
+            )
         }
     }
 
@@ -137,14 +154,16 @@ private struct HueTypeRow: View {
                     RoundedRectangle(cornerRadius: 7, style: .continuous).fill(Color(hue: hue, saturation: 0.82, brightness: 0.95)).frame(width: 30, height: 30)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(label).font(.body.weight(.semibold)).foregroundStyle(.primary)
-                        Text(detectionStatus.text)
-                            .font(.caption2)
-                            .foregroundStyle(
-                                detectionStatus.isEmptyConfiguredGroup
-                                    ? Color.secondary.opacity(0.62)
-                                    : Color.secondary
-                            )
-                            .lineLimit(2)
+                        if let statusText = detectionStatus.text {
+                            Text(statusText)
+                                .font(.caption2)
+                                .foregroundStyle(
+                                    detectionStatus.isEmptyConfiguredGroup
+                                        ? Color.secondary.opacity(0.62)
+                                        : Color.secondary
+                                )
+                                .lineLimit(2)
+                        }
                     }
                     Spacer()
                     Image(systemName: "chevron.down").font(.caption.bold()).foregroundStyle(.secondary).rotationEffect(.degrees(expanded ? 180 : 0))

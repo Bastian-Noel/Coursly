@@ -30,16 +30,12 @@ enum LiveActivitySchedule {
         return events.filter { $0.end > start && $0.start < end }
     }
 
+    static func tomorrowEvent(from events: [CalendarEvent], now: Date) -> CalendarEvent? {
+        guard let tomorrow = parisCalendar.date(byAdding: .day, value: 1, to: parisCalendar.startOfDay(for: now)) else { return nil }
+        return orderedEvents(from: events).first { parisCalendar.isDate($0.start, inSameDayAs: tomorrow) }
+    }
+
     static func upcomingStatus(previous: CalendarEvent?, upcoming: CalendarEvent, now: Date) -> String {
-        let today = parisCalendar.startOfDay(for: now)
-        let upcomingDay = parisCalendar.startOfDay(for: upcoming.start)
-        if upcomingDay > today {
-            let formatter = DateFormatter()
-            formatter.locale = Locale(identifier: "fr_FR")
-            formatter.timeZone = parisCalendar.timeZone
-            formatter.dateFormat = "HH'h'mm"
-            return "PROCHAIN COURS DEMAIN À \(formatter.string(from: upcoming.start))"
-        }
         guard let previous,
               parisCalendar.isDate(previous.end, inSameDayAs: upcoming.start) else {
             return "PREMIER COURS"
@@ -77,12 +73,23 @@ enum LiveActivityManager {
         }
         guard areActivitiesEnabled else { return }
 
-        let ordered = LiveActivitySchedule.orderedEvents(
+        let relevant = LiveActivitySchedule.orderedEvents(
             from: LiveActivitySchedule.relevantEvents(from: events, now: now)
         )
+        let tomorrow = LiveActivitySchedule.tomorrowEvent(from: relevant, now: now)
+        // Le moteur principal ne reçoit que les cours du jour. Le lendemain reste un simple aperçu.
+        let ordered = relevant.filter { event in
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.timeZone = TimeZone(identifier: "Europe/Paris")!
+            return calendar.isDate(event.start, inSameDayAs: now)
+        }
 
         guard !ordered.isEmpty else {
-            await endActivities(now: now, immediate: true)
+            if let tomorrow {
+                await finishDay(now: now, tomorrow: tomorrow, revision: updateRevision)
+            } else {
+                await endActivities(now: now, immediate: true)
+            }
             return
         }
 
@@ -106,7 +113,7 @@ enum LiveActivityManager {
             primaryIndex = upcoming
             initiallyInProgress = false
         } else {
-            await finishDay(now: now, revision: updateRevision)
+            await finishDay(now: now, tomorrow: tomorrow, revision: updateRevision)
             return
         }
 
@@ -143,6 +150,7 @@ enum LiveActivityManager {
             timerEnd: timerEnd,
             progressStart: progressStart,
             progressEnd: progressEnd,
+            tomorrowStart: tomorrow?.start,
             nextTitle: next?.title,
             nextRoom: next?.room,
             nextType: next?.displayTypeLabel,
@@ -222,13 +230,14 @@ enum LiveActivityManager {
         )
     }
 
-    private static func finishDay(now: Date, revision updateRevision: Int) async {
+    private static func finishDay(now: Date, tomorrow: CalendarEvent?, revision updateRevision: Int) async {
         guard updateRevision == revision, !Activity<CourslyActivityAttributes>.activities.isEmpty else { return }
         let systemNow = Date()
         let state = CourslyActivityAttributes.ContentState(
             status: "JOURNÉE TERMINÉE", title: "Cours terminés", room: "", teachers: "", groups: "",
             type: nil, accentHex: "#34C759", start: now, end: now, timerStart: systemNow, timerEnd: systemNow,
             progressStart: nil, progressEnd: nil,
+            tomorrowStart: tomorrow?.start,
             nextTitle: nil, nextRoom: nil, nextType: nil, nextAccentHex: nil, nextStart: nil, nextEnd: nil,
             nextTeachers: nil, nextGroups: nil, nextTimerStart: nil, nextTimerEnd: nil,
             isLastCourse: true, nextIsLastCourse: nil, isInProgress: false, dayFinished: true

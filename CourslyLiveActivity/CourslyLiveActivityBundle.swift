@@ -39,7 +39,7 @@ struct CourslyLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: CourslyActivityAttributes.self) { context in
             TimelineView(.periodic(from: .now, by: 15)) { timeline in
-                lockScreen(resolved(context.state, at: timeline.date), dayFinished: context.state.dayFinished)
+                lockScreen(resolved(context.state, at: timeline.date), state: context.state)
             }
             .environment(\.timeZone, parisTimeZone)
             .environment(\.locale, Locale(identifier: "fr_FR"))
@@ -69,15 +69,31 @@ struct CourslyLiveActivityWidget: Widget {
     }
 
     @ViewBuilder
-    private func lockScreen(_ course: ResolvedCourse, dayFinished: Bool) -> some View {
-        if dayFinished || course.isFinished {
-            HStack(spacing: 10) {
-                Image(systemName: "checkmark.circle.fill").font(.title3).foregroundStyle(.green)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("JOURNÉE TERMINÉE").font(.caption.weight(.heavy)).foregroundStyle(.green)
-                    Text("Tous les cours sont terminés").font(.subheadline.weight(.semibold)).foregroundStyle(.white)
+    private func lockScreen(_ course: ResolvedCourse, state: CourslyActivityAttributes.ContentState) -> some View {
+        if state.dayFinished || course.isFinished {
+            VStack(alignment: .leading, spacing: 7) {
+                HStack(spacing: 10) {
+                    Image(systemName: "checkmark.circle.fill").font(.title3).foregroundStyle(.green)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("JOURNÉE TERMINÉE").font(.caption.weight(.heavy)).foregroundStyle(.green)
+                        Text("Tous les cours sont terminés").font(.subheadline.weight(.semibold)).foregroundStyle(.white)
+                    }
+                    Spacer()
                 }
-                Spacer()
+
+                // Le lendemain reste une ligne secondaire : aucun détail complet ni décompte nocturne.
+                if let tomorrowStart = state.tomorrowStart {
+                    Divider().overlay(Color.white.opacity(0.14))
+                    HStack {
+                        Text("PROCHAIN COURS DEMAIN")
+                            .font(.caption2.weight(.heavy))
+                            .foregroundStyle(Color(hex: "#0A84FF"))
+                        Spacer(minLength: 8)
+                        Text(tomorrowStart, style: .time)
+                            .font(.caption.monospacedDigit().weight(.semibold))
+                            .foregroundStyle(.white.opacity(0.78))
+                    }
+                }
             }
             .padding(.horizontal, 15)
             .padding(.vertical, 12)
