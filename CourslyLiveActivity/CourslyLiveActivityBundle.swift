@@ -212,7 +212,7 @@ struct CourslyLiveActivityWidget: Widget {
         let progress = if let progressStart, progressEnd != nil {
             max(0, min(1, Date.now.timeIntervalSince(progressStart) / progressTotal))
         } else {
-            0
+            0.0
         }
         let text = remainingText(course)
         return GeometryReader { proxy in
