@@ -131,6 +131,7 @@ Au relâchement valide : ouverture du détail. Tant que le détail est ouvert, l
 ## 8. Sélecteur de Hue
 
 - Une seule barre arc-en-ciel par type développé.
+- Un regroupement regex apparaît sous son nom utilisateur et possède une teinte unique partagée par toutes ses expressions ; les types non regroupés conservent leur propre entrée.
 - Surface tactile d’au moins 44 points.
 - `DragGesture(minimumDistance: 0)` local.
 - Le curseur est centré sous le doigt et reste dans les bornes.
@@ -154,6 +155,7 @@ Le dock regroupe : Jour/Semaine, Chercher, Groupes et Plus. Aujourd’hui appara
 - Cibles tactiles minimales de 44 points.
 - Les bulles Plus et Groupes restent dans la hiérarchie et se transforment en panneau depuis leur surface Liquid Glass.
 - Le panneau utilise `GlassEffectContainer`, `glassEffectID` et la transition Liquid Glass appariée. Son bas chevauche le milieu de la bulle source ; l’espace de la bulle reste réservé pendant le morphing.
+- L’espacement du conteneur reste inférieur à l’écart entre les bulles pour empêcher leur fusion au repos. Pendant un morphing Plus ou Groupes, les autres bulles sont masquées et non interactives derrière le panneau.
 - La bulle Recherche ne reçoit pas de fond bleu lorsqu’elle est active.
 - Un tap hors d’un panneau le ferme et est absorbé sans agir sur la timeline.
 - La bulle droite est une capsule continue sans séparateur visible.
