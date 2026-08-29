@@ -39,8 +39,8 @@ Ordre visuel :
 3. matière sur deux lignes au maximum ;
 4. badge de type textuel, sans pictogramme ;
 5. salle, enseignants et groupe réel sur une ligne secondaire ;
-6. barre de progression épaisse ;
-7. bloc « prochain cours » séparé en bas avec sa couleur de type, sa matière, son heure et sa salle lorsqu’il est utile.
+6. décompte au format `1h 05m` intégré à une capsule qui se remplit avec l’avancement ; le texte change de couleur sous la partie pleine ;
+7. bloc « prochain cours » sur trois lignes : libellé et horaires début-fin, matière, puis type, salle, enseignants et groupe.
 
 La surface reprend la DA des cartes Semaine avec un fond translucide sombre et des accents utilisant la couleur personnalisée du type, sans bande verticale. Le prochain cours transporte aussi son type, sa teinte, ses horaires et ses métadonnées. `ViewThatFits` choisit entre une variante confortable et une variante compacte dans la hauteur proposée par ActivityKit, sans rognage supérieur ou inférieur. Aucun faux bouton n’est affiché tant qu’une route d’ouverture de cours testable n’existe pas.
 
@@ -77,6 +77,8 @@ Le décompte représente ainsi la simulation tandis que `08:00 → 10:00` reste 
 - Sinon : demander une activité pour le jour logique.
 - Les appels concurrents sont ordonnés par révision ; une réponse ancienne ne peut pas écraser l’état le plus récent.
 - Le widget recalcule localement `PREMIER COURS`, `PAUSE`, `EN COURS`, `BIENTÔT TERMINÉ`, `DERNIER COURS` et la transition vers le cours suivant à partir des dates ActivityKit.
+- Le manager déduplique les cours visuellement identiques et ignore les événements chevauchants pour déterminer le prochain cours séquentiel.
+- Avant le premier cours et pendant une pause, le cours à venir est déjà le contenu principal : aucun second bloc « prochain cours » n’est ajouté.
 - `staleDate` couvre le cours suivant transporté, avec une marge, plutôt que de rendre l’activité périmée exactement au changement d’état.
 - `Réafficher l’activité` termine puis recrée.
 - `Terminer l’activité actuelle` termine manuellement.
