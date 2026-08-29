@@ -23,9 +23,13 @@ struct CourseTypeRuleSettingsView: View {
                         .padding(.vertical, 4)
                     }
                     .swipeActions {
-                        Button("Supprimer", role: .destructive) { groups.removeAll { $0.id == group.id }; persist() }
+                        Button("Supprimer", role: .destructive) {
+                            guard let index = groups.firstIndex(where: { $0.id == group.id }) else { return }
+                            delete(at: IndexSet(integer: index))
+                        }
                     }
                 }
+                .onDelete(perform: delete)
                 .onMove { groups.move(fromOffsets: $0, toOffset: $1); persist() }
 
                 NavigationLink {
@@ -59,6 +63,11 @@ struct CourseTypeRuleSettingsView: View {
         let count = group.patterns.count
         if group.displayLabel != nil { return "\(count) expression\(count > 1 ? "s" : "") · affiche le nom du regroupement" }
         return "\(count) expression\(count > 1 ? "s" : "") · aucun renommage"
+    }
+
+    private func delete(at offsets: IndexSet) {
+        groups.remove(atOffsets: offsets)
+        persist()
     }
 
     private func save(_ group: CourseTypeGroup) {
