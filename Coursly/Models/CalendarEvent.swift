@@ -34,6 +34,7 @@ struct CalendarEvent: Identifiable, Hashable, Codable, Sendable {
     let title: String
     let type: CourseType?
     var categoryLabel: String? = nil
+    var typeDisplayOverride: String? = nil
     let start: Date
     let end: Date
     let rooms: [String]
@@ -42,14 +43,22 @@ struct CalendarEvent: Identifiable, Hashable, Codable, Sendable {
     var rawGroupLabels: [String]? = nil
     let moduleCode: String?
     let moduleName: String?
+    var notes: String? = nil
     let source: EventSource
 
     var room: String { rooms.joined(separator: " / ") }
     var duration: TimeInterval { max(0, end.timeIntervalSince(start)) }
     var displayTypeLabel: String? {
+        let renamed = typeDisplayOverride?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let renamed, !renamed.isEmpty { return renamed }
         let raw = categoryLabel?.trimmingCharacters(in: .whitespacesAndNewlines)
         if let raw, !raw.isEmpty { return raw }
         return type?.rawValue
+    }
+    var colorTypeLabel: String? {
+        let raw = categoryLabel?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let raw, !raw.isEmpty { return raw }
+        return displayTypeLabel
     }
     var displayGroupLabels: [String] {
         let actual = (rawGroupLabels ?? []).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
@@ -65,7 +74,8 @@ struct CalendarEvent: Identifiable, Hashable, Codable, Sendable {
             teachers.joined(separator: " "),
             displayGroupLabels.joined(separator: " "),
             moduleCode ?? "",
-            moduleName ?? ""
+            moduleName ?? "",
+            notes ?? ""
         ]
         .joined(separator: " ")
         .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)

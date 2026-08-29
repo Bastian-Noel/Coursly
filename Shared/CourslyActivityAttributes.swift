@@ -24,6 +24,13 @@ struct CourslyActivityAttributes: ActivityAttributes {
         let nextType: String?
         let nextAccentHex: String?
         let nextStart: Date?
+        let nextEnd: Date?
+        let nextTeachers: String?
+        let nextGroups: String?
+        let nextTimerStart: Date?
+        let nextTimerEnd: Date?
+        let isLastCourse: Bool
+        let nextIsLastCourse: Bool?
         let isInProgress: Bool
         let dayFinished: Bool
     }

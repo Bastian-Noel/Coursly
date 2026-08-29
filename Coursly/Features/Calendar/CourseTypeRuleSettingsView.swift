@@ -2,101 +2,73 @@ import SwiftUI
 
 struct CourseTypeRuleSettingsView: View {
     @Environment(CalendarStore.self) private var store
-    @State private var rules = CourseTypeRulePreferences.load()
+    @State private var groups = CourseTypeRulePreferences.load()
 
     var body: some View {
         List {
             Section {
-                ForEach(rules) { rule in
+                ForEach(groups) { group in
                     NavigationLink {
-                        CourseTypeRuleEditor(rule: rule) { updated in
-                            save(updated)
-                        }
+                        CourseTypeGroupEditor(group: group) { save($0) }
                     } label: {
-                        ruleRow(rule)
+                        HStack(spacing: 12) {
+                            Image(systemName: group.isEnabled ? "checkmark.circle.fill" : "pause.circle")
+                                .font(.title3)
+                                .foregroundStyle(group.isEnabled ? Color.accentColor : Color.secondary)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(group.name).font(.body.weight(.semibold))
+                                Text(summary(for: group)).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                            }
+                        }
+                        .padding(.vertical, 4)
                     }
                     .swipeActions {
-                        Button("Supprimer", role: .destructive) {
-                            remove(rule)
-                        }
+                        Button("Supprimer", role: .destructive) { groups.removeAll { $0.id == group.id }; persist() }
                     }
                 }
-                .onMove { source, destination in
-                    rules.move(fromOffsets: source, toOffset: destination)
-                    persist()
-                }
+                .onMove { groups.move(fromOffsets: $0, toOffset: $1); persist() }
 
                 NavigationLink {
-                    CourseTypeRuleEditor(
-                        rule: CourseTypeRule(
-                            type: .cm,
-                            pattern: ""
-                        )
-                    ) { created in
-                        rules.append(created)
-                        persist()
+                    CourseTypeGroupEditor(group: CourseTypeGroup(name: "", patterns: [])) { created in
+                        groups.append(created); persist()
                     }
                 } label: {
-                    Label("Ajouter une règle regex", systemImage: "plus.circle.fill")
+                    Label("Créer un regroupement", systemImage: "plus.circle.fill")
                 }
             } header: {
-                Text("Règles de regroupement")
+                Text("Regroupements")
             } footer: {
-                Text("La première regex active qui correspond choisit le groupe interne. Le nom CELCAT affiché n’est jamais remplacé.")
+                Text("Le nom sert uniquement à organiser tes règles ici. Les cours gardent le libellé reçu de CELCAT, sauf si tu actives explicitement un renommage.")
             }
 
             Section {
-                Button("Rétablir les règles par défaut") {
+                Button("Rétablir les regroupements par défaut") {
                     CourseTypeRulePreferences.reset()
-                    rules = CourseTypeRulePreferences.defaultRules
+                    groups = CourseTypeRulePreferences.defaultRules
+                    CourseTypeRulePreferences.save(groups)
                     applyChanges()
                 }
             }
         }
         .navigationTitle("Regroupement des types")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            EditButton()
-        }
+        .toolbar { EditButton() }
     }
 
-    private func ruleRow(_ rule: CourseTypeRule) -> some View {
-        HStack(spacing: 12) {
-            Text(rule.type.rawValue)
-                .font(.caption.weight(.heavy))
-                .foregroundStyle(rule.isEnabled ? Color.accentColor : Color.secondary)
-                .frame(width: 54, height: 32)
-                .background(Color.accentColor.opacity(rule.isEnabled ? 0.12 : 0.04), in: Capsule())
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(rule.pattern)
-                    .font(.caption.monospaced())
-                    .lineLimit(2)
-                    .foregroundStyle(rule.isEnabled ? Color.primary : Color.secondary)
-                Text(rule.isEnabled ? "Active" : "Désactivée")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .padding(.vertical, 3)
+    private func summary(for group: CourseTypeGroup) -> String {
+        let count = group.patterns.count
+        if let rename = group.trimmedRename { return "\(count) expression\(count > 1 ? "s" : "") · affiche « \(rename) »" }
+        return "\(count) expression\(count > 1 ? "s" : "") · aucun renommage"
     }
 
-    private func save(_ updated: CourseTypeRule) {
-        if let index = rules.firstIndex(where: { $0.id == updated.id }) {
-            rules[index] = updated
-        } else {
-            rules.append(updated)
-        }
-        persist()
-    }
-
-    private func remove(_ rule: CourseTypeRule) {
-        rules.removeAll { $0.id == rule.id }
+    private func save(_ group: CourseTypeGroup) {
+        if let index = groups.firstIndex(where: { $0.id == group.id }) { groups[index] = group }
+        else { groups.append(group) }
         persist()
     }
 
     private func persist() {
-        CourseTypeRulePreferences.save(rules)
+        CourseTypeRulePreferences.save(groups)
         applyChanges()
     }
 
@@ -107,69 +79,150 @@ struct CourseTypeRuleSettingsView: View {
     }
 }
 
-private struct CourseTypeRuleEditor: View {
-    @Environment(\.dismiss) private var dismiss
-    @State private var draft: CourseTypeRule
-    let onSave: (CourseTypeRule) -> Void
+private enum PatternBuilderMode: String, CaseIterable, Identifiable {
+    case contains = "Contient"
+    case word = "Mot exact"
+    case starts = "Commence"
+    case ends = "Se termine"
+    case regex = "Regex libre"
+    var id: String { rawValue }
 
-    init(rule: CourseTypeRule, onSave: @escaping (CourseTypeRule) -> Void) {
-        _draft = State(initialValue: rule)
+    func pattern(for value: String) -> String {
+        let escaped = NSRegularExpression.escapedPattern(for: value.trimmingCharacters(in: .whitespacesAndNewlines))
+        return switch self {
+        case .contains: escaped
+        case .word: #"\b"# + escaped + #"\b"#
+        case .starts: "^" + escaped
+        case .ends: escaped + "$"
+        case .regex: value.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+    }
+}
+
+private struct CourseTypeGroupEditor: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var draft: CourseTypeGroup
+    @State private var mode: PatternBuilderMode = .contains
+    @State private var builderText = ""
+    @State private var testText = ""
+    @State private var renameEnabled: Bool
+    let onSave: (CourseTypeGroup) -> Void
+
+    init(group: CourseTypeGroup, onSave: @escaping (CourseTypeGroup) -> Void) {
+        _draft = State(initialValue: group)
+        _renameEnabled = State(initialValue: group.trimmedRename != nil)
         self.onSave = onSave
+    }
+
+    private var builtPattern: String { mode.pattern(for: builderText) }
+    private var canAdd: Bool { !builderText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && CourseTypeGroup.isValid(pattern: builtPattern) }
+    private var canSave: Bool {
+        !draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !draft.patterns.isEmpty
+            && draft.patterns.allSatisfy { CourseTypeGroup.isValid(pattern: $0) }
     }
 
     var body: some View {
         Form {
-            Section("Groupe interne") {
-                Picker("Type", selection: $draft.type) {
-                    ForEach(CourseType.allCases, id: \.self) { type in
-                        Text(type.rawValue).tag(type)
+            Section {
+                Toggle(isOn: $draft.isEnabled) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Regroupement actif").font(.headline)
+                        Text(draft.isEnabled ? "Les expressions sont utilisées" : "Aucune expression n’est appliquée").font(.caption).foregroundStyle(.secondary)
                     }
                 }
-                Toggle("Règle active", isOn: $draft.isEnabled)
+                .tint(.accentColor)
+
+                TextField("Nom visible seulement dans les réglages", text: $draft.name)
+            } header: {
+                Text("Organisation")
             }
 
             Section {
-                TextField(
-                    "Expression régulière",
-                    text: $draft.pattern,
-                    axis: .vertical
-                )
-                .font(.body.monospaced())
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .lineLimit(3...7)
-
-                if !draft.pattern.isEmpty, !draft.isValid {
-                    Label("Expression régulière invalide", systemImage: "exclamationmark.triangle.fill")
-                        .font(.caption)
-                        .foregroundStyle(.red)
+                if draft.patterns.isEmpty {
+                    ContentUnavailableView("Aucune expression", systemImage: "text.magnifyingglass", description: Text("Ajoute les formulations qui doivent être regroupées."))
+                } else {
+                    ForEach(Array(draft.patterns.enumerated()), id: \.offset) { index, pattern in
+                        HStack(spacing: 10) {
+                            Image(systemName: "text.magnifyingglass").foregroundStyle(.secondary)
+                            Text(pattern).font(.caption.monospaced()).textSelection(.enabled)
+                            Spacer()
+                            Button(role: .destructive) { draft.patterns.remove(at: index) } label: {
+                                Image(systemName: "minus.circle.fill").frame(width: 34, height: 34)
+                            }.buttonStyle(.plain)
+                        }
+                    }
+                    .onMove { draft.patterns.move(fromOffsets: $0, toOffset: $1) }
                 }
             } header: {
-                Text("Regex")
-            } footer: {
-                Text("La casse et les accents sont ignorés. Exemples : \\bcm\\b ou cours\\s+magistral.")
+                HStack { Text("Expressions reconnues"); Spacer(); Text("\(draft.patterns.count)").foregroundStyle(.secondary) }
             }
 
             Section {
-                LabeledContent("Effet visible", value: "Aucun renommage")
-                Text("La règle sert uniquement à regrouper les variantes pour leur classification et leur couleur.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Picker("Façon de reconnaître", selection: $mode) {
+                    ForEach(PatternBuilderMode.allCases) { Text($0.rawValue).tag($0) }
+                }
+                .pickerStyle(.menu)
+
+                TextField(mode == .regex ? "Expression régulière" : "Texte à reconnaître", text: $builderText, axis: .vertical)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .font(mode == .regex ? .body.monospaced() : .body)
+
+                if !builderText.isEmpty {
+                    LabeledContent("Expression créée") {
+                        Text(builtPattern).font(.caption.monospaced()).foregroundStyle(canAdd ? Color.secondary : Color.red).lineLimit(2)
+                    }
+                }
+
+                Button {
+                    draft.patterns.append(builtPattern)
+                    builderText = ""
+                } label: {
+                    Label("Ajouter cette expression", systemImage: "plus.circle.fill")
+                }
+                .disabled(!canAdd)
+            } header: {
+                Text("Ajouter sans écrire de regex")
+            } footer: {
+                Text("Choisis une règle simple et Coursly construit l’expression. « Regex libre » reste disponible pour les cas avancés.")
+            }
+
+            Section {
+                Toggle("Renommer sur les cours", isOn: $renameEnabled)
+                    .onChange(of: renameEnabled) { _, enabled in if !enabled { draft.displayRename = nil } }
+                if renameEnabled {
+                    TextField("Libellé à afficher", text: Binding(get: { draft.displayRename ?? "" }, set: { draft.displayRename = $0 }))
+                }
+            } header: {
+                Text("Renommage optionnel")
+            } footer: {
+                Text("Désactivé, le texte CELCAT reste inchangé. Le nom du regroupement n’est jamais affiché sur un cours.")
+            }
+
+            Section("Essayer la règle") {
+                TextField("Exemple de type reçu", text: $testText)
+                if !testText.isEmpty {
+                    Label(
+                        draft.matches(testText) ? "Cet exemple correspond" : "Aucune correspondance",
+                        systemImage: draft.matches(testText) ? "checkmark.circle.fill" : "xmark.circle"
+                    )
+                    .foregroundStyle(draft.matches(testText) ? Color.green : Color.secondary)
+                }
             }
         }
-        .navigationTitle("Règle de type")
+        .navigationTitle(draft.name.isEmpty ? "Nouveau regroupement" : draft.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button("Annuler") { dismiss() }
-            }
+            ToolbarItem(placement: .cancellationAction) { Button("Annuler") { dismiss() } }
             ToolbarItem(placement: .confirmationAction) {
                 Button("Enregistrer") {
-                    onSave(draft)
-                    dismiss()
+                    draft.name = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !renameEnabled { draft.displayRename = nil }
+                    onSave(draft); dismiss()
                 }
                 .fontWeight(.semibold)
-                .disabled(!draft.isValid)
+                .disabled(!canSave)
             }
         }
     }

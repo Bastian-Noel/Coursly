@@ -71,9 +71,6 @@ struct SettingsSheet: View {
 
                 Section("À propos") {
                     LabeledContent("Version", value: versionText)
-                    Text("POST CELCAT prioritaire. iCal est utilisé uniquement comme solution de secours.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                 }
             }
             .navigationTitle("Réglages")
@@ -260,6 +257,8 @@ private struct SimulationSettingsView: View {
 
 private struct DiagnosticSettingsView: View {
     @Environment(CalendarStore.self) private var store
+    @State private var isChecking = false
+    @State private var checkFinishedAt: Date?
 
     var body: some View {
         Form {
@@ -283,8 +282,31 @@ private struct DiagnosticSettingsView: View {
             }
 
             Section {
-                Button("Vérifier maintenant") {
-                    Task { await store.refresh() }
+                Button {
+                    guard !isChecking else { return }
+                    isChecking = true
+                    Task {
+                        await store.load(around: store.focusedDate, force: true)
+                        checkFinishedAt = Date()
+                        isChecking = false
+                        HapticService.fire(store.errorMessage == nil ? .success : .error, enabled: store.hapticsEnabled)
+                    }
+                } label: {
+                    HStack {
+                        Label(isChecking ? "Vérification…" : "Vérifier maintenant", systemImage: "arrow.clockwise")
+                        Spacer()
+                        if isChecking { ProgressView().controlSize(.small) }
+                    }
+                }
+                .disabled(isChecking)
+
+                if let date = checkFinishedAt {
+                    Label(
+                        store.errorMessage == nil ? "Vérifié à \(date.formatted(date: .omitted, time: .shortened))" : "Vérification terminée avec une erreur",
+                        systemImage: store.errorMessage == nil ? "checkmark.circle.fill" : "exclamationmark.triangle.fill"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(store.errorMessage == nil ? Color.green : Color.red)
                 }
             }
         }
