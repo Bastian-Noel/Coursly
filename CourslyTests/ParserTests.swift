@@ -10,7 +10,6 @@ final class ParserTests: XCTestCase {
         let json = #"[{"id":"42","start":"2026-08-13T08:00:00+02:00","end":"2026-08-13T10:00:00+02:00","description":"Mme Prof<br />MMI1-A1<br />A101 - VELIZY<br />R101 - Développement web [R101]","eventCategory":"Travaux dirigés","modules":["R101"],"sites":["VELIZY"]}]"#
         let event = try XCTUnwrap(DirectEventParser().parse(Data(json.utf8), group: .init(name: "MMI1-A1")).first)
         XCTAssertEqual(event.title, "Développement web")
-        XCTAssertNil(event.type, "Le regroupement ne transforme plus le type CELCAT")
         XCTAssertEqual(event.displayTypeLabel, "Travaux dirigés")
         XCTAssertEqual(event.rooms, ["A101"])
         XCTAssertEqual(event.groups.map(\.name), ["MMI1-A1"])
@@ -116,8 +115,7 @@ final class CelcatClientContractTests: XCTestCase {
         let group = StudentGroup(name: "MMI2-B2")
         let start = ISO8601DateFormatter().date(from: "2026-09-10T08:00:00Z")!
         let event = CalendarEvent(
-            id: "cached", title: "Réseau", type: .tp,
-            start: start, end: start.addingTimeInterval(3_600),
+            id: "cached", title: "Réseau",             start: start, end: start.addingTimeInterval(3_600),
             rooms: ["B204"], teachers: ["Mme Dupont"], groups: [group],
             moduleCode: "R2", moduleName: "Réseau", source: .directPOST
         )
