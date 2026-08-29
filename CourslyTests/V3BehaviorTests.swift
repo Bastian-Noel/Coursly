@@ -300,6 +300,40 @@ final class V3BehaviorTests: XCTestCase {
         XCTAssertEqual(state.start, start, "Les horaires réels restent inchangés")
     }
 
+    func testLiveActivityScheduleDeduplicatesAndSkipsOverlappingCourses() {
+        let first = event(
+            id: "first",
+            title: "Développement",
+            start: date("2026-09-10T08:00:00Z"),
+            end: date("2026-09-10T10:00:00Z")
+        )
+        let duplicate = event(
+            id: "duplicate",
+            title: "Développement",
+            start: date("2026-09-10T08:00:00Z"),
+            end: date("2026-09-10T10:00:00Z")
+        )
+        let overlap = event(
+            id: "overlap",
+            title: "Cours en conflit",
+            start: date("2026-09-10T09:00:00Z"),
+            end: date("2026-09-10T11:00:00Z")
+        )
+        let following = event(
+            id: "following",
+            title: "Anglais",
+            start: date("2026-09-10T11:00:00Z"),
+            end: date("2026-09-10T12:00:00Z")
+        )
+
+        let ordered = LiveActivitySchedule.orderedEvents(from: [following, duplicate, overlap, first])
+
+        XCTAssertEqual(ordered.count, 3)
+        XCTAssertEqual(ordered.map(\.title), ["Développement", "Cours en conflit", "Anglais"])
+        XCTAssertEqual(LiveActivitySchedule.nextIndex(after: 0, in: ordered), 2)
+        XCTAssertNil(LiveActivitySchedule.nextIndex(after: 2, in: ordered))
+    }
+
     private func event(id: String, title: String = "Développement iOS", start: Date, end: Date, room: String = "B204", teacher: String = "Mme Dupont") -> CalendarEvent {
         CalendarEvent(id: id, title: title, type: .tp, start: start, end: end, rooms: [room], teachers: [teacher], groups: [group], moduleCode: "R4.01", moduleName: "Développement iOS", source: .directPOST)
     }

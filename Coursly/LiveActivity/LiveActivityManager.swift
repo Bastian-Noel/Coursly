@@ -1,6 +1,24 @@
 import ActivityKit
 import Foundation
 
+enum LiveActivitySchedule {
+    static func orderedEvents(from events: [CalendarEvent]) -> [CalendarEvent] {
+        let sorted = events.filter { $0.end > $0.start }
+            .sorted { $0.start == $1.start ? $0.end < $1.end : $0.start < $1.start }
+        return sorted.reduce(into: [CalendarEvent]()) { unique, event in
+            guard !unique.contains(where: { $0.isSameVisualCourse(as: event) }) else { return }
+            unique.append(event)
+        }
+    }
+
+    static func nextIndex(after index: Int, in events: [CalendarEvent]) -> Int? {
+        guard events.indices.contains(index) else { return nil }
+        return events.indices.dropFirst(index + 1).first {
+            events[$0].start >= events[index].end
+        }
+    }
+}
+
 @MainActor
 enum LiveActivityManager {
     private static var revision = 0
@@ -23,8 +41,7 @@ enum LiveActivityManager {
         }
         guard areActivitiesEnabled else { return }
 
-        let ordered = events.filter { $0.end > $0.start }
-            .sorted { $0.start == $1.start ? $0.end < $1.end : $0.start < $1.start }
+        let ordered = LiveActivitySchedule.orderedEvents(from: events)
 
         guard !ordered.isEmpty else {
             await endActivities(now: now, immediate: true)
@@ -43,27 +60,28 @@ enum LiveActivityManager {
 
         let primaryIndex: Int
         let initiallyInProgress: Bool
-        let initialStatus: String
 
         if let current = ordered.firstIndex(where: { $0.start <= now && now < $0.end }) {
             primaryIndex = current
             initiallyInProgress = true
-            let remaining = ordered[current].end.timeIntervalSince(now)
-            initialStatus = current == ordered.index(before: ordered.endIndex)
-                ? "DERNIER COURS"
-                : (remaining <= 20 * 60 ? "BIENTÔT TERMINÉ" : "EN COURS")
         } else if let upcoming = ordered.firstIndex(where: { $0.start > now }) {
             primaryIndex = upcoming
             initiallyInProgress = false
-            initialStatus = ordered[..<upcoming].contains(where: { $0.end <= now }) ? "PAUSE" : "PREMIER COURS"
         } else {
             await finishDay(now: now, revision: updateRevision)
             return
         }
 
         let primary = ordered[primaryIndex]
-        let nextIndex = ordered.index(after: primaryIndex)
-        let next = nextIndex < ordered.endIndex ? ordered[nextIndex] : nil
+        let nextIndex = LiveActivitySchedule.nextIndex(after: primaryIndex, in: ordered)
+        let next = nextIndex.map { ordered[$0] }
+        let initialStatus: String
+        if initiallyInProgress {
+            let remaining = primary.end.timeIntervalSince(now)
+            initialStatus = next == nil ? "DERNIER COURS" : (remaining <= 20 * 60 ? "BIENTÔT TERMINÉ" : "EN COURS")
+        } else {
+            initialStatus = ordered[..<primaryIndex].contains(where: { $0.end <= now }) ? "PAUSE" : "PREMIER COURS"
+        }
         let timerStart = timerDate(primary.start)
         let timerEnd = timerDate(primary.end)
         let nextTimerStart = next.map { timerDate($0.start) }
@@ -84,15 +102,17 @@ enum LiveActivityManager {
             nextTitle: next?.title,
             nextRoom: next?.room,
             nextType: next?.displayTypeLabel,
-            nextAccentHex: next.map(accentHex),
+            nextAccentHex: next.map { accentHex(for: $0) },
             nextStart: next?.start,
             nextEnd: next?.end,
-            nextTeachers: next.map(teachers),
-            nextGroups: next.map(groups),
+            nextTeachers: next.map { teachers(for: $0) },
+            nextGroups: next.map { groups(for: $0) },
             nextTimerStart: nextTimerStart,
             nextTimerEnd: nextTimerEnd,
             isLastCourse: next == nil,
-            nextIsLastCourse: next.map { _ in nextIndex == ordered.index(before: ordered.endIndex) },
+            nextIsLastCourse: nextIndex.map { index in
+                LiveActivitySchedule.nextIndex(after: index, in: ordered) == nil
+            },
             isInProgress: initiallyInProgress,
             dayFinished: false
         )

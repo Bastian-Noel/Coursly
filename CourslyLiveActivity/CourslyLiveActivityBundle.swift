@@ -26,6 +26,9 @@ private struct ResolvedCourse {
     let nextType: String?
     let nextAccentHex: String?
     let nextStart: Date?
+    let nextEnd: Date?
+    let nextTeachers: String?
+    let nextGroups: String?
 }
 
 struct CourslyLiveActivityWidget: Widget {
@@ -95,17 +98,8 @@ struct CourslyLiveActivityWidget: Widget {
                 Text(course.status)
                     .font(.caption.weight(.heavy))
                     .lineLimit(1)
-                countdown(course)
-                    .font(.caption.monospacedDigit().weight(.bold))
-                    .contentTransition(.numericText())
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 3)
-                    .background(accent.opacity(0.14), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 7, style: .continuous)
-                            .stroke(accent.opacity(0.38), lineWidth: 0.8)
-                    }
                 Spacer(minLength: 0)
+                progressCountdown(course, accent: accent, comfortable: comfortable)
             }
             .foregroundStyle(accent)
 
@@ -145,12 +139,14 @@ struct CourslyLiveActivityWidget: Widget {
                     .minimumScaleFactor(0.58)
             }
 
-            progressBar(course, accent: accent)
-
-            if let nextTitle = course.nextTitle, let nextStart = course.nextStart {
+            if let nextTitle = course.nextTitle,
+               let nextStart = course.nextStart,
+               let nextEnd = course.nextEnd {
                 quickNextCourse(
                     title: nextTitle, room: course.nextRoom, type: course.nextType,
-                    start: nextStart, accent: Color(hex: course.nextAccentHex ?? "#0A84FF"),
+                    teachers: course.nextTeachers, groups: course.nextGroups,
+                    start: nextStart, end: nextEnd,
+                    accent: Color(hex: course.nextAccentHex ?? "#0A84FF"),
                     comfortable: comfortable
                 )
             }
@@ -164,52 +160,83 @@ struct CourslyLiveActivityWidget: Widget {
         title: String,
         room: String?,
         type: String?,
+        teachers: String?,
+        groups: String?,
         start: Date,
+        end: Date,
         accent: Color,
         comfortable: Bool
     ) -> some View {
-        VStack(spacing: comfortable ? 6 : 4) {
+        let metadata = [type, room, teachers, groups]
+            .compactMap { $0 }
+            .filter { !$0.isEmpty }
+        return VStack(spacing: comfortable ? 6 : 4) {
             Divider().overlay(Color.white.opacity(0.14))
-            HStack(alignment: .center, spacing: 9) {
-                VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 3) {
+                HStack {
                     Text("PROCHAIN COURS")
                         .font(.system(size: 9, weight: .heavy))
                         .foregroundStyle(accent)
-                    Text(title)
-                        .font(comfortable ? .subheadline.weight(.semibold) : .caption.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.65)
-                    if comfortable, let type, !type.isEmpty {
-                        Text(type).font(.caption2.weight(.semibold)).foregroundStyle(accent).lineLimit(1)
-                    }
-                }
-                Spacer(minLength: 3)
-                VStack(alignment: .trailing, spacing: 1) {
+                    Spacer(minLength: 6)
                     Text(start, style: .time)
-                        .font(.subheadline.monospacedDigit().weight(.semibold))
-                        .foregroundStyle(.white)
-                    if let room, !room.isEmpty {
-                        Text(room).font(.caption2).foregroundStyle(.white.opacity(0.64)).lineLimit(1)
-                    }
+                    Text("–")
+                    Text(end, style: .time)
+                }
+                .font(.caption2.monospacedDigit().weight(.semibold))
+                .foregroundStyle(.white.opacity(0.76))
+
+                Text(title)
+                    .font(comfortable ? .subheadline.weight(.semibold) : .caption.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.65)
+
+                if !metadata.isEmpty {
+                    Text(metadata.joined(separator: " · "))
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.64))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.55)
                 }
             }
         }
     }
 
-    private func progressBar(_ course: ResolvedCourse, accent: Color) -> some View {
+    private func progressCountdown(_ course: ResolvedCourse, accent: Color, comfortable: Bool) -> some View {
         let total = max(1, course.timerEnd.timeIntervalSince(course.timerStart))
-        let elapsed = Date.now.timeIntervalSince(course.timerStart)
-        let progress = max(0, min(1, elapsed / total))
+        let progress = course.isInProgress
+            ? max(0, min(1, Date.now.timeIntervalSince(course.timerStart) / total))
+            : 0
+        let text = remainingText(course)
         return GeometryReader { proxy in
             ZStack(alignment: .leading) {
-                Capsule().fill(Color.white.opacity(0.16))
+                Capsule().fill(accent.opacity(0.13))
                 Capsule().fill(accent).frame(width: proxy.size.width * progress)
+                Text(text)
+                    .foregroundStyle(accent)
+                    .frame(maxWidth: .infinity)
+                Text(text)
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .mask(alignment: .leading) {
+                        Rectangle().frame(width: proxy.size.width * progress)
+                    }
             }
         }
-        .frame(height: 6)
+        .font(.caption.monospacedDigit().weight(.bold))
+        .contentTransition(.numericText())
+        .frame(width: comfortable ? 126 : 104, height: 28)
+        .overlay { Capsule().stroke(accent.opacity(0.35), lineWidth: 0.8) }
         .accessibilityLabel("Avancement du cours")
         .accessibilityValue("\(Int(progress * 100)) pour cent")
+    }
+
+    private func remainingText(_ course: ResolvedCourse) -> String {
+        let target = course.isInProgress ? course.timerEnd : course.timerStart
+        let minutes = max(0, Int(ceil(target.timeIntervalSinceNow / 60)))
+        let hours = minutes / 60
+        let remainder = minutes % 60
+        return hours > 0 ? String(format: "%dh %02dm", hours, remainder) : "\(minutes)m"
     }
 
     @ViewBuilder
@@ -256,11 +283,15 @@ struct CourslyLiveActivityWidget: Widget {
                 nextRoom: nil,
                 nextType: nil,
                 nextAccentHex: nil,
-                nextStart: nil
+                nextStart: nil,
+                nextEnd: nil,
+                nextTeachers: nil,
+                nextGroups: nil
             )
         }
 
         let inProgress = now >= state.timerStart
+        let showFollowingCourse = inProgress
         return ResolvedCourse(
             status: dynamicStatus(inProgress: inProgress, isLast: state.isLastCourse, timerEnd: state.timerEnd, now: now, waitingStatus: state.status),
             title: state.title,
@@ -275,11 +306,14 @@ struct CourslyLiveActivityWidget: Widget {
             timerEnd: state.timerEnd,
             isInProgress: inProgress,
             isFinished: false,
-            nextTitle: state.nextTitle,
-            nextRoom: state.nextRoom,
-            nextType: state.nextType,
-            nextAccentHex: state.nextAccentHex,
-            nextStart: state.nextStart
+            nextTitle: showFollowingCourse ? state.nextTitle : nil,
+            nextRoom: showFollowingCourse ? state.nextRoom : nil,
+            nextType: showFollowingCourse ? state.nextType : nil,
+            nextAccentHex: showFollowingCourse ? state.nextAccentHex : nil,
+            nextStart: showFollowingCourse ? state.nextStart : nil,
+            nextEnd: showFollowingCourse ? state.nextEnd : nil,
+            nextTeachers: showFollowingCourse ? state.nextTeachers : nil,
+            nextGroups: showFollowingCourse ? state.nextGroups : nil
         )
     }
 
@@ -294,7 +328,8 @@ struct CourslyLiveActivityWidget: Widget {
             status: "JOURNÉE TERMINÉE", title: "Cours terminés", room: "", teachers: "", groups: "",
             type: nil, accentHex: "#34C759", start: state.end, end: state.end,
             timerStart: state.timerEnd, timerEnd: state.timerEnd, isInProgress: false, isFinished: true,
-            nextTitle: nil, nextRoom: nil, nextType: nil, nextAccentHex: nil, nextStart: nil
+            nextTitle: nil, nextRoom: nil, nextType: nil, nextAccentHex: nil,
+            nextStart: nil, nextEnd: nil, nextTeachers: nil, nextGroups: nil
         )
     }
 }
@@ -312,4 +347,3 @@ private extension Color {
         )
     }
 }
-
