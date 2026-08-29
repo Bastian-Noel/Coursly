@@ -117,7 +117,7 @@ final class CelcatClientContractTests: XCTestCase {
         let group = StudentGroup(name: "MMI2-B2")
         let start = ISO8601DateFormatter().date(from: "2026-09-10T08:00:00Z")!
         let event = CalendarEvent(
-            id: "cached", title: "Réseau",             start: start, end: start.addingTimeInterval(3_600),
+            id: "cached", title: "Réseau", start: start, end: start.addingTimeInterval(3_600),
             rooms: ["B204"], teachers: ["Mme Dupont"], groups: [group],
             moduleCode: "R2", moduleName: "Réseau", source: .directPOST
         )
