@@ -234,6 +234,10 @@ struct CalendarHeader: View {
     @Environment(CalendarStore.self) private var store
     @Binding var panel: FloatingPanel?
 
+    private var highlightsToday: Bool {
+        store.displayMode == .day && courslyCalendar.isDate(store.focusedDate, inSameDayAs: store.now)
+    }
+
     var body: some View {
         HStack(spacing: 12) {
             Button {
@@ -243,8 +247,9 @@ struct CalendarHeader: View {
                 HStack(spacing: 10) {
                     Text(store.focusedDate.formatted(.dateTime.day()))
                         .font(.title2.monospacedDigit().weight(.bold))
+                        .foregroundStyle(highlightsToday ? Color.white : Color.primary)
                         .frame(width: 42, height: 42)
-                        .background(Color.primary.opacity(0.07), in: Circle())
+                        .background(highlightsToday ? Color.accentColor : Color.primary.opacity(0.07), in: Circle())
 
                     VStack(alignment: .leading, spacing: 1) {
                         Text(store.focusedDate.formatted(.dateTime.weekday(.wide)).capitalized)
@@ -271,8 +276,14 @@ struct CalendarHeader: View {
                 ProgressView().controlSize(.small).frame(width: 44, height: 44)
             } else {
                 Button {
-                    HapticService.fire(.selection, enabled: store.hapticsEnabled)
-                    Task { await store.refresh() }
+                    HapticService.fire(.refreshStarted, enabled: store.hapticsEnabled)
+                    HapticService.prepare(.success, enabled: store.hapticsEnabled)
+                    Task {
+                        await store.refresh()
+                        if store.errorMessage == nil {
+                            HapticService.fire(.success, enabled: store.hapticsEnabled)
+                        }
+                    }
                 } label: {
                     Image(systemName: "arrow.clockwise")
                         .font(.subheadline.weight(.semibold))

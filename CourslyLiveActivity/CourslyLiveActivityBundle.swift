@@ -19,6 +19,8 @@ private struct ResolvedCourse {
     let end: Date
     let timerStart: Date
     let timerEnd: Date
+    let progressStart: Date?
+    let progressEnd: Date?
     let isInProgress: Bool
     let isFinished: Bool
     let nextTitle: String?
@@ -98,6 +100,7 @@ struct CourslyLiveActivityWidget: Widget {
                 Text(course.status)
                     .font(.caption.weight(.heavy))
                     .lineLimit(1)
+                    .minimumScaleFactor(0.58)
                 Spacer(minLength: 0)
                 progressCountdown(course, accent: accent, comfortable: comfortable)
             }
@@ -203,10 +206,14 @@ struct CourslyLiveActivityWidget: Widget {
     }
 
     private func progressCountdown(_ course: ResolvedCourse, accent: Color, comfortable: Bool) -> some View {
-        let total = max(1, course.timerEnd.timeIntervalSince(course.timerStart))
-        let progress = course.isInProgress
-            ? max(0, min(1, Date.now.timeIntervalSince(course.timerStart) / total))
-            : 0
+        let progressStart = course.progressStart
+        let progressEnd = course.progressEnd
+        let progressTotal = max(1, (progressEnd ?? course.timerEnd).timeIntervalSince(progressStart ?? course.timerStart))
+        let progress = if let progressStart, progressEnd != nil {
+            max(0, min(1, Date.now.timeIntervalSince(progressStart) / progressTotal))
+        } else {
+            0.0
+        }
         let text = remainingText(course)
         return GeometryReader { proxy in
             ZStack(alignment: .leading) {
@@ -216,7 +223,7 @@ struct CourslyLiveActivityWidget: Widget {
                     .foregroundStyle(accent)
                     .frame(maxWidth: .infinity)
                 Text(text)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(.black.opacity(0.82))
                     .frame(maxWidth: .infinity)
                     .mask(alignment: .leading) {
                         Rectangle().frame(width: proxy.size.width * progress)
@@ -225,7 +232,7 @@ struct CourslyLiveActivityWidget: Widget {
         }
         .font(.caption.monospacedDigit().weight(.bold))
         .contentTransition(.numericText())
-        .frame(width: comfortable ? 126 : 104, height: 28)
+        .frame(width: comfortable ? 152 : 128, height: 30)
         .overlay { Capsule().stroke(accent.opacity(0.35), lineWidth: 0.8) }
         .accessibilityLabel("Avancement du cours")
         .accessibilityValue("\(Int(progress * 100)) pour cent")
@@ -265,8 +272,15 @@ struct CourslyLiveActivityWidget: Widget {
             }
             if now >= timerEnd { return finishedCourse(state) }
             let inProgress = now >= timerStart
+            let isSameDayPause = !inProgress && isSameParisDay(state.end, start)
             return ResolvedCourse(
-                status: dynamicStatus(inProgress: inProgress, isLast: state.nextIsLastCourse ?? true, timerEnd: timerEnd, now: now, waitingStatus: "PAUSE"),
+                status: dynamicStatus(
+                    inProgress: inProgress,
+                    isLast: state.nextIsLastCourse ?? true,
+                    timerEnd: timerEnd,
+                    now: now,
+                    waitingStatus: waitingStatus(upcomingStart: start, previousEnd: state.end, now: now)
+                ),
                 title: title,
                 room: state.nextRoom ?? "",
                 teachers: state.nextTeachers ?? "",
@@ -277,6 +291,8 @@ struct CourslyLiveActivityWidget: Widget {
                 end: end,
                 timerStart: timerStart,
                 timerEnd: timerEnd,
+                progressStart: inProgress ? timerStart : (isSameDayPause ? state.timerEnd : nil),
+                progressEnd: inProgress ? timerEnd : (isSameDayPause ? timerStart : nil),
                 isInProgress: inProgress,
                 isFinished: false,
                 nextTitle: nil,
@@ -304,6 +320,8 @@ struct CourslyLiveActivityWidget: Widget {
             end: state.end,
             timerStart: state.timerStart,
             timerEnd: state.timerEnd,
+            progressStart: inProgress ? state.timerStart : state.progressStart,
+            progressEnd: inProgress ? state.timerEnd : state.progressEnd,
             isInProgress: inProgress,
             isFinished: false,
             nextTitle: showFollowingCourse ? state.nextTitle : nil,
@@ -318,16 +336,36 @@ struct CourslyLiveActivityWidget: Widget {
     }
 
     private func dynamicStatus(inProgress: Bool, isLast: Bool, timerEnd: Date, now: Date, waitingStatus: String) -> String {
-        guard inProgress else { return waitingStatus }
+        guard inProgress else { return waitingStatus == "PAUSE" ? "EN PAUSE" : waitingStatus }
         if isLast { return "DERNIER COURS" }
         return timerEnd.timeIntervalSince(now) <= 20 * 60 ? "BIENTÔT TERMINÉ" : "EN COURS"
+    }
+
+    private func waitingStatus(upcomingStart: Date, previousEnd: Date, now: Date) -> String {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = parisTimeZone
+        if calendar.startOfDay(for: upcomingStart) > calendar.startOfDay(for: now) {
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "fr_FR")
+            formatter.timeZone = parisTimeZone
+            formatter.dateFormat = "HH'h'mm"
+            return "PROCHAIN COURS DEMAIN À \(formatter.string(from: upcomingStart))"
+        }
+        return calendar.isDate(previousEnd, inSameDayAs: upcomingStart) ? "EN PAUSE" : "PREMIER COURS"
+    }
+
+    private func isSameParisDay(_ first: Date, _ second: Date) -> Bool {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = parisTimeZone
+        return calendar.isDate(first, inSameDayAs: second)
     }
 
     private func finishedCourse(_ state: CourslyActivityAttributes.ContentState) -> ResolvedCourse {
         ResolvedCourse(
             status: "JOURNÉE TERMINÉE", title: "Cours terminés", room: "", teachers: "", groups: "",
             type: nil, accentHex: "#34C759", start: state.end, end: state.end,
-            timerStart: state.timerEnd, timerEnd: state.timerEnd, isInProgress: false, isFinished: true,
+            timerStart: state.timerEnd, timerEnd: state.timerEnd,
+            progressStart: nil, progressEnd: nil, isInProgress: false, isFinished: true,
             nextTitle: nil, nextRoom: nil, nextType: nil, nextAccentHex: nil,
             nextStart: nil, nextEnd: nil, nextTeachers: nil, nextGroups: nil
         )
@@ -336,7 +374,8 @@ struct CourslyLiveActivityWidget: Widget {
 
 private extension Color {
     init(hex: String) {
-        let cleaned = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        let readable = LiveActivityAccent.readableHex(from: hex)
+        let cleaned = readable.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
         var value: UInt64 = 0
         Scanner(string: cleaned).scanHexInt64(&value)
         guard cleaned.count == 6 else { self = .blue; return }

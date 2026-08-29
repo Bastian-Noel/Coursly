@@ -19,6 +19,11 @@ struct CourslyActivityAttributes: ActivityAttributes {
         let timerStart: Date
         let timerEnd: Date
 
+        // Intervalle réellement représenté par le remplissage de la capsule.
+        // Nil avant le premier cours et pendant l'attente jusqu'au lendemain.
+        let progressStart: Date?
+        let progressEnd: Date?
+
         let nextTitle: String?
         let nextRoom: String?
         let nextType: String?

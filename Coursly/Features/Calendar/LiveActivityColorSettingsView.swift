@@ -4,8 +4,31 @@ import UIKit
 private struct CourseColorGroup: Identifiable {
     let id: String
     let label: String
-    let aliases: [String]
+    let detectionStatus: CourseColorDetectionStatus
     let groupID: UUID?
+}
+
+enum CourseColorDetectionStatus: Equatable {
+    case configured(matches: [String])
+    case dynamic(variants: [String])
+
+    var text: String {
+        switch self {
+        case let .configured(matches) where !matches.isEmpty:
+            return "Types détectés : \(matches.joined(separator: " · "))"
+        case .configured:
+            return "Aucun cours correspondant dans les données chargées"
+        case let .dynamic(variants) where !variants.isEmpty:
+            return "Variantes CELCAT : \(variants.joined(separator: " · "))"
+        case .dynamic:
+            return "Type CELCAT non regroupé"
+        }
+    }
+
+    var isEmptyConfiguredGroup: Bool {
+        if case let .configured(matches) = self { return matches.isEmpty }
+        return false
+    }
 }
 
 struct LiveActivityColorSettingsView: View {
@@ -19,7 +42,7 @@ struct LiveActivityColorSettingsView: View {
             CourseColorGroup(
                 id: "group:\(group.id.uuidString)",
                 label: group.name,
-                aliases: store.observedCourseTypeLabels.filter(group.matches),
+                detectionStatus: .configured(matches: store.observedCourseTypeLabels.filter(group.matches)),
                 groupID: group.id
             )
         }
@@ -34,11 +57,13 @@ struct LiveActivityColorSettingsView: View {
             return CourseColorGroup(
                 id: key,
                 label: sorted.first ?? "Type",
-                aliases: Array(sorted.dropFirst()),
+                detectionStatus: .dynamic(variants: Array(sorted.dropFirst())),
                 groupID: nil
             )
         }
-        return configured + dynamic.sorted { $0.label.localizedCaseInsensitiveCompare($1.label) == .orderedAscending }
+        return (configured + dynamic).sorted {
+            $0.label.localizedCaseInsensitiveCompare($1.label) == .orderedAscending
+        }
     }
 
     var body: some View {
@@ -50,7 +75,7 @@ struct LiveActivityColorSettingsView: View {
                     ForEach(detectedGroups) { group in
                         HueTypeRow(
                             label: group.label,
-                            aliases: group.aliases,
+                            detectionStatus: group.detectionStatus,
                             hex: group.groupID.map {
                                 CourseTypeColorPreferences.hex(forGroupID: $0, fallbackName: group.label)
                             } ?? CourseTypeColorPreferences.hex(for: group.label),
@@ -96,12 +121,12 @@ struct LiveActivityColorSettingsView: View {
 }
 
 private struct HueTypeRow: View {
-    let label: String; let aliases: [String]; let hex: String; let expanded: Bool
+    let label: String; let detectionStatus: CourseColorDetectionStatus; let hex: String; let expanded: Bool
     let onToggle: () -> Void; let onCommit: (Double) -> Void
     @State private var hue: Double
 
-    init(label: String, aliases: [String], hex: String, expanded: Bool, onToggle: @escaping () -> Void, onCommit: @escaping (Double) -> Void) {
-        self.label = label; self.aliases = aliases; self.hex = hex; self.expanded = expanded; self.onToggle = onToggle; self.onCommit = onCommit
+    init(label: String, detectionStatus: CourseColorDetectionStatus, hex: String, expanded: Bool, onToggle: @escaping () -> Void, onCommit: @escaping (Double) -> Void) {
+        self.label = label; self.detectionStatus = detectionStatus; self.hex = hex; self.expanded = expanded; self.onToggle = onToggle; self.onCommit = onCommit
         _hue = State(initialValue: Color.hue(fromHex: hex))
     }
 
@@ -112,16 +137,14 @@ private struct HueTypeRow: View {
                     RoundedRectangle(cornerRadius: 7, style: .continuous).fill(Color(hue: hue, saturation: 0.82, brightness: 0.95)).frame(width: 30, height: 30)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(label).font(.body.weight(.semibold)).foregroundStyle(.primary)
-                        if !aliases.isEmpty {
-                            Text("Types détectés : \(aliases.joined(separator: " · "))")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(2)
-                        } else {
-                            Text("Aucun type détecté pour le moment")
-                                .font(.caption2)
-                                .foregroundStyle(.tertiary)
-                        }
+                        Text(detectionStatus.text)
+                            .font(.caption2)
+                            .foregroundStyle(
+                                detectionStatus.isEmptyConfiguredGroup
+                                    ? Color.secondary.opacity(0.62)
+                                    : Color.secondary
+                            )
+                            .lineLimit(2)
                     }
                     Spacer()
                     Image(systemName: "chevron.down").font(.caption.bold()).foregroundStyle(.secondary).rotationEffect(.degrees(expanded ? 180 : 0))

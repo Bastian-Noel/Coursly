@@ -22,11 +22,12 @@ Le groupe affiché est `displayGroupsText`, jamais automatiquement `groups`.
 | État | Condition | Décompte |
 | --- | --- | --- |
 | `PREMIER COURS` | avant le premier cours | jusqu’au début |
-| `PAUSE` | entre deux cours | jusqu’au prochain |
+| `EN PAUSE` | entre deux cours | jusqu’au prochain, avec remplissage de la fin du cours précédent au début du suivant |
 | `EN COURS` | cours actuel, plus de 20 min restantes si un cours suit | jusqu’à la fin |
 | `BIENTÔT TERMINÉ` | 20 dernières minutes et un cours suit | jusqu’à la fin |
 | `DERNIER COURS` | cours actuel sans cours suivant | jusqu’à la fin |
 | `JOURNÉE TERMINÉE` | aucun cours restant | état final temporaire |
+| `PROCHAIN COURS DEMAIN À …` | journée finie et cours présent le lendemain | jusqu’au début, sans faux avancement nocturne |
 
 Le prochain cours est transporté avec l’état courant afin de rester immédiatement consultable et de permettre une transition locale fiable à la fin du cours.
 
@@ -49,6 +50,7 @@ La surface reprend la DA des cartes Semaine avec un fond translucide sombre et d
 - `accentHex` vient de `CourseTypeColorPreferences`.
 - Le type reste textuel.
 - Le contraste du badge est calculé depuis la luminance.
+- Les accents trop sombres sont éclaircis dans la même hue jusqu’à un seuil minimal de luminance, notamment pour les rouges et violets.
 - L’état terminé peut utiliser une couleur de succès neutre.
 - La couleur doit être cohérente avec la carte correspondante.
 
@@ -72,13 +74,15 @@ Le décompte représente ainsi la simulation tandis que `08:00 → 10:00` reste 
 
 - Si désactivée : terminer les activités.
 - Si ActivityKit non autorisé : ne rien demander.
-- Si aucun cours dans la journée : terminer immédiatement.
+- Si aucun cours restant aujourd’hui mais qu’un cours existe demain : conserver l’activité et annoncer son horaire.
+- Si aucun cours aujourd’hui ou demain : terminer immédiatement.
 - Si une activité existe : la mettre à jour et terminer les doublons.
 - Sinon : demander une activité pour le jour logique.
 - Les appels concurrents sont ordonnés par révision ; une réponse ancienne ne peut pas écraser l’état le plus récent.
 - Le widget recalcule localement `PREMIER COURS`, `PAUSE`, `EN COURS`, `BIENTÔT TERMINÉ`, `DERNIER COURS` et la transition vers le cours suivant à partir des dates ActivityKit.
 - Le manager déduplique les cours visuellement identiques et ignore les événements chevauchants pour déterminer le prochain cours séquentiel.
 - Avant le premier cours et pendant une pause, le cours à venir est déjà le contenu principal : aucun second bloc « prochain cours » n’est ajouté.
+- Avant le premier cours, la capsule reste vide. Entre deux cours du même jour, son remplissage représente exactement la pause.
 - `staleDate` couvre le cours suivant transporté, avec une marge, plutôt que de rendre l’activité périmée exactement au changement d’état.
 - `Réafficher l’activité` termine puis recrée.
 - `Terminer l’activité actuelle` termine manuellement.

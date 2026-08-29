@@ -2,6 +2,12 @@ import ActivityKit
 import Foundation
 
 enum LiveActivitySchedule {
+    private static var parisCalendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Europe/Paris")!
+        return calendar
+    }
+
     static func orderedEvents(from events: [CalendarEvent]) -> [CalendarEvent] {
         let sorted = events.filter { $0.end > $0.start }
             .sorted { $0.start == $1.start ? $0.end < $1.end : $0.start < $1.start }
@@ -16,6 +22,36 @@ enum LiveActivitySchedule {
         return events.indices.dropFirst(index + 1).first {
             events[$0].start >= events[index].end
         }
+    }
+
+    static func relevantEvents(from events: [CalendarEvent], now: Date) -> [CalendarEvent] {
+        let start = parisCalendar.startOfDay(for: now)
+        let end = parisCalendar.date(byAdding: .day, value: 2, to: start)!
+        return events.filter { $0.end > start && $0.start < end }
+    }
+
+    static func upcomingStatus(previous: CalendarEvent?, upcoming: CalendarEvent, now: Date) -> String {
+        let today = parisCalendar.startOfDay(for: now)
+        let upcomingDay = parisCalendar.startOfDay(for: upcoming.start)
+        if upcomingDay > today {
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "fr_FR")
+            formatter.timeZone = parisCalendar.timeZone
+            formatter.dateFormat = "HH'h'mm"
+            return "PROCHAIN COURS DEMAIN À \(formatter.string(from: upcoming.start))"
+        }
+        guard let previous,
+              parisCalendar.isDate(previous.end, inSameDayAs: upcoming.start) else {
+            return "PREMIER COURS"
+        }
+        return "EN PAUSE"
+    }
+
+    static func pauseInterval(previous: CalendarEvent?, upcoming: CalendarEvent, now: Date) -> DateInterval? {
+        guard upcomingStatus(previous: previous, upcoming: upcoming, now: now) == "EN PAUSE",
+              let previous,
+              previous.end < upcoming.start else { return nil }
+        return DateInterval(start: previous.end, end: upcoming.start)
     }
 }
 
@@ -41,7 +77,9 @@ enum LiveActivityManager {
         }
         guard areActivitiesEnabled else { return }
 
-        let ordered = LiveActivitySchedule.orderedEvents(from: events)
+        let ordered = LiveActivitySchedule.orderedEvents(
+            from: LiveActivitySchedule.relevantEvents(from: events, now: now)
+        )
 
         guard !ordered.isEmpty else {
             await endActivities(now: now, immediate: true)
@@ -73,6 +111,7 @@ enum LiveActivityManager {
         }
 
         let primary = ordered[primaryIndex]
+        let previous = ordered[..<primaryIndex].last(where: { $0.end <= now })
         let nextIndex = LiveActivitySchedule.nextIndex(after: primaryIndex, in: ordered)
         let next = nextIndex.map { ordered[$0] }
         let initialStatus: String
@@ -80,10 +119,13 @@ enum LiveActivityManager {
             let remaining = primary.end.timeIntervalSince(now)
             initialStatus = next == nil ? "DERNIER COURS" : (remaining <= 20 * 60 ? "BIENTÔT TERMINÉ" : "EN COURS")
         } else {
-            initialStatus = ordered[..<primaryIndex].contains(where: { $0.end <= now }) ? "PAUSE" : "PREMIER COURS"
+            initialStatus = LiveActivitySchedule.upcomingStatus(previous: previous, upcoming: primary, now: now)
         }
         let timerStart = timerDate(primary.start)
         let timerEnd = timerDate(primary.end)
+        let pauseInterval = initiallyInProgress ? nil : LiveActivitySchedule.pauseInterval(previous: previous, upcoming: primary, now: now)
+        let progressStart = initiallyInProgress ? timerStart : pauseInterval.map { timerDate($0.start) }
+        let progressEnd = initiallyInProgress ? timerEnd : pauseInterval.map { timerDate($0.end) }
         let nextTimerStart = next.map { timerDate($0.start) }
         let nextTimerEnd = next.map { timerDate($0.end) }
 
@@ -99,6 +141,8 @@ enum LiveActivityManager {
             end: primary.end,
             timerStart: timerStart,
             timerEnd: timerEnd,
+            progressStart: progressStart,
+            progressEnd: progressEnd,
             nextTitle: next?.title,
             nextRoom: next?.room,
             nextType: next?.displayTypeLabel,
@@ -184,6 +228,7 @@ enum LiveActivityManager {
         let state = CourslyActivityAttributes.ContentState(
             status: "JOURNÉE TERMINÉE", title: "Cours terminés", room: "", teachers: "", groups: "",
             type: nil, accentHex: "#34C759", start: now, end: now, timerStart: systemNow, timerEnd: systemNow,
+            progressStart: nil, progressEnd: nil,
             nextTitle: nil, nextRoom: nil, nextType: nil, nextAccentHex: nil, nextStart: nil, nextEnd: nil,
             nextTeachers: nil, nextGroups: nil, nextTimerStart: nil, nextTimerEnd: nil,
             isLastCourse: true, nextIsLastCourse: nil, isInProgress: false, dayFinished: true

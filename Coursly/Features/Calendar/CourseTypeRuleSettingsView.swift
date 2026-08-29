@@ -38,7 +38,7 @@ struct CourseTypeRuleSettingsView: View {
             } header: {
                 Text("Regroupements")
             } footer: {
-                Text("Le nom sert uniquement à organiser tes règles ici. Les cours gardent le libellé reçu de CELCAT, sauf si tu actives explicitement un renommage.")
+                Text("Le nom identifie le regroupement dans les réglages et les couleurs. Si le renommage est activé, ce même nom remplace aussi le libellé CELCAT sur les cours.")
             }
 
             Section {
@@ -57,7 +57,7 @@ struct CourseTypeRuleSettingsView: View {
 
     private func summary(for group: CourseTypeGroup) -> String {
         let count = group.patterns.count
-        if let rename = group.trimmedRename { return "\(count) expression\(count > 1 ? "s" : "") · affiche « \(rename) »" }
+        if group.displayLabel != nil { return "\(count) expression\(count > 1 ? "s" : "") · affiche le nom du regroupement" }
         return "\(count) expression\(count > 1 ? "s" : "") · aucun renommage"
     }
 
@@ -133,7 +133,7 @@ private struct CourseTypeGroupEditor: View {
                 }
                 .tint(.accentColor)
 
-                TextField("Nom visible seulement dans les réglages", text: $draft.name)
+                TextField("Nom du regroupement", text: $draft.name)
             } header: {
                 Text("Organisation")
             }
@@ -189,15 +189,12 @@ private struct CourseTypeGroupEditor: View {
             }
 
             Section {
-                Toggle("Renommer sur les cours", isOn: $renameEnabled)
+                Toggle("Utiliser ce nom sur les cours", isOn: $renameEnabled)
                     .onChange(of: renameEnabled) { _, enabled in if !enabled { draft.displayRename = nil } }
-                if renameEnabled {
-                    TextField("Libellé à afficher", text: Binding(get: { draft.displayRename ?? "" }, set: { draft.displayRename = $0 }))
-                }
             } header: {
                 Text("Renommage optionnel")
             } footer: {
-                Text("Désactivé, le texte CELCAT reste inchangé. Le nom du regroupement n’est jamais affiché sur un cours.")
+                Text("Activé, le nom du regroupement ci-dessus devient le libellé affiché. Désactivé, le texte CELCAT reste inchangé.")
             }
 
             Section("Essayer la règle") {
@@ -218,7 +215,7 @@ private struct CourseTypeGroupEditor: View {
             ToolbarItem(placement: .confirmationAction) {
                 Button("Enregistrer") {
                     draft.name = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if !renameEnabled { draft.displayRename = nil }
+                    draft.displayRename = renameEnabled ? draft.name : nil
                     onSave(draft); dismiss()
                 }
                 .fontWeight(.semibold)
