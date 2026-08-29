@@ -61,7 +61,7 @@ enum CourseTypeColorPreferences {
         keyPrefix + Data("group:\(groupID.uuidString)".utf8).base64EncodedString()
     }
 
-    private static func defaultHex(forGroupID groupID: UUID, fallbackName: String) -> String {
+    private static func defaultHex(forGroupID groupID: UUID, fallbackName _: String) -> String {
         // A group color depends only on its persisted identity, never on a hidden course-type table.
         stablePaletteHex(for: "group:\(groupID.uuidString)")
     }
