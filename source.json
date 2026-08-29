@@ -18,6 +18,16 @@
       "category": "utilities",
       "versions": [
         {
+          "version": "0.3.25",
+          "buildVersion": "25",
+          "date": "2026-08-29T19:30:13Z",
+          "localizedDescription": "Ora 0.3.25",
+          "downloadURL": "https://github.com/Bastian-Noel/Coursly/releases/download/v0.3.25/Ora.ipa",
+          "size": 5148405,
+          "sha256": "fcd7b2d2d9f5b09c40c0ebdbe4e603677bad7cfadd5d97694ca38d520162a370",
+          "minOSVersion": "26.0"
+        },
+        {
           "version": "0.3.24",
           "buildVersion": "24",
           "date": "2026-08-29T18:57:34Z",
@@ -206,25 +216,15 @@
           "size": 852201,
           "sha256": "467f8388c07b26b97bf4ce7d50c7d0c592fb23f22de924d44099117afbefcf3f",
           "minOSVersion": "26.0"
-        },
-        {
-          "version": "0.3.5",
-          "buildVersion": "5",
-          "date": "2026-08-21T17:39:48Z",
-          "localizedDescription": "Coursly 0.3.5",
-          "downloadURL": "https://github.com/Bastian-Noel/Coursly/releases/download/v0.3.5/Coursly.ipa",
-          "size": 835774,
-          "sha256": "cab964437cd421026d7c799816dd2a4d82da62e7e842c152f2412f60f6bf5962",
-          "minOSVersion": "26.0"
         }
       ],
-      "version": "0.3.24",
-      "versionDate": "2026-08-29T18:57:34Z",
-      "size": 5659443,
-      "downloadURL": "https://github.com/Bastian-Noel/Coursly/releases/download/v0.3.24/Ora.ipa",
+      "version": "0.3.25",
+      "versionDate": "2026-08-29T19:30:13Z",
+      "size": 5148405,
+      "downloadURL": "https://github.com/Bastian-Noel/Coursly/releases/download/v0.3.25/Ora.ipa",
       "appPermissions": {},
-      "buildVersion": "24",
-      "sha256": "ae07dc1376e559814b574bf6489f5f4e9b1b2fd1146d8b5d6e522fb75944eb17"
+      "buildVersion": "25",
+      "sha256": "fcd7b2d2d9f5b09c40c0ebdbe4e603677bad7cfadd5d97694ca38d520162a370"
     }
   ],
   "news": []
