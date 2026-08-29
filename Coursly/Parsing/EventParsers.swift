@@ -117,6 +117,7 @@ struct ICalParser: Sendable {
     func parse(_ data: Data, group: StudentGroup, interval: DateInterval) throws -> [CalendarEvent] {
         guard let text = String(data: data, encoding: .utf8) else { throw CalendarClientError.invalidResponse }
         let unfolded = text.replacingOccurrences(of: #"\r?\n[ \t]"#, with: "", options: .regularExpression)
+        let classifier = CourseTypeClassifier()
         return try unfolded.components(separatedBy: "BEGIN:VEVENT").dropFirst().compactMap { block in
             guard let body = block.components(separatedBy: "END:VEVENT").first else { return nil }
             var values: [String: String] = [:]
