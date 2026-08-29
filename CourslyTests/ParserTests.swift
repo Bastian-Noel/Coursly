@@ -1,5 +1,5 @@
 import XCTest
-@testable import Coursly
+@testable import Ora
 
 final class ParserTests: XCTestCase {
     func testEmptyDirectResponseIsAValidSuccess() throws {
