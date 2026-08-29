@@ -132,7 +132,15 @@ struct ICalParser: Sendable {
             let rawTitle = values["SUMMARY"] ?? "Sans titre"
             let titleParts = rawTitle.components(separatedBy: " - ")
             let title = titleParts.count > 1 ? titleParts.dropFirst().joined(separator: " - ") : rawTitle
-            return CalendarEvent(id: values["UID"] ?? UUID().uuidString, title: title,                 start: start, end: end, rooms: (values["LOCATION"] ?? "").components(separatedBy: "/").filter { !$0.isEmpty },
+            let categoryLabel = values["CATEGORIES"]?.trimmingCharacters(in: .whitespacesAndNewlines)
+            return CalendarEvent(
+                id: values["UID"] ?? UUID().uuidString,
+                title: title,
+                categoryLabel: categoryLabel,
+                typeDisplayOverride: classifier.match(categoryLabel)?.displayRename,
+                start: start,
+                end: end,
+                rooms: (values["LOCATION"] ?? "").components(separatedBy: "/").filter { !$0.isEmpty },
                 teachers: [], groups: [group], rawGroupLabels: nil, moduleCode: titleParts.count > 1 ? titleParts[0] : nil,
                 moduleName: rawTitle, source: .iCalFallback)
         }.sorted { $0.start < $1.start }
