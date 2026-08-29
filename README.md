@@ -1,10 +1,10 @@
-# Coursly
+# Ora
 
 ![iOS 26](https://img.shields.io/badge/iOS-26-000000?logo=apple)
 [![Build](https://github.com/Bastian-Noel/Coursly/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/Bastian-Noel/Coursly/actions/workflows/build.yml)
 [![Release](https://img.shields.io/github/v/release/Bastian-Noel/Coursly?include_prereleases)](https://github.com/Bastian-Noel/Coursly/releases)
 
-Coursly est une application SwiftUI native qui affiche l’emploi du temps CELCAT de l’IUT de Vélizy.
+Ora est une application SwiftUI native qui affiche l’emploi du temps CELCAT de l’IUT de Vélizy.
 
 ## Fonctions
 
@@ -26,10 +26,10 @@ Prérequis : Xcode 26 et XcodeGen.
 
 ```bash
 xcodegen generate
-open Coursly.xcodeproj
+open Ora.xcodeproj
 ```
 
-La branche `main` contient l’application. La branche `site` contient les fichiers de distribution. GitHub Actions teste, compile et publie automatiquement chaque version fusionnée dans `main`.
+La branche `main` contient Ora. La branche `site` contient les fichiers de distribution. GitHub Actions teste, compile et publie automatiquement chaque version fusionnée dans `main`.
 
 ## Documentation
 
