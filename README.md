@@ -1,24 +1,21 @@
 # Ora
 
 ![iOS 26](https://img.shields.io/badge/iOS-26-000000?logo=apple)
-[![Build](https://github.com/Bastian-Noel/Coursly/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/Bastian-Noel/Coursly/actions/workflows/build.yml)
-[![Release](https://img.shields.io/github/v/release/Bastian-Noel/Coursly?include_prereleases)](https://github.com/Bastian-Noel/Coursly/releases)
 
-Ora est une application SwiftUI native qui affiche l’emploi du temps CELCAT de l’IUT de Vélizy.
+Ora est une application SwiftUI native pour consulter l’emploi du temps CELCAT de l’IUT de Vélizy.
 
-## Fonctions
+## Fonctionnalités
 
-- vues Jour et Semaine avec positionnement horaire réel ;
+- vues Jour et Semaine ;
 - groupes CELCAT hiérarchiques ;
 - recherche et événements personnels ;
-- couleurs dynamiques et regroupements par expressions régulières ;
-- notifications de changements ;
-- Live Activity sur l’écran verrouillé ;
+- couleurs et regroupements regex dynamiques ;
+- notifications et Live Activity ;
 - simulation de date et d’heure.
 
 ## Installation
 
-Télécharge la dernière [IPA non signée](https://github.com/Bastian-Noel/Coursly/releases), puis signe-la directement sur l’iPhone avec Feather ou un outil équivalent.
+Télécharge la dernière [IPA non signée](../../releases), puis signe-la directement sur l’iPhone avec Feather ou un outil équivalent.
 
 ## Développement
 
@@ -29,11 +26,9 @@ xcodegen generate
 open Ora.xcodeproj
 ```
 
-La branche `main` contient Ora. La branche `site` contient les fichiers de distribution. GitHub Actions teste, compile et publie automatiquement chaque version fusionnée dans `main`.
+Les changements sont intégrés dans `main`. La distribution est publiée automatiquement après les tests et le build iPhone.
 
-## Documentation
-
-La documentation technique et produit tient dans [docs/README.md](docs/README.md).
+La documentation technique se trouve dans [docs/README.md](docs/README.md).
 
 ## Licence
 
