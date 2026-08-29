@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct CourslyApp: App {
+struct OraApp: App {
     @State private var store = CalendarStore()
     private let frenchLocale = Locale(identifier: "fr_FR")
     private let parisTimeZone = TimeZone(identifier: "Europe/Paris")!

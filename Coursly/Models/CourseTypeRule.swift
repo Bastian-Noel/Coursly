@@ -72,7 +72,7 @@ struct CourseTypeClassifier: Sendable {
         guard event.source != .local else { return event }
         let result = match(event.categoryLabel)
         return CalendarEvent(
-            id: event.id, title: event.title, type: nil, categoryLabel: event.categoryLabel,
+            id: event.id, title: event.title, categoryLabel: event.categoryLabel,
             typeDisplayOverride: result?.displayRename, start: event.start, end: event.end,
             rooms: event.rooms, teachers: event.teachers, groups: event.groups,
             rawGroupLabels: event.rawGroupLabels, moduleCode: event.moduleCode,
@@ -82,65 +82,84 @@ struct CourseTypeClassifier: Sendable {
 }
 
 enum CourseTypeRulePreferences {
-    private static let storageKey = "v4.courseTypeGroups"
+    private static let storageKey = "v5.courseTypeGroups"
+    private static let previousStorageKey = "v4.courseTypeGroups"
     private static let legacyStorageKey = "v3.courseTypeGroupingRules"
 
-    static func load() -> [CourseTypeGroup] {
-        if let data = UserDefaults.standard.data(forKey: storageKey),
+    /// Loads the exact saved configuration, including an intentionally empty list.
+    /// Defaults are written once so deleting every group can never recreate them.
+    static func load(from defaults: UserDefaults = .standard) -> [CourseTypeGroup] {
+        if let data = defaults.data(forKey: storageKey),
            let decoded = try? JSONDecoder().decode([CourseTypeGroup].self, from: data) {
             return decoded
         }
-        if let migrated = migrateLegacyRules() {
-            save(migrated)
+
+        if let data = defaults.data(forKey: previousStorageKey),
+           let previous = try? JSONDecoder().decode([CourseTypeGroup].self, from: data) {
+            let migrated = migratePreviousGroups(previous)
+            save(migrated, to: defaults)
             return migrated
         }
+
+        save(defaultRules, to: defaults)
         return defaultRules
     }
 
-    static func save(_ groups: [CourseTypeGroup]) {
+    static func save(_ groups: [CourseTypeGroup], to defaults: UserDefaults = .standard) {
         guard let data = try? JSONEncoder().encode(groups) else { return }
-        UserDefaults.standard.set(data, forKey: storageKey)
+        defaults.set(data, forKey: storageKey)
     }
 
-    static func reset() {
-        UserDefaults.standard.removeObject(forKey: storageKey)
-        UserDefaults.standard.removeObject(forKey: legacyStorageKey)
+    static func reset(in defaults: UserDefaults = .standard) {
+        defaults.removeObject(forKey: storageKey)
+        defaults.removeObject(forKey: previousStorageKey)
+        defaults.removeObject(forKey: legacyStorageKey)
     }
 
+    /// These are editable starter expressions, not a closed list of course types.
+    /// Every other CELCAT label remains available dynamically.
     static let defaultRules: [CourseTypeGroup] = [
-        CourseTypeGroup(id: UUID(uuidString: "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A01")!, name: "Cours magistraux", patterns: [#"\bcm\b"#, #"\bcours\s+magistral(?:e|es|s)?\b"#]),
-        CourseTypeGroup(id: UUID(uuidString: "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A02")!, name: "Travaux dirigés", patterns: [#"\btd\b"#, #"\btravaux\s+dirige(?:e|es|s)?\b"#]),
-        CourseTypeGroup(id: UUID(uuidString: "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A03")!, name: "Travaux pratiques", patterns: [#"\btp\b"#, #"\btravaux\s+pratique(?:s)?\b"#]),
-        CourseTypeGroup(id: UUID(uuidString: "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A04")!, name: "Projets", patterns: [#"\bprojet(?:s)?\b"#]),
-        CourseTypeGroup(id: UUID(uuidString: "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A05")!, name: "Intégration", patterns: [#"\bintegration\b"#, #"\bint\b"#]),
-        CourseTypeGroup(id: UUID(uuidString: "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A06")!, name: "Réunions", patterns: [#"\breunion(?:s)?\b"#]),
-        CourseTypeGroup(id: UUID(uuidString: "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A07")!, name: "Contrôles", patterns: [#"\bds\b"#, #"\bcontrole(?:s)?\b"#]),
-        CourseTypeGroup(id: UUID(uuidString: "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A08")!, name: "Examens", patterns: [#"\bexam(?:en|ens)?\b"#])
+        CourseTypeGroup(
+            id: UUID(uuidString: "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A03")!,
+            name: "TP",
+            patterns: [#"\btp\b"#, #"\b(?:travail|travaux)\s+pratique(?:s)?\b"#],
+            displayRename: "TP"
+        ),
+        CourseTypeGroup(
+            id: UUID(uuidString: "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A02")!,
+            name: "TD",
+            patterns: [#"\btd\b"#, #"\b(?:travail|travaux)\s+dirige(?:e|es|s)?\b"#],
+            displayRename: "TD"
+        ),
+        CourseTypeGroup(
+            id: UUID(uuidString: "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A01")!,
+            name: "CM",
+            patterns: [#"\bcm\b"#, #"\bcours\s+magistr(?:al(?:e|es|s)?|aux)\b"#],
+            displayRename: "CM"
+        ),
+        CourseTypeGroup(
+            id: UUID(uuidString: "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A04")!,
+            name: "Projet tutoré",
+            patterns: [#"\bprojet(?:s)?\s+tutore(?:e|es|s)?\b"#],
+            displayRename: "Projet tutoré"
+        )
     ]
 
-    private struct LegacyRule: Codable {
-        let type: CourseType
-        let pattern: String
-        let isEnabled: Bool
-    }
+    private static let previousBuiltInIDs = Set([
+        "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A01",
+        "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A02",
+        "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A03",
+        "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A04",
+        "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A05",
+        "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A06",
+        "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A07",
+        "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A08"
+    ])
 
-    private static func migrateLegacyRules() -> [CourseTypeGroup]? {
-        guard let data = UserDefaults.standard.data(forKey: legacyStorageKey),
-              let legacy = try? JSONDecoder().decode([LegacyRule].self, from: data),
-              !legacy.isEmpty else { return nil }
-        let names: [CourseType: String] = [
-            .cm: "Cours magistraux", .td: "Travaux dirigés", .tp: "Travaux pratiques",
-            .project: "Projets", .integration: "Intégration", .meeting: "Réunions",
-            .test: "Contrôles", .exam: "Examens"
-        ]
-        return CourseType.allCases.compactMap { type in
-            let rules = legacy.filter { $0.type == type }
-            guard !rules.isEmpty else { return nil }
-            return CourseTypeGroup(
-                name: names[type] ?? type.rawValue,
-                patterns: rules.map(\.pattern),
-                isEnabled: rules.contains(where: \.isEnabled)
-            )
-        }
+    private static func migratePreviousGroups(_ previous: [CourseTypeGroup]) -> [CourseTypeGroup] {
+        let existingIDs = Set(previous.map { $0.id.uuidString })
+        let retainedDefaults = defaultRules.filter { existingIDs.contains($0.id.uuidString) }
+        let customGroups = previous.filter { !previousBuiltInIDs.contains($0.id.uuidString) }
+        return retainedDefaults + customGroups
     }
 }

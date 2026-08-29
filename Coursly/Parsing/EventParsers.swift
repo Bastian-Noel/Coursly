@@ -54,7 +54,6 @@ struct DirectEventParser: Sendable {
             return CalendarEvent(
                 id: payload.id?.value ?? UUID().uuidString,
                 title: title.isEmpty ? "Sans titre" : title,
-                type: nil,
                 categoryLabel: categoryLabel,
                 typeDisplayOverride: classifier.match(categoryLabel)?.displayRename,
                 start: try parseDate(payload.start),
@@ -118,6 +117,7 @@ struct ICalParser: Sendable {
     func parse(_ data: Data, group: StudentGroup, interval: DateInterval) throws -> [CalendarEvent] {
         guard let text = String(data: data, encoding: .utf8) else { throw CalendarClientError.invalidResponse }
         let unfolded = text.replacingOccurrences(of: #"\r?\n[ \t]"#, with: "", options: .regularExpression)
+        let classifier = CourseTypeClassifier()
         return try unfolded.components(separatedBy: "BEGIN:VEVENT").dropFirst().compactMap { block in
             guard let body = block.components(separatedBy: "END:VEVENT").first else { return nil }
             var values: [String: String] = [:]
@@ -132,8 +132,15 @@ struct ICalParser: Sendable {
             let rawTitle = values["SUMMARY"] ?? "Sans titre"
             let titleParts = rawTitle.components(separatedBy: " - ")
             let title = titleParts.count > 1 ? titleParts.dropFirst().joined(separator: " - ") : rawTitle
-            return CalendarEvent(id: values["UID"] ?? UUID().uuidString, title: title, type: nil,
-                start: start, end: end, rooms: (values["LOCATION"] ?? "").components(separatedBy: "/").filter { !$0.isEmpty },
+            let categoryLabel = values["CATEGORIES"]?.trimmingCharacters(in: .whitespacesAndNewlines)
+            return CalendarEvent(
+                id: values["UID"] ?? UUID().uuidString,
+                title: title,
+                categoryLabel: categoryLabel,
+                typeDisplayOverride: classifier.match(categoryLabel)?.displayRename,
+                start: start,
+                end: end,
+                rooms: (values["LOCATION"] ?? "").components(separatedBy: "/").filter { !$0.isEmpty },
                 teachers: [], groups: [group], rawGroupLabels: nil, moduleCode: titleParts.count > 1 ? titleParts[0] : nil,
                 moduleName: rawTitle, source: .iCalFallback)
         }.sorted { $0.start < $1.start }

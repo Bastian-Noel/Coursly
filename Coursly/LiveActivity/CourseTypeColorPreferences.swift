@@ -46,26 +46,10 @@ enum CourseTypeColorPreferences {
     }
 
     static func defaultHex(for label: String) -> String {
-        let knownColors = [
-            "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A01": "#007AFF",
-            "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A02": "#5856D6",
-            "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A03": "#34C759",
-            "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A04": "#FF9500",
-            "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A05": "#00A7B5",
-            "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A06": "#AF52DE",
-            "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A07": "#FF3B30",
-            "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A08": "#FF2D55"
-        ]
-        if let match = CourseTypeClassifier().match(label),
-           let color = knownColors[match.groupID.uuidString] {
-            return color
+        if let match = CourseTypeClassifier().match(label) {
+            return defaultHex(forGroupID: match.groupID, fallbackName: label)
         }
-
-        let normalized = normalize(label)
-        let hash = normalized.unicodeScalars.reduce(UInt64(5381)) { value, scalar in
-            ((value << 5) &+ value) &+ UInt64(scalar.value)
-        }
-        return palette[Int(hash % UInt64(palette.count))]
+        return stablePaletteHex(for: "dynamic:\(normalize(label))")
     }
 
     private static func key(for label: String) -> String {
@@ -77,18 +61,16 @@ enum CourseTypeColorPreferences {
         keyPrefix + Data("group:\(groupID.uuidString)".utf8).base64EncodedString()
     }
 
-    private static func defaultHex(forGroupID groupID: UUID, fallbackName: String) -> String {
-        let known = [
-            "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A01": "#007AFF",
-            "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A02": "#5856D6",
-            "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A03": "#34C759",
-            "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A04": "#FF9500",
-            "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A05": "#00A7B5",
-            "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A06": "#AF52DE",
-            "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A07": "#FF3B30",
-            "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A08": "#FF2D55"
-        ]
-        return known[groupID.uuidString] ?? defaultHex(for: fallbackName)
+    private static func defaultHex(forGroupID groupID: UUID, fallbackName _: String) -> String {
+        // A group color depends only on its persisted identity, never on a hidden course-type table.
+        stablePaletteHex(for: "group:\(groupID.uuidString)")
+    }
+
+    private static func stablePaletteHex(for value: String) -> String {
+        let hash = value.unicodeScalars.reduce(UInt64(5381)) { result, scalar in
+            ((result << 5) &+ result) &+ UInt64(scalar.value)
+        }
+        return palette[Int(hash % UInt64(palette.count))]
     }
 
     private static func legacyKey(for label: String) -> String {

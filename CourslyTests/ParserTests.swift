@@ -1,5 +1,5 @@
 import XCTest
-@testable import Coursly
+@testable import Ora
 
 final class ParserTests: XCTestCase {
     func testEmptyDirectResponseIsAValidSuccess() throws {
@@ -10,8 +10,8 @@ final class ParserTests: XCTestCase {
         let json = #"[{"id":"42","start":"2026-08-13T08:00:00+02:00","end":"2026-08-13T10:00:00+02:00","description":"Mme Prof<br />MMI1-A1<br />A101 - VELIZY<br />R101 - Développement web [R101]","eventCategory":"Travaux dirigés","modules":["R101"],"sites":["VELIZY"]}]"#
         let event = try XCTUnwrap(DirectEventParser().parse(Data(json.utf8), group: .init(name: "MMI1-A1")).first)
         XCTAssertEqual(event.title, "Développement web")
-        XCTAssertNil(event.type, "Le regroupement ne transforme plus le type CELCAT")
-        XCTAssertEqual(event.displayTypeLabel, "Travaux dirigés")
+        XCTAssertEqual(event.categoryLabel, "Travaux dirigés")
+        XCTAssertEqual(event.displayTypeLabel, "TD")
         XCTAssertEqual(event.rooms, ["A101"])
         XCTAssertEqual(event.groups.map(\.name), ["MMI1-A1"])
     }
@@ -33,12 +33,13 @@ final class ParserTests: XCTestCase {
     }
 
     func testICalUnfoldsLinesAndFiltersInterval() throws {
-        let ics = "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:abc\r\nSUMMARY:R101 - Développe\r\n ment web\r\nLOCATION:A101 / A102\r\nDTSTART:20260813T080000\r\nDTEND:20260813T100000\r\nEND:VEVENT\r\nEND:VCALENDAR"
+        let ics = "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:abc\r\nSUMMARY:R101 - Développe\r\n ment web\r\nCATEGORIES:Atelier transversal\r\nLOCATION:A101 / A102\r\nDTSTART:20260813T080000\r\nDTEND:20260813T100000\r\nEND:VEVENT\r\nEND:VCALENDAR"
         let formatter = ISO8601DateFormatter()
         let interval = DateInterval(start: formatter.date(from: "2026-08-12T00:00:00Z")!, end: formatter.date(from: "2026-08-15T00:00:00Z")!)
         let event = try XCTUnwrap(ICalParser().parse(Data(ics.utf8), group: .init(name: "MMI1-A1"), interval: interval).first)
         XCTAssertEqual(event.title, "Développement web")
         XCTAssertEqual(event.source, .iCalFallback)
+        XCTAssertEqual(event.displayTypeLabel, "Atelier transversal")
     }
 }
 
@@ -116,8 +117,7 @@ final class CelcatClientContractTests: XCTestCase {
         let group = StudentGroup(name: "MMI2-B2")
         let start = ISO8601DateFormatter().date(from: "2026-09-10T08:00:00Z")!
         let event = CalendarEvent(
-            id: "cached", title: "Réseau", type: .tp,
-            start: start, end: start.addingTimeInterval(3_600),
+            id: "cached", title: "Réseau", start: start, end: start.addingTimeInterval(3_600),
             rooms: ["B204"], teachers: ["Mme Dupont"], groups: [group],
             moduleCode: "R2", moduleName: "Réseau", source: .directPOST
         )

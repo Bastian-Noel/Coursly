@@ -1,8 +1,8 @@
-# Documentation Coursly
+# Documentation Ora
 
 ## Produit
 
-Coursly est une application iPhone SwiftUI pour consulter l’emploi du temps CELCAT de l’IUT de Vélizy. Elle cible iOS 26 et distribue une IPA non signée.
+Ora est une application iPhone SwiftUI pour consulter l’emploi du temps CELCAT de l’IUT de Vélizy. Elle cible iOS 26 et distribue une IPA non signée.
 
 ## Données
 
@@ -44,7 +44,9 @@ Coursly est une application iPhone SwiftUI pour consulter l’emploi du temps CE
 
 ## Types et couleurs
 
-Les types viennent des données CELCAT. Un regroupement contient un nom et plusieurs expressions régulières. Le renommage facultatif utilise directement le nom du regroupement.
+Les types viennent uniquement des données CELCAT et des événements personnels. Le parsing ne contient aucune liste fermée de types.
+
+Une première installation propose quatre regroupements regex modifiables : TP, TD, CM et Projet tutoré. Leur renommage est actif et utilise directement le nom du regroupement. Ces valeurs sont seulement une configuration initiale : elles peuvent être modifiées ou supprimées définitivement, et tous les autres libellés restent dynamiques.
 
 Dans les couleurs :
 
@@ -67,6 +69,9 @@ La Live Activity concerne l’écran verrouillé. Elle n’appelle jamais CELCAT
 Les horaires visibles restent réels. Seules les dates utilisées par les décomptes sont translatées pendant une simulation.
 
 ## Architecture
+
+Les dossiers sources conservent leurs noms historiques afin de préserver la continuité Git ; le projet, les cibles et les produits générés portent le nom Ora.
+
 
 | Dossier | Rôle |
 | --- | --- |

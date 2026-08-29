@@ -1,5 +1,5 @@
 import XCTest
-@testable import Coursly
+@testable import Ora
 
 final class V3BehaviorTests: XCTestCase {
     private let group = StudentGroup(name: "MMI2-A1")
@@ -72,8 +72,8 @@ final class V3BehaviorTests: XCTestCase {
 
     func testVisualMergePreservesActualGroupInsteadOfSelectedSubgroups() {
         let start = date("2026-09-10T08:00:00Z"), end = date("2026-09-10T09:00:00Z")
-        let b1 = CalendarEvent(id: "1", title: "Réseau", type: .tp, categoryLabel: "Travaux pratiques", start: start, end: end, rooms: ["B204"], teachers: ["Mme Dupont"], groups: [StudentGroup(name: "MMI2-B1")], rawGroupLabels: ["MMI2-B"], moduleCode: "R2", moduleName: "Réseau", source: .directPOST)
-        let b2 = CalendarEvent(id: "2", title: "Réseau", type: .tp, categoryLabel: "Travaux pratiques", start: start, end: end, rooms: ["B204"], teachers: ["Mme Dupont"], groups: [StudentGroup(name: "MMI2-B2")], rawGroupLabels: ["MMI2-B"], moduleCode: "R2", moduleName: "Réseau", source: .directPOST)
+        let b1 = CalendarEvent(id: "1", title: "Réseau", categoryLabel: "Travaux pratiques", start: start, end: end, rooms: ["B204"], teachers: ["Mme Dupont"], groups: [StudentGroup(name: "MMI2-B1")], rawGroupLabels: ["MMI2-B"], moduleCode: "R2", moduleName: "Réseau", source: .directPOST)
+        let b2 = CalendarEvent(id: "2", title: "Réseau", categoryLabel: "Travaux pratiques", start: start, end: end, rooms: ["B204"], teachers: ["Mme Dupont"], groups: [StudentGroup(name: "MMI2-B2")], rawGroupLabels: ["MMI2-B"], moduleCode: "R2", moduleName: "Réseau", source: .directPOST)
         let merged = CalendarService().mergeVisualDuplicates([b1, b2])
         XCTAssertEqual(merged.count, 1)
         XCTAssertEqual(merged[0].displayGroupLabels, ["MMI2-B"])
@@ -212,11 +212,16 @@ final class V3BehaviorTests: XCTestCase {
         XCTAssertEqual(store.weekTopMinute, 10 * 60)
     }
 
-    func testDefaultTypeRulesGroupKnownVariantsWithoutRenamingThem() {
-        let classifier = CourseTypeClassifier(groups: CourseTypeRulePreferences.defaultRules)
-        XCTAssertNotNil(classifier.match("Cours magistral (CM)"))
-        XCTAssertNotNil(classifier.match("TRAVAUX DIRIGÉS"))
-        XCTAssertNotNil(classifier.match("Travaux pratiques"))
+    func testDefaultTypeRulesAreOnlyEditableStarterGroupsAndRenameMatches() {
+        let rules = CourseTypeRulePreferences.defaultRules
+        let classifier = CourseTypeClassifier(groups: rules)
+
+        XCTAssertEqual(rules.map(\.name), ["TP", "TD", "CM", "Projet tutoré"])
+        XCTAssertEqual(classifier.match("Travaux pratiques")?.displayRename, "TP")
+        XCTAssertEqual(classifier.match("TRAVAUX DIRIGÉS")?.displayRename, "TD")
+        XCTAssertEqual(classifier.match("Cours magistral (CM)")?.displayRename, "CM")
+        XCTAssertEqual(classifier.match("Projet tutoré")?.displayRename, "Projet tutoré")
+        XCTAssertNil(classifier.match("Examen final"))
         XCTAssertEqual(
             classifier.groupingKey(for: "Cours magistral (CM)"),
             classifier.groupingKey(for: "CM")
@@ -228,9 +233,20 @@ final class V3BehaviorTests: XCTestCase {
             end: date("2026-09-10T09:00:00Z")
         )
         event.categoryLabel = "Cours magistral (CM)"
-        let reclassified = classifier.reclassify(event)
-        XCTAssertNil(reclassified.type)
-        XCTAssertEqual(reclassified.displayTypeLabel, "Cours magistral (CM)")
+        XCTAssertEqual(classifier.reclassify(event).displayTypeLabel, "CM")
+    }
+
+    func testDeletingEveryTypeGroupPersistsAnEmptyConfiguration() throws {
+        let suiteName = "CourslyTests.CourseTypeGroups.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        CourseTypeRulePreferences.reset(in: defaults)
+        XCTAssertEqual(CourseTypeRulePreferences.load(from: defaults).map(\.name), ["TP", "TD", "CM", "Projet tutoré"])
+
+        CourseTypeRulePreferences.save([], to: defaults)
+
+        XCTAssertTrue(CourseTypeRulePreferences.load(from: defaults).isEmpty)
     }
 
     func testCustomGroupAcceptsSeveralRegexAndOptionalRename() {
@@ -418,7 +434,7 @@ final class V3BehaviorTests: XCTestCase {
     }
 
     private func event(id: String, title: String = "Développement iOS", start: Date, end: Date, room: String = "B204", teacher: String = "Mme Dupont") -> CalendarEvent {
-        CalendarEvent(id: id, title: title, type: .tp, start: start, end: end, rooms: [room], teachers: [teacher], groups: [group], moduleCode: "R4.01", moduleName: "Développement iOS", source: .directPOST)
+        CalendarEvent(id: id, title: title, start: start, end: end, rooms: [room], teachers: [teacher], groups: [group], moduleCode: "R4.01", moduleName: "Développement iOS", source: .directPOST)
     }
 
     private func date(_ value: String) -> Date { ISO8601DateFormatter().date(from: value)! }
