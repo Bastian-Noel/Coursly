@@ -89,7 +89,7 @@ private enum PatternBuilderMode: String, CaseIterable, Identifiable {
 
     func pattern(for value: String) -> String {
         let escaped = NSRegularExpression.escapedPattern(for: value.trimmingCharacters(in: .whitespacesAndNewlines))
-        switch self {
+        return switch self {
         case .contains: escaped
         case .word: #"\b"# + escaped + #"\b"#
         case .starts: "^" + escaped
