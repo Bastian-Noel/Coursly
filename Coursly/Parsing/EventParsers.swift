@@ -54,7 +54,7 @@ struct DirectEventParser: Sendable {
             return CalendarEvent(
                 id: payload.id?.value ?? UUID().uuidString,
                 title: title.isEmpty ? "Sans titre" : title,
-                                categoryLabel: categoryLabel,
+                categoryLabel: categoryLabel,
                 typeDisplayOverride: classifier.match(categoryLabel)?.displayRename,
                 start: try parseDate(payload.start),
                 end: try parseDate(payload.end ?? payload.start),
