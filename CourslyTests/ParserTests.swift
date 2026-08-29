@@ -11,7 +11,7 @@ final class ParserTests: XCTestCase {
         let event = try XCTUnwrap(DirectEventParser().parse(Data(json.utf8), group: .init(name: "MMI1-A1")).first)
         XCTAssertEqual(event.title, "Développement web")
         XCTAssertEqual(event.categoryLabel, "Travaux dirigés")
-        XCTAssertEqual(event.displayTypeLabel, "TD")
+        XCTAssertEqual(event.displayTypeLabel, "Travaux dirigés")
         XCTAssertEqual(event.rooms, ["A101"])
         XCTAssertEqual(event.groups.map(\.name), ["MMI1-A1"])
     }
