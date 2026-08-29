@@ -82,8 +82,9 @@ struct CourseTypeClassifier: Sendable {
 }
 
 enum CourseTypeRulePreferences {
-    private static let storageKey = "v5.courseTypeGroups"
-    private static let previousStorageKey = "v4.courseTypeGroups"
+    private static let storageKey = "v6.courseTypeGroups"
+    private static let previousStorageKey = "v5.courseTypeGroups"
+    private static let olderStorageKey = "v4.courseTypeGroups"
     private static let legacyStorageKey = "v3.courseTypeGroupingRules"
 
     /// Loads the exact saved configuration, including an intentionally empty list.
@@ -96,7 +97,14 @@ enum CourseTypeRulePreferences {
 
         if let data = defaults.data(forKey: previousStorageKey),
            let previous = try? JSONDecoder().decode([CourseTypeGroup].self, from: data) {
-            let migrated = migratePreviousGroups(previous)
+            let migrated = migrateV5Groups(previous)
+            save(migrated, to: defaults)
+            return migrated
+        }
+
+        if let data = defaults.data(forKey: olderStorageKey),
+           let older = try? JSONDecoder().decode([CourseTypeGroup].self, from: data) {
+            let migrated = migratePreviousGroups(older)
             save(migrated, to: defaults)
             return migrated
         }
@@ -113,6 +121,7 @@ enum CourseTypeRulePreferences {
     static func reset(in defaults: UserDefaults = .standard) {
         defaults.removeObject(forKey: storageKey)
         defaults.removeObject(forKey: previousStorageKey)
+        defaults.removeObject(forKey: olderStorageKey)
         defaults.removeObject(forKey: legacyStorageKey)
     }
 
@@ -122,20 +131,17 @@ enum CourseTypeRulePreferences {
         CourseTypeGroup(
             id: UUID(uuidString: "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A03")!,
             name: "TP",
-            patterns: [#"\btp\b"#, #"\b(?:travail|travaux)\s+pratique(?:s)?\b"#],
-            displayRename: "TP"
+            patterns: [#"\btp\b"#, #"\b(?:travail|travaux)\s+pratique(?:s)?\b"#]
         ),
         CourseTypeGroup(
             id: UUID(uuidString: "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A02")!,
             name: "TD",
-            patterns: [#"\btd\b"#, #"\b(?:travail|travaux)\s+dirige(?:e|es|s)?\b"#],
-            displayRename: "TD"
+            patterns: [#"\btd\b"#, #"\b(?:travail|travaux)\s+dirige(?:e|es|s)?\b"#]
         ),
         CourseTypeGroup(
             id: UUID(uuidString: "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A01")!,
             name: "CM",
-            patterns: [#"\bcm\b"#, #"\bcours\s+magistr(?:al(?:e|es|s)?|aux)\b"#],
-            displayRename: "CM"
+            patterns: [#"\bcm\b"#, #"\bcours\s+magistr(?:al(?:e|es|s)?|aux)\b"#]
         ),
         CourseTypeGroup(
             id: UUID(uuidString: "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A04")!,
@@ -144,6 +150,25 @@ enum CourseTypeRulePreferences {
             displayRename: "Projet tutoré"
         )
     ]
+
+    /// v5 shipped TP, TD and CM with renaming enabled by default.
+    /// Disable only that untouched default while preserving deletions and user-created groups.
+    private static func migrateV5Groups(_ previous: [CourseTypeGroup]) -> [CourseTypeGroup] {
+        let formerlyRenamedDefaults: [UUID: String] = [
+            UUID(uuidString: "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A03")!: "TP",
+            UUID(uuidString: "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A02")!: "TD",
+            UUID(uuidString: "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A01")!: "CM"
+        ]
+
+        return previous.map { group in
+            guard let defaultName = formerlyRenamedDefaults[group.id],
+                  group.name == defaultName,
+                  group.trimmedRename == defaultName else { return group }
+            var migrated = group
+            migrated.displayRename = nil
+            return migrated
+        }
+    }
 
     private static let previousBuiltInIDs = Set([
         "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A01",
