@@ -21,27 +21,29 @@ struct RootView: View {
             CalendarScene(selectedEvent: $selectedEvent, panel: $panel)
                 .zIndex(0)
 
-            FloatingControlDock(activePanel: $panel, namespace: dockNamespace)
-                .offset(y: 6)
-                .zIndex(20)
+            GlassEffectContainer(spacing: 30) {
+                ZStack(alignment: .bottom) {
+                    FloatingControlDock(activePanel: $panel, namespace: dockNamespace)
+                        .offset(y: 6)
+                        .zIndex(20)
 
-            if panel != nil {
-                Color.black.opacity(0.001)
-                    .contentShape(Rectangle())
-                    .ignoresSafeArea()
-                    .onTapGesture {
-                        withAnimation(.snappy(duration: 0.28)) {
-                            panel = nil
-                        }
+                    if panel != nil {
+                        Color.black.opacity(0.001)
+                            .contentShape(Rectangle())
+                            .ignoresSafeArea()
+                            .onTapGesture {
+                                withAnimation(.snappy(duration: 0.32, extraBounce: 0.02)) { panel = nil }
+                            }
+                            .accessibilityLabel("Fermer le panneau")
+                            .zIndex(30)
                     }
-                    .accessibilityLabel("Fermer le panneau")
-                    .zIndex(30)
-            }
 
-            if let panel {
-                panelView(panel)
-                    .transition(panelTransition(for: panel))
-                    .zIndex(40)
+                    if let panel {
+                        panelView(panel)
+                            .transition(panelTransition(for: panel))
+                            .zIndex(40)
+                    }
+                }
             }
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
@@ -300,42 +302,32 @@ struct FloatingControlDock: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Button { toggle(.more) } label: {
-                Image(systemName: "line.3.horizontal")
-                    .font(.system(size: 17, weight: .semibold))
-                    .frame(width: 50, height: 50)
-                    .contentShape(Circle())
+            if activePanel == .more {
+                Color.clear.frame(width: 50, height: 50)
+            } else {
+                Button { toggle(.more) } label: {
+                    Image(systemName: "line.3.horizontal")
+                        .font(.system(size: 17, weight: .semibold))
+                        .frame(width: 50, height: 50)
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .glassEffect(.regular.interactive(), in: Circle())
+                .glassEffectID("more-surface", in: namespace)
+                .glassEffectTransition(.matchedGeometry)
+                .accessibilityLabel("Plus d’options")
             }
-            .buttonStyle(.plain)
-            .glassEffect(.regular.interactive(), in: Circle())
-            .matchedGeometryEffect(
-                id: "more-surface",
-                in: namespace,
-                properties: .frame,
-                anchor: .bottomLeading,
-                isSource: true
-            )
-            .opacity(activePanel == .more ? 0 : 1)
-            .allowsHitTesting(activePanel != .more)
-            .accessibilityHidden(activePanel == .more)
-            .accessibilityLabel("Plus d’options")
 
-            Button { toggle(.groups) } label: {
-                groupLabel
+            if activePanel == .groups {
+                Color.clear.frame(minWidth: 74, minHeight: 50)
+            } else {
+                Button { toggle(.groups) } label: { groupLabel }
+                    .buttonStyle(.plain)
+                    .glassEffect(.regular.interactive(), in: Capsule())
+                    .glassEffectID("group-surface", in: namespace)
+                    .glassEffectTransition(.matchedGeometry)
+                    .accessibilityLabel("Choisir les groupes, sélection actuelle \(store.selectedGroupsLabel)")
             }
-            .buttonStyle(.plain)
-            .glassEffect(.regular.interactive(), in: Capsule())
-            .matchedGeometryEffect(
-                id: "group-surface",
-                in: namespace,
-                properties: .frame,
-                anchor: .bottomLeading,
-                isSource: true
-            )
-            .opacity(activePanel == .groups ? 0 : 1)
-            .allowsHitTesting(activePanel != .groups)
-            .accessibilityHidden(activePanel == .groups)
-            .accessibilityLabel("Choisir les groupes, sélection actuelle \(store.selectedGroupsLabel)")
 
             Spacer(minLength: 10)
 

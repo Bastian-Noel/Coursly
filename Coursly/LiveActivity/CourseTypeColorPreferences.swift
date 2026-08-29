@@ -33,18 +33,18 @@ enum CourseTypeColorPreferences {
     }
 
     static func defaultHex(for label: String) -> String {
-        let knownColors: [CourseType: String] = [
-            .cm: "#007AFF",
-            .td: "#5856D6",
-            .tp: "#34C759",
-            .project: "#FF9500",
-            .integration: "#00A7B5",
-            .meeting: "#AF52DE",
-            .test: "#FF3B30",
-            .exam: "#FF2D55"
+        let knownColors = [
+            "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A01": "#007AFF",
+            "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A02": "#5856D6",
+            "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A03": "#34C759",
+            "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A04": "#FF9500",
+            "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A05": "#00A7B5",
+            "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A06": "#AF52DE",
+            "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A07": "#FF3B30",
+            "7D1C18B5-2AF4-46E6-A6F4-A74D12D23A08": "#FF2D55"
         ]
-        if let type = CourseTypeClassifier().classify(label),
-           let color = knownColors[type] {
+        if let match = CourseTypeClassifier().match(label),
+           let color = knownColors[match.groupID.uuidString] {
             return color
         }
 

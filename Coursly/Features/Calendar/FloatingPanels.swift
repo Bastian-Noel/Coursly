@@ -293,7 +293,7 @@ struct MorePanel: View {
             onClose: onClose,
             showsHeader: false,
             widthFraction: 0.70,
-            bottomInset: 8,
+            bottomInset: 25,
             matchedSurfaceID: "more-surface",
             matchedNamespace: namespace
         ) {
@@ -459,13 +459,9 @@ private struct FloatingPanelSurfaceMatch: ViewModifier {
     @ViewBuilder
     func body(content: Content) -> some View {
         if let id, let namespace {
-            content.matchedGeometryEffect(
-                id: id,
-                in: namespace,
-                properties: .frame,
-                anchor: .bottomLeading,
-                isSource: false
-            )
+            content
+                .glassEffectID(id, in: namespace)
+                .glassEffectTransition(.matchedGeometry)
         } else {
             content
         }

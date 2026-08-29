@@ -54,8 +54,9 @@ struct DirectEventParser: Sendable {
             return CalendarEvent(
                 id: payload.id?.value ?? UUID().uuidString,
                 title: title.isEmpty ? "Sans titre" : title,
-                type: classifier.classify(categoryLabel),
+                type: nil,
                 categoryLabel: categoryLabel,
+                typeDisplayOverride: classifier.match(categoryLabel)?.displayRename,
                 start: try parseDate(payload.start),
                 end: try parseDate(payload.end ?? payload.start),
                 rooms: rooms,

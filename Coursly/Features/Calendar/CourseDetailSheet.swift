@@ -20,6 +20,7 @@ struct CourseDetailSheet: View {
                         if !event.displayGroupLabels.isEmpty { DetailRow(icon: "person.2", title: "Groupes", value: event.displayGroupsText) }
                         if let moduleCode = event.moduleCode, !moduleCode.isEmpty { DetailRow(icon: "number", title: "Code module", value: moduleCode) }
                         if let moduleName = event.moduleName, !moduleName.isEmpty, moduleName != event.title { DetailRow(icon: "book.closed", title: "Module", value: moduleName) }
+                        if let notes = event.notes, !notes.isEmpty { DetailRow(icon: "note.text", title: "Notes", value: notes) }
                     }.background(Color.secondary.opacity(0.06), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                     if event.source == .local { Button(role: .destructive) { store.deleteLocalEvent(event); dismiss() } label: { Label("Supprimer l’événement", systemImage: "trash").frame(maxWidth: .infinity) }.buttonStyle(.bordered) }
                 }.padding(20)

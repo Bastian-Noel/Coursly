@@ -24,10 +24,19 @@ struct HierarchicalGroupPanel: View {
             systemImage: "person.2.fill",
             onClose: onClose,
             showsHeader: false,
-            bottomInset: 8,
+            bottomInset: 25,
             matchedSurfaceID: "group-surface",
             matchedNamespace: namespace
         ) {
+            HStack {
+                Text("Choix du groupe")
+                    .font(.headline.weight(.bold))
+                Spacer()
+                Text(store.compactSelectedGroupsLabel)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+
             if !path.isEmpty {
                 HStack(spacing: 8) {
                     Button {

@@ -18,10 +18,14 @@ struct CourseBlock: View {
     var body: some View {
         let _ = store.courseColorRevision
         HStack(spacing: 0) {
-            Rectangle()
-                .fill(stripeColor)
-                .frame(width: layout.stripeWidth)
-                .frame(maxHeight: .infinity)
+            if event.source == .local {
+                DottedCourseStripe(color: stripeColor, width: layout.stripeWidth)
+            } else {
+                Rectangle()
+                    .fill(stripeColor)
+                    .frame(width: layout.stripeWidth)
+                    .frame(maxHeight: .infinity)
+            }
 
             content
                 .padding(.leading, layout.horizontalPadding)
@@ -211,7 +215,7 @@ struct CourseBlock: View {
 
     private var baseHex: String {
         if event.source == .local { return "#AF52DE" }
-        guard let label = event.displayTypeLabel, !label.isEmpty else { return "#0A84FF" }
+        guard let label = event.colorTypeLabel, !label.isEmpty else { return "#0A84FF" }
         return CourseTypeColorPreferences.hex(for: label)
     }
 
@@ -253,6 +257,23 @@ struct CourseBlock: View {
         if !event.teachers.isEmpty { parts.append(event.teachers.joined(separator: ", ")) }
         if !event.displayGroupsText.isEmpty { parts.append(event.displayGroupsText) }
         return parts.joined(separator: ", ")
+    }
+}
+
+private struct DottedCourseStripe: View {
+    let color: Color
+    let width: CGFloat
+
+    var body: some View {
+        Canvas { context, size in
+            var path = Path()
+            path.move(to: CGPoint(x: size.width / 2, y: 1))
+            path.addLine(to: CGPoint(x: size.width / 2, y: size.height - 1))
+            context.stroke(path, with: .color(color), style: StrokeStyle(lineWidth: width, lineCap: .round, dash: [3, 4]))
+        }
+        .frame(width: max(3, width))
+        .frame(maxHeight: .infinity)
+        .allowsHitTesting(false)
     }
 }
 

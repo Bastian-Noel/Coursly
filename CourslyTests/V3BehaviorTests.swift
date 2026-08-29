@@ -213,10 +213,10 @@ final class V3BehaviorTests: XCTestCase {
     }
 
     func testDefaultTypeRulesGroupKnownVariantsWithoutRenamingThem() {
-        let classifier = CourseTypeClassifier(rules: CourseTypeRulePreferences.defaultRules)
-        XCTAssertEqual(classifier.classify("Cours magistral (CM)"), .cm)
-        XCTAssertEqual(classifier.classify("TRAVAUX DIRIGÉS"), .td)
-        XCTAssertEqual(classifier.classify("Travaux pratiques"), .tp)
+        let classifier = CourseTypeClassifier(groups: CourseTypeRulePreferences.defaultRules)
+        XCTAssertNotNil(classifier.match("Cours magistral (CM)"))
+        XCTAssertNotNil(classifier.match("TRAVAUX DIRIGÉS"))
+        XCTAssertNotNil(classifier.match("Travaux pratiques"))
         XCTAssertEqual(
             classifier.groupingKey(for: "Cours magistral (CM)"),
             classifier.groupingKey(for: "CM")
@@ -229,30 +229,31 @@ final class V3BehaviorTests: XCTestCase {
         )
         event.categoryLabel = "Cours magistral (CM)"
         let reclassified = classifier.reclassify(event)
-        XCTAssertEqual(reclassified.type, .cm)
+        XCTAssertNil(reclassified.type)
         XCTAssertEqual(reclassified.displayTypeLabel, "Cours magistral (CM)")
     }
 
-    func testCustomRegexCanCreateAnInternalGroupingRule() {
-        let custom = CourseTypeRule(
-            type: .project,
-            pattern: #"atelier\s+(?:transversal|client)"#
+    func testCustomGroupAcceptsSeveralRegexAndOptionalRename() {
+        let custom = CourseTypeGroup(
+            name: "Ateliers",
+            patterns: [#"atelier\s+transversal"#, #"atelier\s+client"#],
+            displayRename: "Atelier"
         )
-        let classifier = CourseTypeClassifier(rules: [custom])
+        let classifier = CourseTypeClassifier(groups: [custom])
 
-        XCTAssertTrue(custom.isValid)
-        XCTAssertEqual(classifier.classify("Atelier transversal"), .project)
-        XCTAssertEqual(classifier.classify("ATELIER CLIENT"), .project)
-        XCTAssertNil(classifier.classify("Cours magistral"))
+        XCTAssertEqual(custom.validPatterns.count, 2)
+        XCTAssertEqual(classifier.match("Atelier transversal")?.displayRename, "Atelier")
+        XCTAssertEqual(classifier.match("ATELIER CLIENT")?.groupID, custom.id)
+        XCTAssertNil(classifier.match("Cours magistral"))
     }
 
     func testInvalidOrDisabledRegexNeverClassifiesAType() {
-        let invalid = CourseTypeRule(type: .cm, pattern: #"("#)
-        let disabled = CourseTypeRule(type: .td, pattern: #"dirige"#, isEnabled: false)
-        let classifier = CourseTypeClassifier(rules: [invalid, disabled])
+        let invalid = CourseTypeGroup(name: "Invalide", patterns: [#"("#])
+        let disabled = CourseTypeGroup(name: "TD", patterns: [#"dirige"#], isEnabled: false)
+        let classifier = CourseTypeClassifier(groups: [invalid, disabled])
 
-        XCTAssertFalse(invalid.isValid)
-        XCTAssertNil(classifier.classify("Travaux dirigés"))
+        XCTAssertTrue(invalid.validPatterns.isEmpty)
+        XCTAssertNil(classifier.match("Travaux dirigés"))
     }
 
     func testAppearancePreferenceOffersSystemLightAndDarkModes() {
@@ -282,12 +283,20 @@ final class V3BehaviorTests: XCTestCase {
             nextType: "CM",
             nextAccentHex: "#4A90FF",
             nextStart: end,
+            nextEnd: end.addingTimeInterval(3600),
+            nextTeachers: "Camille",
+            nextGroups: "MMI2-A",
+            nextTimerStart: end,
+            nextTimerEnd: end.addingTimeInterval(3600),
+            isLastCourse: false,
+            nextIsLastCourse: true,
             isInProgress: true,
             dayFinished: false
         )
 
         XCTAssertEqual(state.nextType, "CM")
         XCTAssertEqual(state.nextAccentHex, "#4A90FF")
+        XCTAssertEqual(state.nextIsLastCourse, true)
         XCTAssertEqual(state.start, start, "Les horaires réels restent inchangés")
     }
 

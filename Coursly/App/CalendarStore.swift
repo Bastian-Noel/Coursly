@@ -17,6 +17,13 @@ enum AppAppearancePreference: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
+private extension String {
+    var nilIfBlank: String? {
+        let value = trimmingCharacters(in: .whitespacesAndNewlines)
+        return value.isEmpty ? nil : value
+    }
+}
+
 enum TimelineScrollTarget: Equatable, Sendable {
     case now
     case minute(Int)
@@ -130,11 +137,15 @@ final class CalendarStore {
         return selectedGroups.count == 1 ? selectedGroups[0].name : "\(selectedGroups.count) groupes"
     }
     var searchFacets: SearchFacets { searchEngine.facets(from: events) }
+    var knownTitles: [String] { uniqueSuggestions(events.map(\.title)) }
+    var knownRooms: [String] { uniqueSuggestions(events.flatMap(\.rooms)) }
+    var knownTeachers: [String] { uniqueSuggestions(events.flatMap(\.teachers)) }
+    var knownTypeLabels: [String] { uniqueSuggestions(events.compactMap(\.displayTypeLabel)) }
     var liveActivityIsActive: Bool { LiveActivityManager.hasActiveActivity }
     var liveActivitiesAuthorized: Bool { LiveActivityManager.areActivitiesEnabled }
     var observedCourseTypeLabels: [String] {
         let stored = UserDefaults.standard.stringArray(forKey: Self.observedTypesKey) ?? []
-        let current = remoteEvents.compactMap(\.displayTypeLabel).map(Self.cleanTypeLabel).filter { !$0.isEmpty }
+        let current = remoteEvents.compactMap(\.colorTypeLabel).map(Self.cleanTypeLabel).filter { !$0.isEmpty }
         return Array(Set(stored + current)).sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
     }
     func search(_ filters: SearchFilters) -> [CalendarEvent] { searchEngine.results(in: events, filters: filters) }
@@ -318,8 +329,22 @@ final class CalendarStore {
         }
     }
 
-    func addLocalEvent(title: String, start: Date, end: Date, room: String?) {
-        let event = CalendarEvent(id: "local-\(UUID().uuidString)", title: title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Événement personnel" : title, type: nil, start: start, end: max(end, start.addingTimeInterval(15 * 60)), rooms: room.map { [$0] } ?? [], teachers: [], groups: [], moduleCode: nil, moduleName: nil, source: .local)
+    func addLocalEvent(title: String, typeLabel: String?, start: Date, end: Date, room: String?, teachers: [String], notes: String?) {
+        let event = CalendarEvent(
+            id: "local-\(UUID().uuidString)",
+            title: title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Événement personnel" : title.trimmingCharacters(in: .whitespacesAndNewlines),
+            type: nil,
+            categoryLabel: typeLabel?.nilIfBlank,
+            start: start,
+            end: max(end, start.addingTimeInterval(15 * 60)),
+            rooms: room?.nilIfBlank.map { [$0] } ?? [],
+            teachers: teachers.compactMap { $0.nilIfBlank },
+            groups: [],
+            moduleCode: nil,
+            moduleName: nil,
+            notes: notes?.nilIfBlank,
+            source: .local
+        )
         localEventStore.add(event); refreshCombinedEvents(); HapticService.fire(.success, enabled: hapticsEnabled)
     }
     func deleteLocalEvent(_ event: CalendarEvent) { guard event.source == .local else { return }; localEventStore.delete(id: event.id); refreshCombinedEvents(); HapticService.fire(.success, enabled: hapticsEnabled) }
@@ -376,6 +401,11 @@ final class CalendarStore {
         refreshCombinedEvents()
         courseColorRevision = UUID()
     }
+
+    private func uniqueSuggestions(_ values: [String]) -> [String] {
+        Array(Set(values.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }))
+            .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+    }
     func recentChangeKind(for event: CalendarEvent) -> CalendarChangeKind? { let cutoff = now.addingTimeInterval(-48 * 60 * 60); return recentChanges.first(where: { $0.detectedAt >= cutoff && ($0.newEvent?.id == event.id || $0.oldEvent?.id == event.id) })?.kind }
 
     private func recordLiveActivityIfActive() {
@@ -393,7 +423,7 @@ final class CalendarStore {
     private func persistObservedCourseTypes(from loadedEvents: [CalendarEvent]) {
         let defaults = UserDefaults.standard
         let previous = defaults.stringArray(forKey: Self.observedTypesKey) ?? []
-        let discovered = loadedEvents.filter { $0.source != .local }.compactMap(\.displayTypeLabel).map(Self.cleanTypeLabel).filter { !$0.isEmpty }
+        let discovered = loadedEvents.filter { $0.source != .local }.compactMap(\.colorTypeLabel).map(Self.cleanTypeLabel).filter { !$0.isEmpty }
         defaults.set(Array(Set(previous + discovered)).sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }, forKey: Self.observedTypesKey)
     }
     private static func cleanTypeLabel(_ value: String) -> String { value.trimmingCharacters(in: .whitespacesAndNewlines) }
