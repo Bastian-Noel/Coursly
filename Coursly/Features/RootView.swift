@@ -21,7 +21,7 @@ struct RootView: View {
             CalendarScene(selectedEvent: $selectedEvent, panel: $panel)
                 .zIndex(0)
 
-            GlassEffectContainer(spacing: 30) {
+            GlassEffectContainer(spacing: 4) {
                 ZStack(alignment: .bottom) {
                     FloatingControlDock(activePanel: $panel, namespace: dockNamespace)
                         .offset(y: 6)
@@ -302,32 +302,40 @@ struct FloatingControlDock: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            if activePanel == .more {
-                Color.clear.frame(width: 50, height: 50)
-            } else {
-                Button { toggle(.more) } label: {
-                    Image(systemName: "line.3.horizontal")
-                        .font(.system(size: 17, weight: .semibold))
-                        .frame(width: 50, height: 50)
-                        .contentShape(Circle())
-                }
-                .buttonStyle(.plain)
-                .glassEffect(.regular.interactive(), in: Circle())
-                .glassEffectID("more-surface", in: namespace)
-                .glassEffectTransition(.matchedGeometry)
-                .accessibilityLabel("Plus d’options")
-            }
-
-            if activePanel == .groups {
-                Color.clear.frame(minWidth: 74, minHeight: 50)
-            } else {
-                Button { toggle(.groups) } label: { groupLabel }
+            Group {
+                if activePanel == .more {
+                    Color.clear.frame(width: 50, height: 50)
+                } else {
+                    Button { toggle(.more) } label: {
+                        Image(systemName: "line.3.horizontal")
+                            .font(.system(size: 17, weight: .semibold))
+                            .frame(width: 50, height: 50)
+                            .contentShape(Circle())
+                    }
                     .buttonStyle(.plain)
-                    .glassEffect(.regular.interactive(), in: Capsule())
-                    .glassEffectID("group-surface", in: namespace)
+                    .glassEffect(.regular.interactive(), in: Circle())
+                    .glassEffectID("more-surface", in: namespace)
                     .glassEffectTransition(.matchedGeometry)
-                    .accessibilityLabel("Choisir les groupes, sélection actuelle \(store.selectedGroupsLabel)")
+                    .accessibilityLabel("Plus d’options")
+                }
             }
+            .opacity(activePanel == .groups ? 0 : 1)
+            .allowsHitTesting(activePanel == nil)
+
+            Group {
+                if activePanel == .groups {
+                    groupLabel.hidden()
+                } else {
+                    Button { toggle(.groups) } label: { groupLabel }
+                        .buttonStyle(.plain)
+                        .glassEffect(.regular.interactive(), in: Capsule())
+                        .glassEffectID("group-surface", in: namespace)
+                        .glassEffectTransition(.matchedGeometry)
+                        .accessibilityLabel("Choisir les groupes, sélection actuelle \(store.selectedGroupsLabel)")
+                }
+            }
+            .opacity(activePanel == .more ? 0 : 1)
+            .allowsHitTesting(activePanel == nil)
 
             Spacer(minLength: 10)
 
@@ -356,8 +364,11 @@ struct FloatingControlDock: View {
             }
             .clipShape(Capsule())
             .glassEffect(.regular, in: Capsule())
+            .opacity(activePanel == .more || activePanel == .groups ? 0 : 1)
+            .allowsHitTesting(activePanel == nil)
         }
         .padding(.horizontal, 18)
+        .animation(.snappy(duration: 0.22), value: activePanel)
     }
 
     private var groupLabel: some View {

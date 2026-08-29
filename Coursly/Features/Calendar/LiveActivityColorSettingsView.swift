@@ -5,6 +5,7 @@ private struct CourseColorGroup: Identifiable {
     let id: String
     let label: String
     let aliases: [String]
+    let groupID: UUID?
 }
 
 struct LiveActivityColorSettingsView: View {
@@ -14,11 +15,16 @@ struct LiveActivityColorSettingsView: View {
 
     private var detectedGroups: [CourseColorGroup] {
         let classifier = CourseTypeClassifier()
-        let grouped = Dictionary(
-            grouping: store.observedCourseTypeLabels,
-            by: { classifier.groupingKey(for: $0) }
-        )
-        return grouped.map { key, labels in
+        let configured = classifier.groups.map { group in
+            CourseColorGroup(
+                id: "group:\(group.id.uuidString)",
+                label: group.name,
+                aliases: store.observedCourseTypeLabels.filter(group.matches),
+                groupID: group.id
+            )
+        }
+        let ungroupedLabels = store.observedCourseTypeLabels.filter { classifier.match($0) == nil }
+        let dynamic = Dictionary(grouping: ungroupedLabels, by: { classifier.groupingKey(for: $0) }).map { key, labels in
             let sorted = labels.sorted { first, second in
                 if first.count == second.count {
                     return first.localizedCaseInsensitiveCompare(second) == .orderedAscending
@@ -28,10 +34,11 @@ struct LiveActivityColorSettingsView: View {
             return CourseColorGroup(
                 id: key,
                 label: sorted.first ?? "Type",
-                aliases: Array(sorted.dropFirst())
+                aliases: Array(sorted.dropFirst()),
+                groupID: nil
             )
         }
-        .sorted { $0.label.localizedCaseInsensitiveCompare($1.label) == .orderedAscending }
+        return configured + dynamic.sorted { $0.label.localizedCaseInsensitiveCompare($1.label) == .orderedAscending }
     }
 
     var body: some View {
@@ -44,14 +51,20 @@ struct LiveActivityColorSettingsView: View {
                         HueTypeRow(
                             label: group.label,
                             aliases: group.aliases,
-                            hex: CourseTypeColorPreferences.hex(for: group.label),
+                            hex: group.groupID.map {
+                                CourseTypeColorPreferences.hex(forGroupID: $0, fallbackName: group.label)
+                            } ?? CourseTypeColorPreferences.hex(for: group.label),
                             expanded: expandedType == group.id,
                             onToggle: {
                                 withAnimation(.snappy(duration: 0.22)) { expandedType = expandedType == group.id ? nil : group.id }
                                 HapticService.fire(.selection, enabled: store.hapticsEnabled)
                             },
                             onCommit: { hue in
-                                CourseTypeColorPreferences.setHex(Color.hueHex(hue), for: group.label)
+                                if let groupID = group.groupID {
+                                    CourseTypeColorPreferences.setHex(Color.hueHex(hue), forGroupID: groupID)
+                                } else {
+                                    CourseTypeColorPreferences.setHex(Color.hueHex(hue), for: group.label)
+                                }
                                 store.courseColorsDidChange()
                                 HapticService.fire(.selection, enabled: store.hapticsEnabled)
                                 Task { await store.restartLiveActivity() }
@@ -60,12 +73,15 @@ struct LiveActivityColorSettingsView: View {
                     }
                 }
             } header: { Text("Couleurs par type") }
-            footer: { Text("Les libellés associés par une regex partagent la même teinte sans être renommés. Fais glisser le curseur horizontalement pour la modifier.") }
+            footer: { Text("Chaque regroupement regex possède une seule teinte, affichée sous son nom. Les types CELCAT non regroupés restent séparés.") }
 
             if !detectedGroups.isEmpty {
                 Section {
                     Button("Rétablir les couleurs par défaut") {
-                        CourseTypeColorPreferences.reset(labels: detectedGroups.map(\.label))
+                        CourseTypeColorPreferences.reset(
+                            labels: detectedGroups.filter { $0.groupID == nil }.map(\.label),
+                            groupIDs: detectedGroups.compactMap(\.groupID)
+                        )
                         expandedType = nil; refreshToken = UUID()
                         store.courseColorsDidChange()
                         HapticService.fire(.selection, enabled: store.hapticsEnabled)
@@ -97,10 +113,14 @@ private struct HueTypeRow: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(label).font(.body.weight(.semibold)).foregroundStyle(.primary)
                         if !aliases.isEmpty {
-                            Text("Regroupe aussi : \(aliases.joined(separator: " · "))")
+                            Text("Types détectés : \(aliases.joined(separator: " · "))")
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                                 .lineLimit(2)
+                        } else {
+                            Text("Aucun type détecté pour le moment")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
                         }
                     }
                     Spacer()
