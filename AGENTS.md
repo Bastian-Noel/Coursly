@@ -1,8 +1,8 @@
-# Instructions de contribution à Coursly
+# Instructions de contribution à Ora
 
 ## Mission
 
-Coursly est une application iPhone native Swift 6 / SwiftUI pour iOS 26. Elle affiche l’emploi du temps CELCAT de l’IUT de Vélizy / UVSQ et distribue une IPA non signée destinée à être signée sur l’appareil.
+Ora est une application iPhone native Swift 6 / SwiftUI pour iOS 26. Elle affiche l’emploi du temps CELCAT de l’IUT de Vélizy / UVSQ et distribue une IPA non signée destinée à être signée sur l’appareil.
 
 Avant toute modification, lire [`docs/README.md`](docs/README.md), puis les documents associés au périmètre.
 
