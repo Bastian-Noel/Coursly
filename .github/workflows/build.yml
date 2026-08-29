@@ -13,7 +13,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: coursly-${{ github.event_name }}-${{ github.ref }}
+  group: ora-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -69,6 +69,15 @@ jobs:
           BUILD: ${{ steps.version.outputs.build }}
         run: |
           xcodebuild -project Ora.xcodeproj -scheme Ora -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$BUILD" CODE_SIGN_IDENTITY='' CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO clean build
+
+      - name: Verify Ora bundle identity
+        run: |
+          set -euo pipefail
+          APP='build/Build/Products/Release-iphoneos/Ora.app'
+          DISPLAY_NAME=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' "$APP/Info.plist")
+          BUNDLE_NAME=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleName' "$APP/Info.plist")
+          test "$DISPLAY_NAME" = 'Ora'
+          test "$BUNDLE_NAME" = 'Ora'
 
       - name: Package IPA
         run: |
