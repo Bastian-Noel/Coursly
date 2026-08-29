@@ -212,11 +212,16 @@ final class V3BehaviorTests: XCTestCase {
         XCTAssertEqual(store.weekTopMinute, 10 * 60)
     }
 
-    func testDefaultTypeRulesGroupKnownVariantsWithoutRenamingThem() {
-        let classifier = CourseTypeClassifier(groups: CourseTypeRulePreferences.defaultRules)
-        XCTAssertNotNil(classifier.match("Cours magistral (CM)"))
-        XCTAssertNotNil(classifier.match("TRAVAUX DIRIGÉS"))
-        XCTAssertNotNil(classifier.match("Travaux pratiques"))
+    func testDefaultTypeRulesAreOnlyEditableStarterGroupsAndRenameMatches() {
+        let rules = CourseTypeRulePreferences.defaultRules
+        let classifier = CourseTypeClassifier(groups: rules)
+
+        XCTAssertEqual(rules.map(\.name), ["TP", "TD", "CM", "Projet tutoré"])
+        XCTAssertEqual(classifier.match("Travaux pratiques")?.displayRename, "TP")
+        XCTAssertEqual(classifier.match("TRAVAUX DIRIGÉS")?.displayRename, "TD")
+        XCTAssertEqual(classifier.match("Cours magistral (CM)")?.displayRename, "CM")
+        XCTAssertEqual(classifier.match("Projet tutoré")?.displayRename, "Projet tutoré")
+        XCTAssertNil(classifier.match("Examen final"))
         XCTAssertEqual(
             classifier.groupingKey(for: "Cours magistral (CM)"),
             classifier.groupingKey(for: "CM")
@@ -228,8 +233,20 @@ final class V3BehaviorTests: XCTestCase {
             end: date("2026-09-10T09:00:00Z")
         )
         event.categoryLabel = "Cours magistral (CM)"
-        let reclassified = classifier.reclassify(event)
-        XCTAssertEqual(reclassified.displayTypeLabel, "Cours magistral (CM)")
+        XCTAssertEqual(classifier.reclassify(event).displayTypeLabel, "CM")
+    }
+
+    func testDeletingEveryTypeGroupPersistsAnEmptyConfiguration() throws {
+        let suiteName = "CourslyTests.CourseTypeGroups.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        CourseTypeRulePreferences.reset(in: defaults)
+        XCTAssertEqual(CourseTypeRulePreferences.load(from: defaults).map(\.name), ["TP", "TD", "CM", "Projet tutoré"])
+
+        CourseTypeRulePreferences.save([], to: defaults)
+
+        XCTAssertTrue(CourseTypeRulePreferences.load(from: defaults).isEmpty)
     }
 
     func testCustomGroupAcceptsSeveralRegexAndOptionalRename() {
