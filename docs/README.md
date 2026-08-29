@@ -1,45 +1,98 @@
 # Documentation Coursly
 
-Cette documentation décrit le produit réellement développé, ses invariants techniques et la manière de le faire évoluer sans réintroduire les régressions historiques.
+## Produit
 
-## Ordre d’autorité
+Coursly est une application iPhone SwiftUI pour consulter l’emploi du temps CELCAT de l’IUT de Vélizy. Elle cible iOS 26 et distribue une IPA non signée.
 
-En cas de contradiction, appliquer cet ordre :
+## Données
 
-1. [`DECISIONS.md`](DECISIONS.md) — décisions non négociables ;
-2. [`DATA_SOURCES.md`](DATA_SOURCES.md) — contrat CELCAT et provenance des données ;
-3. [`V3.md`](V3.md) — critères d’acceptation du produit actif ;
-4. [`ARCHITECTURE.md`](ARCHITECTURE.md) — responsabilités des modules ;
-5. [`UX.md`](UX.md) et [`TIMELINE_REDESIGN.md`](TIMELINE_REDESIGN.md) — rendu et interactions ;
-6. [`LIVE_ACTIVITY.md`](LIVE_ACTIVITY.md) — expérience Lock Screen ;
-7. [`QUALITY_ASSURANCE.md`](QUALITY_ASSURANCE.md) — validation automatique et matérielle ;
-8. [`DISTRIBUTION.md`](DISTRIBUTION.md) et [`CODEX_WORKFLOW.md`](CODEX_WORKFLOW.md) — livraison et méthode de travail.
+1. Le POST CELCAT direct est la source principale.
+2. L’iCal remplace le résultat d’un groupe uniquement si son POST échoue.
+3. Un résultat POST vide est valide et ne déclenche pas le fallback.
+4. Les résultats POST et iCal ne sont jamais fusionnés.
+5. Le groupe demandé et le groupe réellement indiqué par CELCAT restent distincts.
+6. La dernière récupération valide peut être affichée lorsque CELCAT est indisponible.
 
-[`PRODUCT.md`](PRODUCT.md) expose la vision, tandis que [`PLAN.md`](PLAN.md) décrit l’état actuel et les validations restantes. Ces deux documents ne peuvent pas assouplir une décision.
+## Interface
 
-## Parcours conseillé
+### Jour
 
-| Besoin | Documents |
+- timeline verticale de 00:00 à 24:00 ;
+- swipe horizontal entre les journées sans modifier le scroll vertical ;
+- ligne rouge sur aujourd’hui ;
+- bouton Aujourd’hui recentré sur l’heure courante ;
+- une carte ne s’ouvre jamais lorsque le geste est un swipe.
+
+### Semaine
+
+- cinq jours visibles ;
+- colonne horaire fixe ;
+- en-tête et contenu dans le même ruban horizontal ;
+- navigation vers le passé et le futur ;
+- ligne de l’heure courante sur toute la largeur ;
+- jours passés assombris et aujourd’hui légèrement bleuté.
+
+### Cartes
+
+- coordonnées identiques en Jour et Semaine ;
+- contenu aligné en haut ;
+- groupe réel CELCAT ;
+- horaires compacts ;
+- adaptation automatique à la largeur et à la hauteur ;
+- trait gauche pointillé pour les événements personnels ;
+- fond plein et texte blanc pendant l’ouverture du détail.
+
+## Types et couleurs
+
+Les types viennent des données CELCAT. Un regroupement contient un nom et plusieurs expressions régulières. Le renommage facultatif utilise directement le nom du regroupement.
+
+Dans les couleurs :
+
+- les regroupements et types sont triés par fréquence décroissante des cours chargés ;
+- un type non regroupé affiche seulement son nom ;
+- un regroupement sans correspondance peut indiquer qu’aucun cours chargé ne correspond ;
+- chaque entrée possède une teinte modifiable par glissement continu.
+
+## Live Activity
+
+La Live Activity concerne l’écran verrouillé. Elle n’appelle jamais CELCAT et reçoit uniquement des événements déjà normalisés.
+
+- cours actuel : état, horaires, matière, type et métadonnées ;
+- pause : progression entre la fin du cours précédent et le début du suivant ;
+- avant le premier cours : capsule vide ;
+- journée terminée : état compact ;
+- cours le lendemain : une seule ligne secondaire avec son heure ;
+- accents éclaircis dans la même hue lorsqu’ils manquent de contraste.
+
+Les horaires visibles restent réels. Seules les dates utilisées par les décomptes sont translatées pendant une simulation.
+
+## Architecture
+
+| Dossier | Rôle |
 | --- | --- |
-| Comprendre Coursly | [`PRODUCT.md`](PRODUCT.md), [`V3.md`](V3.md) |
-| Modifier CELCAT ou le parsing | [`DECISIONS.md`](DECISIONS.md), [`DATA_SOURCES.md`](DATA_SOURCES.md), [`reference/README.md`](reference/README.md) |
-| Modifier Jour/Semaine | [`TIMELINE_REDESIGN.md`](TIMELINE_REDESIGN.md), [`UX.md`](UX.md), [`ARCHITECTURE.md`](ARCHITECTURE.md) |
-| Modifier les cartes ou couleurs | [`UX.md`](UX.md), [`TIMELINE_REDESIGN.md`](TIMELINE_REDESIGN.md) |
-| Modifier la Live Activity | [`LIVE_ACTIVITY.md`](LIVE_ACTIVITY.md), [`DECISIONS.md`](DECISIONS.md) |
-| Préparer une PR | [`CODEX_WORKFLOW.md`](CODEX_WORKFLOW.md), [`QUALITY_ASSURANCE.md`](QUALITY_ASSURANCE.md) |
-| Comprendre l’IPA et le site | [`DISTRIBUTION.md`](DISTRIBUTION.md) |
+| `Coursly/App` | état global et cycle de vie |
+| `Coursly/Networking` | clients CELCAT |
+| `Coursly/Parsing` | conversion des réponses |
+| `Coursly/Models` | modèles métier |
+| `Coursly/Features` | interface SwiftUI |
+| `Coursly/LiveActivity` | préparation des états ActivityKit |
+| `CourslyLiveActivity` | rendu de l’extension |
+| `Shared` | structures partagées |
+| `CourslyTests` | tests de régression |
 
-## Vocabulaire
+La date horizontale, la position verticale et le chargement réseau restent indépendants.
 
-- **groupe de requête** : nom public envoyé au POST, par exemple `MMI2-B2` ;
-- **groupe réel du cours** : libellé renvoyé dans la description CELCAT, par exemple `MMI2-B` ;
-- **temps système** : date/heure réelle de l’iPhone ;
-- **temps logique** : temps système augmenté du décalage de simulation ;
-- **position verticale** : minute placée en haut de la timeline, contrôlée par l’utilisateur après l’initialisation ;
-- **fallback** : remplacement complet du résultat POST d’un groupe lorsque ce POST échoue, jamais une source complémentaire.
+## Validation et livraison
 
-## Référence validée
+Toute modification passe par une branche dédiée et une pull request. La fusion dans `main` est autorisée uniquement après une CI Xcode 26 verte.
 
-La refonte timeline a été fusionnée par la PR `#11`, validée par les runs Xcode 26 `#87` et `#88`. Le run `#88` a publié `0.3.12`, mis à jour `site` et produit l’artifact CI.
+Le pipeline `main` :
 
-Cette référence prouve la compilation et les tests automatisés. Elle ne remplace pas la validation visuelle sur un iPhone iOS 26 réel.
+1. exécute les tests ;
+2. compile l’app iPhone sans signature ;
+3. crée l’IPA ;
+4. publie la Release ;
+5. met à jour `site` ;
+6. conserve l’artifact CI.
+
+La CI valide le code, pas le rendu tactile. Les timelines, cartes, gestes et Live Activity doivent aussi être vérifiés sur un iPhone réel.

@@ -24,6 +24,9 @@ struct CourslyActivityAttributes: ActivityAttributes {
         let progressStart: Date?
         let progressEnd: Date?
 
+        // Aperçu compact uniquement : ce cours ne devient jamais le cours principal de la veille.
+        let tomorrowStart: Date?
+
         let nextTitle: String?
         let nextRoom: String?
         let nextType: String?
