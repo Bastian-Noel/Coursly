@@ -85,8 +85,8 @@ struct CalendarService: Sendable {
                 merged[key] = CalendarEvent(
                     id: existing.id,
                     title: existing.title,
-                    type: existing.type ?? event.type,
                     categoryLabel: existing.categoryLabel ?? event.categoryLabel,
+                    typeDisplayOverride: existing.typeDisplayOverride ?? event.typeDisplayOverride,
                     start: existing.start,
                     end: existing.end,
                     rooms: existing.rooms,
