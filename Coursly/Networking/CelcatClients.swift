@@ -57,7 +57,7 @@ struct CelcatDirectClient: DirectCalendarClient {
         request.setValue("XMLHttpRequest", forHTTPHeaderField: "X-Requested-With")
         request.setValue("https://edt.iut-velizy.uvsq.fr", forHTTPHeaderField: "Origin")
         request.setValue("https://edt.iut-velizy.uvsq.fr/", forHTTPHeaderField: "Referer")
-        request.setValue("Coursly/0.3 (iOS)", forHTTPHeaderField: "User-Agent")
+        request.setValue("Ora/0.3 (iOS)", forHTTPHeaderField: "User-Agent")
         return request
     }
 }
@@ -83,7 +83,7 @@ struct CelcatICalClient: ICalCalendarClient {
             do {
                 var request = URLRequest(url: url, timeoutInterval: 12)
                 request.setValue("text/calendar, text/plain, */*", forHTTPHeaderField: "Accept")
-                request.setValue("Coursly/0.3 (iOS)", forHTTPHeaderField: "User-Agent")
+                request.setValue("Ora/0.3 (iOS)", forHTTPHeaderField: "User-Agent")
                 let (data, response) = try await session.data(for: request)
                 guard let http = response as? HTTPURLResponse,
                       (200..<300).contains(http.statusCode),
