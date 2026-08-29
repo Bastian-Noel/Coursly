@@ -49,7 +49,7 @@ struct LiveActivityColorSettingsView: View {
             .mapValues(\.count)
         let configured = classifier.groups.map { group in
             let matches = store.observedCourseTypeLabels.filter(group.matches)
-            CourseColorGroup(
+            return CourseColorGroup(
                 id: "group:\(group.id.uuidString)",
                 label: group.name,
                 detectionStatus: .configured(matches: matches),
