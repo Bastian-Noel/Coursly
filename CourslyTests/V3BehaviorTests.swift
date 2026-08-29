@@ -72,8 +72,8 @@ final class V3BehaviorTests: XCTestCase {
 
     func testVisualMergePreservesActualGroupInsteadOfSelectedSubgroups() {
         let start = date("2026-09-10T08:00:00Z"), end = date("2026-09-10T09:00:00Z")
-        let b1 = CalendarEvent(id: "1", title: "Réseau", type: .tp, categoryLabel: "Travaux pratiques", start: start, end: end, rooms: ["B204"], teachers: ["Mme Dupont"], groups: [StudentGroup(name: "MMI2-B1")], rawGroupLabels: ["MMI2-B"], moduleCode: "R2", moduleName: "Réseau", source: .directPOST)
-        let b2 = CalendarEvent(id: "2", title: "Réseau", type: .tp, categoryLabel: "Travaux pratiques", start: start, end: end, rooms: ["B204"], teachers: ["Mme Dupont"], groups: [StudentGroup(name: "MMI2-B2")], rawGroupLabels: ["MMI2-B"], moduleCode: "R2", moduleName: "Réseau", source: .directPOST)
+        let b1 = CalendarEvent(id: "1", title: "Réseau", categoryLabel: "Travaux pratiques", start: start, end: end, rooms: ["B204"], teachers: ["Mme Dupont"], groups: [StudentGroup(name: "MMI2-B1")], rawGroupLabels: ["MMI2-B"], moduleCode: "R2", moduleName: "Réseau", source: .directPOST)
+        let b2 = CalendarEvent(id: "2", title: "Réseau", categoryLabel: "Travaux pratiques", start: start, end: end, rooms: ["B204"], teachers: ["Mme Dupont"], groups: [StudentGroup(name: "MMI2-B2")], rawGroupLabels: ["MMI2-B"], moduleCode: "R2", moduleName: "Réseau", source: .directPOST)
         let merged = CalendarService().mergeVisualDuplicates([b1, b2])
         XCTAssertEqual(merged.count, 1)
         XCTAssertEqual(merged[0].displayGroupLabels, ["MMI2-B"])
@@ -229,7 +229,6 @@ final class V3BehaviorTests: XCTestCase {
         )
         event.categoryLabel = "Cours magistral (CM)"
         let reclassified = classifier.reclassify(event)
-        XCTAssertNil(reclassified.type)
         XCTAssertEqual(reclassified.displayTypeLabel, "Cours magistral (CM)")
     }
 
@@ -418,7 +417,7 @@ final class V3BehaviorTests: XCTestCase {
     }
 
     private func event(id: String, title: String = "Développement iOS", start: Date, end: Date, room: String = "B204", teacher: String = "Mme Dupont") -> CalendarEvent {
-        CalendarEvent(id: id, title: title, type: .tp, start: start, end: end, rooms: [room], teachers: [teacher], groups: [group], moduleCode: "R4.01", moduleName: "Développement iOS", source: .directPOST)
+        CalendarEvent(id: id, title: title, start: start, end: end, rooms: [room], teachers: [teacher], groups: [group], moduleCode: "R4.01", moduleName: "Développement iOS", source: .directPOST)
     }
 
     private func date(_ value: String) -> Date { ISO8601DateFormatter().date(from: value)! }
