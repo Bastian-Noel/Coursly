@@ -153,7 +153,7 @@ Le dock regroupe : Jour/Semaine, Chercher, Groupes et Plus. Aujourd’hui appara
 
 - Cibles tactiles minimales de 44 points.
 - Les bulles Plus et Groupes restent dans la hiérarchie et se transforment en panneau depuis leur surface Liquid Glass.
-- Le bas du panneau transformé reste au niveau du dock ; aucune marge invisible ne doit le faire apparaître loin au-dessus.
+- Le panneau utilise `GlassEffectContainer`, `glassEffectID` et la transition Liquid Glass appariée. Son bas chevauche le milieu de la bulle source ; l’espace de la bulle reste réservé pendant le morphing.
 - La bulle Recherche ne reçoit pas de fond bleu lorsqu’elle est active.
 - Un tap hors d’un panneau le ferme et est absorbé sans agir sur la timeline.
 - La bulle droite est une capsule continue sans séparateur visible.
@@ -167,7 +167,10 @@ Le dock regroupe : Jour/Semaine, Chercher, Groupes et Plus. Aujourd’hui appara
 - Les réglages sont regroupés par intention : Calendrier, Apparence, Changements, Live Activity, Interactions et Avancé.
 - L’apparence globale propose Selon l’iPhone, Clair ou Sombre indépendamment de l’apparence courante du téléphone.
 - La simulation, le regroupement regex des types et le diagnostic sont rangés dans Avancé ; les teintes restent uniquement dans Couleurs des cours.
-- Une règle regex classe et regroupe un type sans jamais modifier le libellé CELCAT visible.
+- Un regroupement possède un nom privé aux réglages, une activation visible et autant d’expressions que nécessaire.
+- Le constructeur propose Contient, Mot exact, Commence, Se termine et Regex libre, avec aperçu et champ de test.
+- Le libellé CELCAT reste visible par défaut ; seul un renommage explicitement activé le remplace.
+- La création d’un événement personnel expose titre, type facultatif, lieu, enseignants, horaires et notes, avec suggestions issues des cours connus. Elle n’expose ni module ni groupe et son trait gauche est pointillé.
 - Une explication courte accompagne toute option métier non évidente.
 
 ## 12. Accessibilité
