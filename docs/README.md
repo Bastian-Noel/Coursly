@@ -44,7 +44,9 @@ Coursly est une application iPhone SwiftUI pour consulter l’emploi du temps CE
 
 ## Types et couleurs
 
-Les types viennent des données CELCAT. Un regroupement contient un nom et plusieurs expressions régulières. Le renommage facultatif utilise directement le nom du regroupement.
+Les types viennent uniquement des données CELCAT et des événements personnels. Le parsing ne contient aucune liste fermée de types.
+
+Une première installation propose quatre regroupements regex modifiables : TP, TD, CM et Projet tutoré. Leur renommage est actif et utilise directement le nom du regroupement. Ces valeurs sont seulement une configuration initiale : elles peuvent être modifiées ou supprimées définitivement, et tous les autres libellés restent dynamiques.
 
 Dans les couleurs :
 
