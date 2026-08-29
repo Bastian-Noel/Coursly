@@ -217,9 +217,9 @@ final class V3BehaviorTests: XCTestCase {
         let classifier = CourseTypeClassifier(groups: rules)
 
         XCTAssertEqual(rules.map(\.name), ["TP", "TD", "CM", "Projet tutoré"])
-        XCTAssertEqual(classifier.match("Travaux pratiques")?.displayRename, "TP")
-        XCTAssertEqual(classifier.match("TRAVAUX DIRIGÉS")?.displayRename, "TD")
-        XCTAssertEqual(classifier.match("Cours magistral (CM)")?.displayRename, "CM")
+        XCTAssertNil(classifier.match("Travaux pratiques")?.displayRename)
+        XCTAssertNil(classifier.match("TRAVAUX DIRIGÉS")?.displayRename)
+        XCTAssertNil(classifier.match("Cours magistral (CM)")?.displayRename)
         XCTAssertEqual(classifier.match("Projet tutoré")?.displayRename, "Projet tutoré")
         XCTAssertNil(classifier.match("Examen final"))
         XCTAssertEqual(
@@ -233,7 +233,29 @@ final class V3BehaviorTests: XCTestCase {
             end: date("2026-09-10T09:00:00Z")
         )
         event.categoryLabel = "Cours magistral (CM)"
-        XCTAssertEqual(classifier.reclassify(event).displayTypeLabel, "CM")
+        XCTAssertEqual(classifier.reclassify(event).displayTypeLabel, "Cours magistral (CM)")
+    }
+
+    func testV5MigrationDisablesOnlyUntouchedDefaultRenames() throws {
+        let suiteName = "OraTests.CourseTypeGroupsMigration.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let custom = CourseTypeGroup(name: "Ateliers", patterns: [#"atelier"#], displayRename: "Atelier")
+        let previous = CourseTypeRulePreferences.defaultRules.map { group -> CourseTypeGroup in
+            var value = group
+            if ["TP", "TD", "CM"].contains(value.name) { value.displayRename = value.name }
+            return value
+        } + [custom]
+        defaults.set(try JSONEncoder().encode(previous), forKey: "v5.courseTypeGroups")
+
+        let migrated = CourseTypeRulePreferences.load(from: defaults)
+
+        XCTAssertNil(migrated.first(where: { $0.name == "TP" })?.displayRename)
+        XCTAssertNil(migrated.first(where: { $0.name == "TD" })?.displayRename)
+        XCTAssertNil(migrated.first(where: { $0.name == "CM" })?.displayRename)
+        XCTAssertEqual(migrated.first(where: { $0.name == "Projet tutoré" })?.displayRename, "Projet tutoré")
+        XCTAssertEqual(migrated.first(where: { $0.name == "Ateliers" })?.displayRename, "Atelier")
     }
 
     func testDeletingEveryTypeGroupPersistsAnEmptyConfiguration() throws {
