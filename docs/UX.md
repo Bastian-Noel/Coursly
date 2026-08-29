@@ -132,6 +132,8 @@ Au relâchement valide : ouverture du détail. Tant que le détail est ouvert, l
 
 - Une seule barre arc-en-ciel par type développé.
 - Un regroupement regex apparaît sous son nom utilisateur et possède une teinte unique partagée par toutes ses expressions ; les types non regroupés conservent leur propre entrée.
+- Les entrées sont triées alphabétiquement, jamais selon leur fréquence dans l’emploi du temps.
+- Un type CELCAT présent sans correspondance regex est indiqué comme « Type CELCAT non regroupé ». Seul un regroupement configuré sans cours correspondant affiche l’état vide.
 - Surface tactile d’au moins 44 points.
 - `DragGesture(minimumDistance: 0)` local.
 - Le curseur est centré sous le doigt et reste dans les bornes.
@@ -169,7 +171,7 @@ Le dock regroupe : Jour/Semaine, Chercher, Groupes et Plus. Aujourd’hui appara
 - Les réglages sont regroupés par intention : Calendrier, Apparence, Changements, Live Activity, Interactions et Avancé.
 - L’apparence globale propose Selon l’iPhone, Clair ou Sombre indépendamment de l’apparence courante du téléphone.
 - La simulation, le regroupement regex des types et le diagnostic sont rangés dans Avancé ; les teintes restent uniquement dans Couleurs des cours.
-- Un regroupement possède un nom privé aux réglages, une activation visible et autant d’expressions que nécessaire.
+- Un regroupement possède un nom unique pour les réglages et les couleurs, une activation visible et autant d’expressions que nécessaire. Si le renommage est activé, ce même nom devient le libellé visible du cours ; aucun second champ de nom n’est créé.
 - Le constructeur propose Contient, Mot exact, Commence, Se termine et Regex libre, avec aperçu et champ de test.
 - Le libellé CELCAT reste visible par défaut ; seul un renommage explicitement activé le remplace.
 - La création d’un événement personnel expose titre, type facultatif, lieu, enseignants, horaires et notes, avec suggestions issues des cours connus. Elle n’expose ni module ni groupe et son trait gauche est pointillé.
@@ -182,3 +184,11 @@ Le dock regroupe : Jour/Semaine, Chercher, Groupes et Plus. Aujourd’hui appara
 - Ne pas dépendre uniquement de la couleur.
 - Conserver la lisibilité avec Dynamic Type ; si une carte ne peut pas grandir, prioriser le contenu essentiel.
 - Les animations de navigation doivent pouvoir être réduites sans casser l’état final.
+
+## 13. Retours haptiques
+
+- La sélection accompagne un changement de valeur discret ; les contrôles système conservent leur propre retour natif.
+- Un changement de jour ou de mode utilise un impact net au moment où la vue se cale.
+- L’ouverture d’un panneau ou la pression d’un cours utilise un impact doux, préparé avant son déclenchement pour réduire la latence.
+- Les repères de scroll sont espacés dans le temps afin d’éviter une vibration continue.
+- Une actualisation manuelle produit un retour léger au départ, puis un succès ou une erreur à la fin ; les chargements automatiques restent silencieux.

@@ -242,9 +242,17 @@ final class V3BehaviorTests: XCTestCase {
         let classifier = CourseTypeClassifier(groups: [custom])
 
         XCTAssertEqual(custom.validPatterns.count, 2)
-        XCTAssertEqual(classifier.match("Atelier transversal")?.displayRename, "Atelier")
+        XCTAssertEqual(classifier.match("Atelier transversal")?.displayRename, "Ateliers")
         XCTAssertEqual(classifier.match("ATELIER CLIENT")?.groupID, custom.id)
         XCTAssertNil(classifier.match("Cours magistral"))
+    }
+
+    func testRenamedGroupAlwaysUsesItsOwnName() {
+        var group = CourseTypeGroup(name: "Ateliers", patterns: [#"atelier"#], displayRename: "Ancien libellé")
+        XCTAssertEqual(CourseTypeClassifier(groups: [group]).match("Atelier client")?.displayRename, "Ateliers")
+
+        group.name = "Séances pratiques"
+        XCTAssertEqual(CourseTypeClassifier(groups: [group]).match("Atelier client")?.displayRename, "Séances pratiques")
     }
 
     func testInvalidOrDisabledRegexNeverClassifiesAType() {
@@ -254,6 +262,25 @@ final class V3BehaviorTests: XCTestCase {
 
         XCTAssertTrue(invalid.validPatterns.isEmpty)
         XCTAssertNil(classifier.match("Travaux dirigés"))
+    }
+
+    func testColorSettingsDistinguishUnknownTypeFromEmptyRegexGroup() {
+        XCTAssertEqual(
+            CourseColorDetectionStatus.dynamic(variants: []).text,
+            "Type CELCAT non regroupé"
+        )
+        XCTAssertEqual(
+            CourseColorDetectionStatus.configured(matches: []).text,
+            "Aucun cours correspondant dans les données chargées"
+        )
+        XCTAssertFalse(CourseColorDetectionStatus.dynamic(variants: []).isEmptyConfiguredGroup)
+        XCTAssertTrue(CourseColorDetectionStatus.configured(matches: []).isEmptyConfiguredGroup)
+    }
+
+    func testHorizontalDayGestureSuppressesCourseOpening() {
+        XCTAssertTrue(CourseInteractionGate.isHorizontalNavigation(CGSize(width: 42, height: 8)))
+        XCTAssertFalse(CourseInteractionGate.isHorizontalNavigation(CGSize(width: 8, height: 42)))
+        XCTAssertFalse(CourseInteractionGate.isHorizontalNavigation(CGSize(width: 4, height: 1)))
     }
 
     func testAppearancePreferenceOffersSystemLightAndDarkModes() {
@@ -278,6 +305,8 @@ final class V3BehaviorTests: XCTestCase {
             end: end,
             timerStart: start,
             timerEnd: end,
+            progressStart: start,
+            progressEnd: end,
             nextTitle: "Anglais",
             nextRoom: "E57",
             nextType: "CM",
@@ -298,6 +327,55 @@ final class V3BehaviorTests: XCTestCase {
         XCTAssertEqual(state.nextAccentHex, "#4A90FF")
         XCTAssertEqual(state.nextIsLastCourse, true)
         XCTAssertEqual(state.start, start, "Les horaires réels restent inchangés")
+    }
+
+    func testLiveActivityPauseProgressStartsAfterPreviousCourse() {
+        let previous = event(
+            id: "previous",
+            start: date("2026-09-10T08:00:00Z"),
+            end: date("2026-09-10T10:00:00Z")
+        )
+        let upcoming = event(
+            id: "upcoming",
+            start: date("2026-09-10T11:00:00Z"),
+            end: date("2026-09-10T12:00:00Z")
+        )
+        let now = date("2026-09-10T10:30:00Z")
+
+        XCTAssertEqual(LiveActivitySchedule.upcomingStatus(previous: previous, upcoming: upcoming, now: now), "EN PAUSE")
+        XCTAssertEqual(LiveActivitySchedule.pauseInterval(previous: previous, upcoming: upcoming, now: now), DateInterval(start: previous.end, end: upcoming.start))
+    }
+
+    func testLiveActivityHasNoProgressBeforeFirstCourse() {
+        let upcoming = event(
+            id: "first",
+            start: date("2026-09-10T11:00:00Z"),
+            end: date("2026-09-10T12:00:00Z")
+        )
+        let now = date("2026-09-10T07:00:00Z")
+
+        XCTAssertEqual(LiveActivitySchedule.upcomingStatus(previous: nil, upcoming: upcoming, now: now), "PREMIER COURS")
+        XCTAssertNil(LiveActivitySchedule.pauseInterval(previous: nil, upcoming: upcoming, now: now))
+    }
+
+    func testLiveActivityAnnouncesTomorrowCourse() {
+        let upcoming = event(
+            id: "tomorrow",
+            start: date("2026-09-11T06:30:00Z"),
+            end: date("2026-09-11T08:00:00Z")
+        )
+        let now = date("2026-09-10T16:00:00Z")
+
+        XCTAssertEqual(
+            LiveActivitySchedule.upcomingStatus(previous: nil, upcoming: upcoming, now: now),
+            "PROCHAIN COURS DEMAIN À 08h30"
+        )
+    }
+
+    func testLiveActivityAccentRaisesDarkColorLuminance() throws {
+        let adjusted = LiveActivityAccent.readableHex(from: "#5E1B86")
+        let luminance = try XCTUnwrap(LiveActivityAccent.relativeLuminance(of: adjusted))
+        XCTAssertGreaterThanOrEqual(luminance, 0.34)
     }
 
     func testLiveActivityScheduleDeduplicatesAndSkipsOverlappingCourses() {

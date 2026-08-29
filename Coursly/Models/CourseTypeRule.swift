@@ -24,6 +24,12 @@ struct CourseTypeGroup: Identifiable, Hashable, Codable, Sendable {
         return value
     }
 
+    var displayLabel: String? {
+        guard trimmedRename != nil else { return nil }
+        let value = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return value.isEmpty ? nil : value
+    }
+
     func matches(_ label: String) -> Bool {
         guard isEnabled else { return false }
         let value = Self.normalized(label)
@@ -52,7 +58,7 @@ struct CourseTypeClassifier: Sendable {
 
     func match(_ label: String?) -> CourseTypeMatch? {
         guard let label, let group = groups.first(where: { $0.matches(label) }) else { return nil }
-        return CourseTypeMatch(groupID: group.id, displayRename: group.trimmedRename)
+        return CourseTypeMatch(groupID: group.id, displayRename: group.displayLabel)
     }
 
     func groupingKey(for label: String) -> String {

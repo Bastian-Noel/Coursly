@@ -10,6 +10,7 @@ struct DayTimelineView: View {
     @State private var currentVerticalOffset: CGFloat = 0
     @State private var pageOffset: CGFloat = 0
     @State private var isChangingDay = false
+    @State private var suppressCourseSelection = false
     @GestureState private var liveDragX: CGFloat = 0
 
     var body: some View {
@@ -69,6 +70,7 @@ struct DayTimelineView: View {
             events: store.events(on: date),
             hourHeight: CGFloat(store.hourHeight),
             highlightedEventID: highlight,
+            suppressCourseSelection: suppressCourseSelection,
             onSelect: onSelect
         )
         .frame(width: width)
@@ -156,9 +158,14 @@ struct DayTimelineView: View {
 
     private func daySwipe(width: CGFloat) -> some Gesture {
         DragGesture(minimumDistance: 14)
+            .onChanged { value in
+                if CourseInteractionGate.isHorizontalNavigation(value.translation) {
+                    suppressCourseSelection = true
+                }
+            }
             .updating($liveDragX) { value, state, _ in
                 let horizontal = value.translation.width
-                guard abs(horizontal) > abs(value.translation.height) * 1.15 else { return }
+                guard CourseInteractionGate.isHorizontalNavigation(value.translation) else { return }
                 state = max(-width, min(width, horizontal))
             }
             .onEnded { value in
@@ -167,8 +174,9 @@ struct DayTimelineView: View {
                 let predicted = value.predictedEndTranslation.width
                 let effective = abs(predicted) > abs(horizontal) ? predicted : horizontal
                 guard abs(effective) > 58,
-                      abs(horizontal) > abs(value.translation.height) * 1.15 else {
+                      CourseInteractionGate.isHorizontalNavigation(value.translation) else {
                     withAnimation(.snappy(duration: 0.18)) { pageOffset = 0 }
+                    releaseCourseSelectionGate()
                     return
                 }
 
@@ -183,8 +191,16 @@ struct DayTimelineView: View {
                     withTransaction(reset) { pageOffset = 0 }
                     isChangingDay = false
                     await preloadDayNeighbors()
+                    suppressCourseSelection = false
                 }
             }
+    }
+
+    private func releaseCourseSelectionGate() {
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(140))
+            suppressCourseSelection = false
+        }
     }
 
     private func scrollFeedback(_ oldValue: CGFloat, _ newValue: CGFloat) {
@@ -209,6 +225,7 @@ private struct DayTimelineCanvas: View {
     let events: [CalendarEvent]
     let hourHeight: CGFloat
     let highlightedEventID: String?
+    let suppressCourseSelection: Bool
     let onSelect: (CalendarEvent) -> Void
     private let engine = EventLayoutEngine()
 
@@ -233,7 +250,10 @@ private struct DayTimelineCanvas: View {
                     let bottom = TimelineAxis.y(for: placement.event.end, hourHeight: hourHeight)
                     let cardHeight = max(1, bottom - top - TimelineMetrics.courseBottomGap)
 
-                    Button { onSelect(placement.event) } label: {
+                    Button {
+                        guard !suppressCourseSelection else { return }
+                        onSelect(placement.event)
+                    } label: {
                         CourseBlock(
                             event: placement.event,
                             availableWidth: lane,
@@ -242,7 +262,10 @@ private struct DayTimelineCanvas: View {
                             isPast: placement.event.end <= store.now
                         )
                     }
-                    .buttonStyle(CoursePressButtonStyle(hapticsEnabled: store.hapticsEnabled))
+                    .buttonStyle(CoursePressButtonStyle(
+                        hapticsEnabled: store.hapticsEnabled,
+                        interactionEnabled: !suppressCourseSelection
+                    ))
                     .frame(width: lane, height: cardHeight)
                     .offset(x: x, y: top)
                 }

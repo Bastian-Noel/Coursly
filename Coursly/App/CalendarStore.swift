@@ -238,7 +238,7 @@ final class CalendarStore {
                 if notificationsEnabled, !notifyChanges.isEmpty { await notificationService.notify(changes: notifyChanges) }
             } else { recentChanges = historyStore.all() }
             if liveActivityEnabled, !suppressLiveActivityAutoStart {
-                await LiveActivityManager.update(events: events(on: now), now: now, enabled: true)
+                await LiveActivityManager.update(events: events, now: now, enabled: true)
                 recordLiveActivityIfActive()
             } else if !liveActivityEnabled {
                 await LiveActivityManager.endAll(now: now)
@@ -383,7 +383,7 @@ final class CalendarStore {
     func restartLiveActivity() async {
         guard liveActivityEnabled else { return }
         suppressLiveActivityAutoStart = false
-        await LiveActivityManager.restart(events: events(on: now), now: now)
+        await LiveActivityManager.restart(events: events, now: now)
         recordLiveActivityIfActive()
         HapticService.fire(.success, enabled: hapticsEnabled)
     }

@@ -319,12 +319,14 @@ private struct CourseCardLayout {
 
 struct CoursePressButtonStyle: ButtonStyle {
     let hapticsEnabled: Bool
+    var interactionEnabled = true
 
     func makeBody(configuration: Configuration) -> some View {
         CoursePressedLabel(
             label: configuration.label,
             isPressed: configuration.isPressed,
-            hapticsEnabled: hapticsEnabled
+            hapticsEnabled: hapticsEnabled,
+            interactionEnabled: interactionEnabled
         )
     }
 }
@@ -333,17 +335,35 @@ private struct CoursePressedLabel<Label: View>: View {
     let label: Label
     let isPressed: Bool
     let hapticsEnabled: Bool
+    let interactionEnabled: Bool
+    @State private var hapticTask: Task<Void, Never>?
 
     var body: some View {
         label
-            .scaleEffect(isPressed ? 0.972 : 1)
-            .brightness(isPressed ? -0.055 : 0)
-            .opacity(isPressed ? 0.92 : 1)
+            .scaleEffect(isPressed && interactionEnabled ? 0.972 : 1)
+            .brightness(isPressed && interactionEnabled ? -0.055 : 0)
+            .opacity(isPressed && interactionEnabled ? 0.92 : 1)
             .animation(.snappy(duration: 0.11), value: isPressed)
             .onChange(of: isPressed) { _, pressed in
-                guard pressed else { return }
-                HapticService.fire(.courseOpened, enabled: hapticsEnabled)
+                hapticTask?.cancel()
+                guard pressed, interactionEnabled else { return }
+                HapticService.prepare(.courseOpened, enabled: hapticsEnabled)
+                hapticTask = Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(45))
+                    guard !Task.isCancelled else { return }
+                    HapticService.fire(.courseOpened, enabled: hapticsEnabled)
+                }
             }
+            .onChange(of: interactionEnabled) { _, enabled in
+                if !enabled { hapticTask?.cancel() }
+            }
+            .onDisappear { hapticTask?.cancel() }
+    }
+}
+
+enum CourseInteractionGate {
+    static func isHorizontalNavigation(_ translation: CGSize) -> Bool {
+        abs(translation.width) >= 8 && abs(translation.width) > abs(translation.height) * 1.15
     }
 }
 
