@@ -8,7 +8,7 @@
   "tintColor": "5B5FEF",
   "apps": [
     {
-      "name": "Coursly",
+      "name": "Ora",
       "bundleIdentifier": "fr.bastiannoel.coursly",
       "developerName": "Bastian-Noel",
       "subtitle": "Emploi du temps étudiant à Vélizy",
@@ -17,6 +17,16 @@
       "tintColor": "5B5FEF",
       "category": "utilities",
       "versions": [
+        {
+          "version": "0.3.24",
+          "buildVersion": "24",
+          "date": "2026-08-29T18:57:34Z",
+          "localizedDescription": "Ora 0.3.24",
+          "downloadURL": "https://github.com/Bastian-Noel/Coursly/releases/download/v0.3.24/Ora.ipa",
+          "size": 5659443,
+          "sha256": "ae07dc1376e559814b574bf6489f5f4e9b1b2fd1146d8b5d6e522fb75944eb17",
+          "minOSVersion": "26.0"
+        },
         {
           "version": "0.3.23",
           "buildVersion": "23",
@@ -206,25 +216,15 @@
           "size": 835774,
           "sha256": "cab964437cd421026d7c799816dd2a4d82da62e7e842c152f2412f60f6bf5962",
           "minOSVersion": "26.0"
-        },
-        {
-          "version": "0.3.4",
-          "buildVersion": "4",
-          "date": "2026-08-21T17:33:05Z",
-          "localizedDescription": "Coursly 0.3.4",
-          "downloadURL": "https://github.com/Bastian-Noel/Coursly/releases/download/v0.3.4/Coursly.ipa",
-          "size": 799343,
-          "sha256": "63d8d82dc9eea1e39bd349c268ab61e55eadcd289b97d38147d01382b6e17fc7",
-          "minOSVersion": "26.0"
         }
       ],
-      "version": "0.3.23",
-      "versionDate": "2026-08-29T13:41:43Z",
-      "size": 1553938,
-      "downloadURL": "https://github.com/Bastian-Noel/Coursly/releases/download/v0.3.23/Coursly.ipa",
+      "version": "0.3.24",
+      "versionDate": "2026-08-29T18:57:34Z",
+      "size": 5659443,
+      "downloadURL": "https://github.com/Bastian-Noel/Coursly/releases/download/v0.3.24/Ora.ipa",
       "appPermissions": {},
-      "buildVersion": "23",
-      "sha256": "2984f8a48dd41c9ce86534151fe337ced5aa9a6c425fea2b4224869542e6fee2"
+      "buildVersion": "24",
+      "sha256": "ae07dc1376e559814b574bf6489f5f4e9b1b2fd1146d8b5d6e522fb75944eb17"
     }
   ],
   "news": []
