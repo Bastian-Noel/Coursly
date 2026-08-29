@@ -194,7 +194,7 @@ private struct CourseTypeGroupEditor: View {
             } header: {
                 Text("Ajouter sans écrire de regex")
             } footer: {
-                Text("Choisis une règle simple et Coursly construit l’expression. « Regex libre » reste disponible pour les cas avancés.")
+                Text("Choisis une règle simple et Ora construit l’expression. « Regex libre » reste disponible pour les cas avancés.")
             }
 
             Section {
