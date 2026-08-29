@@ -66,7 +66,9 @@ struct ChangeDetectionService: Sendable {
         let rhsModule = normalize(rhs.moduleCode ?? rhs.moduleName ?? "")
         if !lhsModule.isEmpty, lhsModule == rhsModule { score += 40 }
         if lhsTitle == rhsTitle { score += 35 }
-        if lhs.type == rhs.type { score += 10 }
+        let lhsCategory = normalize(lhs.categoryLabel ?? "")
+        let rhsCategory = normalize(rhs.categoryLabel ?? "")
+        if !lhsCategory.isEmpty, lhsCategory == rhsCategory { score += 10 }
         if overlaps(lhs.groups.map(\.name), rhs.groups.map(\.name)) { score += 10 }
         if overlaps(lhs.teachers, rhs.teachers) { score += 10 }
         if abs(lhs.duration - rhs.duration) <= 15 * 60 { score += 10 }
@@ -75,7 +77,12 @@ struct ChangeDetectionService: Sendable {
     }
 
     private func materiallyDifferent(_ lhs: CalendarEvent, _ rhs: CalendarEvent) -> Bool {
-        normalize(lhs.title) != normalize(rhs.title) || lhs.type != rhs.type || lhs.rooms.sorted() != rhs.rooms.sorted() || lhs.teachers.sorted() != rhs.teachers.sorted() || lhs.moduleCode != rhs.moduleCode || lhs.moduleName != rhs.moduleName
+        normalize(lhs.title) != normalize(rhs.title)
+            || normalize(lhs.categoryLabel ?? "") != normalize(rhs.categoryLabel ?? "")
+            || lhs.rooms.sorted() != rhs.rooms.sorted()
+            || lhs.teachers.sorted() != rhs.teachers.sorted()
+            || lhs.moduleCode != rhs.moduleCode
+            || lhs.moduleName != rhs.moduleName
     }
 
     private func overlaps(_ lhs: [String], _ rhs: [String]) -> Bool {
