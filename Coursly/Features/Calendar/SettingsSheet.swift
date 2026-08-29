@@ -210,7 +210,7 @@ private struct LiveActivitySettingsView: View {
                     }
                 }
             } footer: {
-                Text("Si l’activité est fermée alors qu’un cours reste aujourd’hui, Coursly peut proposer sa réactivation à la prochaine ouverture.")
+                Text("Si l’activité est fermée alors qu’un cours reste aujourd’hui, Ora peut proposer sa réactivation à la prochaine ouverture.")
             }
         }
         .navigationTitle("Activité en direct")
