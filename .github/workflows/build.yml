@@ -129,7 +129,7 @@ jobs:
           git worktree add public origin/site
           DOWNLOAD="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/Ora.ipa"
           python3 - "$VERSION" "$BUILD" "$SIZE" "$SHA256" "$DATE" "$DOWNLOAD" <<'PY'
-          import json, pathlib, re, sys
+          import json, pathlib, sys
           version, build, size, sha256, date, download = sys.argv[1:]
           source_path = pathlib.Path('public/source.json')
           source = json.loads(source_path.read_text(encoding='utf-8'))
