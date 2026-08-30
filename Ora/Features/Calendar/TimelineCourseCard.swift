@@ -219,13 +219,13 @@ struct CourseBlock: View {
         return CourseTypeColorPreferences.hex(for: label)
     }
 
-    private var baseColor: Color { Color(courslyHex: baseHex) }
+    private var baseColor: Color { Color(oraHex: baseHex) }
 
     private var primaryTextColor: Color {
         if highlighted { return .white }
         return colorScheme == .dark
-            ? Color(courslyHex: baseHex, saturationScale: 0.52, brightnessScale: 1.55)
-            : Color(courslyHex: baseHex, saturationScale: 0.78, brightnessScale: 0.48)
+            ? Color(oraHex: baseHex, saturationScale: 0.52, brightnessScale: 1.55)
+            : Color(oraHex: baseHex, saturationScale: 0.78, brightnessScale: 0.48)
     }
 
     private var metadataTextColor: Color {
@@ -236,16 +236,16 @@ struct CourseBlock: View {
         if highlighted { return Color.white.opacity(0.92) }
         guard isPast else { return baseColor }
         return weekLayout
-            ? Color(courslyHex: baseHex, saturationScale: 0.72, brightnessScale: 0.64)
-            : Color(courslyHex: baseHex, saturationScale: 0.42, brightnessScale: 0.53)
+            ? Color(oraHex: baseHex, saturationScale: 0.72, brightnessScale: 0.64)
+            : Color(oraHex: baseHex, saturationScale: 0.42, brightnessScale: 0.53)
     }
 
     private var cardFill: Color {
         if highlighted { return baseColor }
         if isPast {
             return weekLayout
-                ? Color(courslyHex: baseHex, saturationScale: 0.58, brightnessScale: 0.62).opacity(0.27)
-                : Color(courslyHex: baseHex, saturationScale: 0.28, brightnessScale: 0.46).opacity(0.38)
+                ? Color(oraHex: baseHex, saturationScale: 0.58, brightnessScale: 0.62).opacity(0.27)
+                : Color(oraHex: baseHex, saturationScale: 0.28, brightnessScale: 0.46).opacity(0.38)
         }
         return baseColor.opacity(event.source == .local ? 0.11 : 0.15)
     }
@@ -368,7 +368,7 @@ enum CourseInteractionGate {
 }
 
 private extension Color {
-    init(courslyHex hex: String, saturationScale: Double = 1, brightnessScale: Double = 1) {
+    init(oraHex hex: String, saturationScale: Double = 1, brightnessScale: Double = 1) {
         let cleaned = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
         var value: UInt64 = 0
         Scanner(string: cleaned).scanHexInt64(&value)

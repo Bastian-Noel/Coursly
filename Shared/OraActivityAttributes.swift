@@ -1,7 +1,7 @@
 import ActivityKit
 import Foundation
 
-struct CourslyActivityAttributes: ActivityAttributes {
+struct OraActivityAttributes: ActivityAttributes {
     struct ContentState: Codable, Hashable {
         let status: String
         let title: String

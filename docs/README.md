@@ -46,7 +46,7 @@ Ora est une application iPhone SwiftUI pour consulter l’emploi du temps CELCAT
 
 Les types viennent uniquement des données CELCAT et des événements personnels. Le parsing ne contient aucune liste fermée de types.
 
-Une première installation propose quatre regroupements regex modifiables : TP, TD, CM et Projet tutoré. Leur renommage est actif et utilise directement le nom du regroupement. Ces valeurs sont seulement une configuration initiale : elles peuvent être modifiées ou supprimées définitivement, et tous les autres libellés restent dynamiques.
+Une première installation propose quatre regroupements regex modifiables : TP, TD, CM et Projet tutoré. TP, TD et CM regroupent les couleurs sans renommer le libellé CELCAT ; seul Projet tutoré active initialement son renommage. Ces valeurs sont seulement une configuration initiale : elles peuvent être modifiées ou supprimées définitivement, et tous les autres libellés restent dynamiques.
 
 Dans les couleurs :
 
@@ -70,20 +70,19 @@ Les horaires visibles restent réels. Seules les dates utilisées par les décom
 
 ## Architecture
 
-Les dossiers sources conservent leurs noms historiques afin de préserver la continuité Git ; le projet, les cibles et les produits générés portent le nom Ora.
-
+Les dossiers sources, les cibles et les produits générés portent tous le nom Ora.
 
 | Dossier | Rôle |
 | --- | --- |
-| `Coursly/App` | état global et cycle de vie |
-| `Coursly/Networking` | clients CELCAT |
-| `Coursly/Parsing` | conversion des réponses |
-| `Coursly/Models` | modèles métier |
-| `Coursly/Features` | interface SwiftUI |
-| `Coursly/LiveActivity` | préparation des états ActivityKit |
-| `CourslyLiveActivity` | rendu de l’extension |
+| `Ora/App` | état global et cycle de vie |
+| `Ora/Networking` | clients CELCAT |
+| `Ora/Parsing` | conversion des réponses |
+| `Ora/Models` | modèles métier |
+| `Ora/Features` | interface SwiftUI |
+| `Ora/LiveActivity` | préparation des états ActivityKit |
+| `OraLiveActivity` | rendu de l’extension |
 | `Shared` | structures partagées |
-| `CourslyTests` | tests de régression |
+| `OraTests` | tests de régression |
 
 La date horizontale, la position verticale et le chargement réseau restent indépendants.
 

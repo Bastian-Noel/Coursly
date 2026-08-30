@@ -15,11 +15,11 @@ targets:
     type: application
     platform: iOS
     sources:
-      - path: Coursly
+      - path: Ora
       - path: Shared
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: fr.bastiannoel.coursly
+        PRODUCT_BUNDLE_IDENTIFIER: fr.bastiannoel.ora
         PRODUCT_NAME: Ora
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: Ora
@@ -38,16 +38,16 @@ targets:
     type: app-extension
     platform: iOS
     sources:
-      - path: CourslyLiveActivity
+      - path: OraLiveActivity
         excludes:
           - Info.plist
       - path: Shared
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: fr.bastiannoel.coursly.liveactivity
+        PRODUCT_BUNDLE_IDENTIFIER: fr.bastiannoel.ora.liveactivity
         PRODUCT_NAME: OraLiveActivity
         GENERATE_INFOPLIST_FILE: NO
-        INFOPLIST_FILE: CourslyLiveActivity/Info.plist
+        INFOPLIST_FILE: OraLiveActivity/Info.plist
         MARKETING_VERSION: 0.3.0
         CURRENT_PROJECT_VERSION: 1
         SKIP_INSTALL: YES
@@ -55,7 +55,7 @@ targets:
     type: bundle.unit-test
     platform: iOS
     sources:
-      - path: CourslyTests
+      - path: OraTests
     dependencies:
       - target: Ora
 schemes:

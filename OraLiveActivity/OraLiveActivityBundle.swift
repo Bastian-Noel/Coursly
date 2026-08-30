@@ -3,8 +3,8 @@ import SwiftUI
 import WidgetKit
 
 @main
-struct CourslyLiveActivityBundle: WidgetBundle {
-    var body: some Widget { CourslyLiveActivityWidget() }
+struct OraLiveActivityBundle: WidgetBundle {
+    var body: some Widget { OraLiveActivityWidget() }
 }
 
 private struct ResolvedCourse {
@@ -33,11 +33,11 @@ private struct ResolvedCourse {
     let nextGroups: String?
 }
 
-struct CourslyLiveActivityWidget: Widget {
+struct OraLiveActivityWidget: Widget {
     private let parisTimeZone = TimeZone(identifier: "Europe/Paris")!
 
     var body: some WidgetConfiguration {
-        ActivityConfiguration(for: CourslyActivityAttributes.self) { context in
+        ActivityConfiguration(for: OraActivityAttributes.self) { context in
             TimelineView(.periodic(from: .now, by: 15)) { timeline in
                 lockScreen(resolved(context.state, at: timeline.date), state: context.state)
             }
@@ -69,7 +69,7 @@ struct CourslyLiveActivityWidget: Widget {
     }
 
     @ViewBuilder
-    private func lockScreen(_ course: ResolvedCourse, state: CourslyActivityAttributes.ContentState) -> some View {
+    private func lockScreen(_ course: ResolvedCourse, state: OraActivityAttributes.ContentState) -> some View {
         if state.dayFinished || course.isFinished {
             VStack(alignment: .leading, spacing: 7) {
                 HStack(spacing: 10) {
@@ -273,7 +273,7 @@ struct CourslyLiveActivityWidget: Widget {
         }
     }
 
-    private func resolved(_ state: CourslyActivityAttributes.ContentState, at now: Date) -> ResolvedCourse {
+    private func resolved(_ state: OraActivityAttributes.ContentState, at now: Date) -> ResolvedCourse {
         if state.dayFinished {
             return finishedCourse(state)
         }
@@ -376,7 +376,7 @@ struct CourslyLiveActivityWidget: Widget {
         return calendar.isDate(first, inSameDayAs: second)
     }
 
-    private func finishedCourse(_ state: CourslyActivityAttributes.ContentState) -> ResolvedCourse {
+    private func finishedCourse(_ state: OraActivityAttributes.ContentState) -> ResolvedCourse {
         ResolvedCourse(
             status: "JOURNÉE TERMINÉE", title: "Cours terminés", room: "", teachers: "", groups: "",
             type: nil, accentHex: "#34C759", start: state.end, end: state.end,

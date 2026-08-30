@@ -17,7 +17,7 @@ struct RootView: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            CourslyBackdrop()
+            OraBackdrop()
             CalendarScene(selectedEvent: $selectedEvent, panel: $panel)
                 .zIndex(0)
 
@@ -157,7 +157,7 @@ struct RootView: View {
     }
 }
 
-struct CourslyBackdrop: View {
+struct OraBackdrop: View {
     var body: some View {
         ZStack {
             Color(.systemBackground)
@@ -235,7 +235,7 @@ struct CalendarHeader: View {
     @Binding var panel: FloatingPanel?
 
     private var highlightsToday: Bool {
-        store.displayMode == .day && courslyCalendar.isDate(store.focusedDate, inSameDayAs: store.now)
+        store.displayMode == .day && oraCalendar.isDate(store.focusedDate, inSameDayAs: store.now)
     }
 
     var body: some View {
