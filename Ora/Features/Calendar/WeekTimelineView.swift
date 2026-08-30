@@ -122,7 +122,7 @@ struct WeekTimelineView: View {
 
     private func navigateHorizontally(to date: Date) async {
         let first = firstVisibleDay(containing: date)
-        if !days.contains(where: { courslyCalendar.isDate($0, inSameDayAs: first) }) {
+        if !days.contains(where: { oraCalendar.isDate($0, inSameDayAs: first) }) {
             days = makeWindow(around: first, radius: 120)
         }
         await preloadFiveDays(startingAt: first)
@@ -192,7 +192,7 @@ struct WeekTimelineView: View {
     }
 
     private func extendWindowIfNeeded(around day: Date) {
-        guard let index = days.firstIndex(where: { courslyCalendar.isDate($0, inSameDayAs: day) }) else { return }
+        guard let index = days.firstIndex(where: { oraCalendar.isDate($0, inSameDayAs: day) }) else { return }
         if index < 24, let first = days.first {
             var cursor = first
             var prefix: [Date] = []
@@ -215,7 +215,7 @@ struct WeekTimelineView: View {
     private func makeWindow(around center: Date, radius: Int) -> [Date] {
         var before: [Date] = []
         var after: [Date] = []
-        var left = courslyCalendar.startOfDay(for: center)
+        var left = oraCalendar.startOfDay(for: center)
         var right = left
         for _ in 0..<radius {
             left = store.adjacentVisibleDate(from: left, direction: -1)
@@ -223,11 +223,11 @@ struct WeekTimelineView: View {
             before.append(left)
             after.append(right)
         }
-        return Array(before.reversed()) + [courslyCalendar.startOfDay(for: center)] + after
+        return Array(before.reversed()) + [oraCalendar.startOfDay(for: center)] + after
     }
 
     private func firstVisibleDay(containing date: Date) -> Date {
-        store.visibleWeekDays(containing: date).first ?? courslyCalendar.startOfDay(for: date)
+        store.visibleWeekDays(containing: date).first ?? oraCalendar.startOfDay(for: date)
     }
 
     private func advanceVisibleDay(from date: Date, count: Int) -> Date {
@@ -270,8 +270,8 @@ private struct WeekDayColumn: View {
     private let engine = EventLayoutEngine()
 
     var body: some View {
-        let isPastDay = courslyCalendar.startOfDay(for: day) < courslyCalendar.startOfDay(for: now)
-        let isToday = courslyCalendar.isDate(day, inSameDayAs: now)
+        let isPastDay = oraCalendar.startOfDay(for: day) < oraCalendar.startOfDay(for: now)
+        let isToday = oraCalendar.isDate(day, inSameDayAs: now)
 
         VStack(spacing: 0) {
             WeekDayHeader(

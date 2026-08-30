@@ -86,7 +86,7 @@ final class CelcatClientContractTests: XCTestCase {
         )
         let request = try CelcatDirectClient().makeRequest(group: .init(name: "MMI2-B2"), interval: interval)
         let body = try XCTUnwrap(request.httpBody.flatMap { String(data: $0, encoding: .utf8) })
-        let items = try XCTUnwrap(URLComponents(string: "https://coursly.invalid/?\(body)")?.queryItems)
+        let items = try XCTUnwrap(URLComponents(string: "https://ora.invalid/?\(body)")?.queryItems)
         let values = Dictionary(uniqueKeysWithValues: items.compactMap { item in item.value.map { (item.name, $0) } })
 
         XCTAssertEqual(request.url?.absoluteString, "https://edt.iut-velizy.uvsq.fr/Home/GetCalendarData")
@@ -110,7 +110,7 @@ final class CelcatClientContractTests: XCTestCase {
     }
 
     @MainActor func testRemoteCalendarCacheIsScopedToSelectedGroups() throws {
-        let suiteName = "CourslyTests.RemoteCalendarCache.\(UUID().uuidString)"
+        let suiteName = "OraTests.RemoteCalendarCache.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
         defer { defaults.removePersistentDomain(forName: suiteName) }
         let cache = RemoteCalendarCache(defaults: defaults)

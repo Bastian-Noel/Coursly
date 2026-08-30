@@ -89,7 +89,7 @@ final class V3BehaviorTests: XCTestCase {
     }
 
     func testTimelineCoordinatesUseRealParisClockTime() throws {
-        let date = try XCTUnwrap(courslyCalendar.date(from: DateComponents(
+        let date = try XCTUnwrap(oraCalendar.date(from: DateComponents(
             timeZone: TimeZone(identifier: "Europe/Paris"),
             year: 2026,
             month: 9,
@@ -163,7 +163,7 @@ final class V3BehaviorTests: XCTestCase {
         store.focusedDate = date("2026-09-07T08:00:00Z")
         store.setDisplayMode(.day)
 
-        XCTAssertTrue(courslyCalendar.isDate(store.focusedDate, inSameDayAs: day))
+        XCTAssertTrue(oraCalendar.isDate(store.focusedDate, inSameDayAs: day))
     }
 
     @MainActor func testWeekSwipeBecomesDayReturnDate() {
@@ -173,7 +173,7 @@ final class V3BehaviorTests: XCTestCase {
         store.setFocusedDateFromTimeline(scrolledDay)
         store.setDisplayMode(.day)
 
-        XCTAssertTrue(courslyCalendar.isDate(store.focusedDate, inSameDayAs: scrolledDay))
+        XCTAssertTrue(oraCalendar.isDate(store.focusedDate, inSameDayAs: scrolledDay))
     }
 
     @MainActor func testCompleteCohortUsesCompactGroupLabel() throws {
@@ -259,7 +259,7 @@ final class V3BehaviorTests: XCTestCase {
     }
 
     func testDeletingEveryTypeGroupPersistsAnEmptyConfiguration() throws {
-        let suiteName = "CourslyTests.CourseTypeGroups.\(UUID().uuidString)"
+        let suiteName = "OraTests.CourseTypeGroups.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
         defer { defaults.removePersistentDomain(forName: suiteName) }
 
@@ -337,7 +337,7 @@ final class V3BehaviorTests: XCTestCase {
     func testLiveActivityStateCarriesNextCoursePresentation() {
         let start = date("2026-09-10T13:30:00Z")
         let end = date("2026-09-10T15:00:00Z")
-        let state = CourslyActivityAttributes.ContentState(
+        let state = OraActivityAttributes.ContentState(
             status: "BIENTÔT TERMINÉ",
             title: "Développement",
             room: "I22",

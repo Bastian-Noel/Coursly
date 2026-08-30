@@ -56,7 +56,7 @@ enum LiveActivityManager {
     private static var revision = 0
 
     static var areActivitiesEnabled: Bool { ActivityAuthorizationInfo().areActivitiesEnabled }
-    static var hasActiveActivity: Bool { !Activity<CourslyActivityAttributes>.activities.isEmpty }
+    static var hasActiveActivity: Bool { !Activity<OraActivityAttributes>.activities.isEmpty }
 
     static func update(
         events: [CalendarEvent],
@@ -136,7 +136,7 @@ enum LiveActivityManager {
         let nextTimerStart = next.map { timerDate($0.start) }
         let nextTimerEnd = next.map { timerDate($0.end) }
 
-        let state = CourslyActivityAttributes.ContentState(
+        let state = OraActivityAttributes.ContentState(
             status: initialStatus,
             title: primary.title,
             room: primary.room,
@@ -196,13 +196,13 @@ enum LiveActivityManager {
     private static func endActivities(now: Date, immediate: Bool) async {
         let systemNow = Date()
         let policy: ActivityUIDismissalPolicy = immediate ? .immediate : .after(systemNow.addingTimeInterval(60))
-        for activity in Activity<CourslyActivityAttributes>.activities {
+        for activity in Activity<OraActivityAttributes>.activities {
             await activity.end(nil, dismissalPolicy: policy)
         }
     }
 
     private static func publish(
-        state: CourslyActivityAttributes.ContentState,
+        state: OraActivityAttributes.ContentState,
         dayDate: Date,
         staleDate: Date,
         revision updateRevision: Int
@@ -210,10 +210,10 @@ enum LiveActivityManager {
         guard updateRevision == revision else { return }
         let content = ActivityContent(state: state, staleDate: staleDate, relevanceScore: 90)
 
-        if let activity = Activity<CourslyActivityAttributes>.activities.first {
+        if let activity = Activity<OraActivityAttributes>.activities.first {
             await activity.update(content)
             guard updateRevision == revision else { return }
-            for extra in Activity<CourslyActivityAttributes>.activities.dropFirst() {
+            for extra in Activity<OraActivityAttributes>.activities.dropFirst() {
                 await extra.end(nil, dismissalPolicy: .immediate)
             }
             return
@@ -223,17 +223,17 @@ enum LiveActivityManager {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         formatter.timeZone = TimeZone(identifier: "Europe/Paris")
-        _ = try? Activity<CourslyActivityAttributes>.request(
-            attributes: CourslyActivityAttributes(dayID: formatter.string(from: dayDate)),
+        _ = try? Activity<OraActivityAttributes>.request(
+            attributes: OraActivityAttributes(dayID: formatter.string(from: dayDate)),
             content: content,
             pushType: nil
         )
     }
 
     private static func finishDay(now: Date, tomorrow: CalendarEvent?, revision updateRevision: Int) async {
-        guard updateRevision == revision, !Activity<CourslyActivityAttributes>.activities.isEmpty else { return }
+        guard updateRevision == revision, !Activity<OraActivityAttributes>.activities.isEmpty else { return }
         let systemNow = Date()
-        let state = CourslyActivityAttributes.ContentState(
+        let state = OraActivityAttributes.ContentState(
             status: "JOURNÉE TERMINÉE", title: "Cours terminés", room: "", teachers: "", groups: "",
             type: nil, accentHex: "#34C759", start: now, end: now, timerStart: systemNow, timerEnd: systemNow,
             progressStart: nil, progressEnd: nil,
@@ -243,7 +243,7 @@ enum LiveActivityManager {
             isLastCourse: true, nextIsLastCourse: nil, isInProgress: false, dayFinished: true
         )
         let content = ActivityContent(state: state, staleDate: systemNow.addingTimeInterval(15 * 60), relevanceScore: 10)
-        for activity in Activity<CourslyActivityAttributes>.activities {
+        for activity in Activity<OraActivityAttributes>.activities {
             await activity.end(content, dismissalPolicy: .after(systemNow.addingTimeInterval(15 * 60)))
         }
     }

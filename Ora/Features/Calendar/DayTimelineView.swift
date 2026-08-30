@@ -85,7 +85,7 @@ struct DayTimelineView: View {
             beginScroll(minute: savedMinute, anchor: .top, viewportHeight: viewportHeight, animated: false)
             return
         }
-        if courslyCalendar.isDate(store.focusedDate, inSameDayAs: store.now) {
+        if oraCalendar.isDate(store.focusedDate, inSameDayAs: store.now) {
             beginScroll(
                 minute: TimelineAxis.minute(of: store.now),
                 anchor: .center,
@@ -232,7 +232,7 @@ private struct DayTimelineCanvas: View {
     var body: some View {
         GeometryReader { proxy in
             let contentWidth = max(1, proxy.size.width - TimelineMetrics.timeColumnWidth)
-            let isPastDay = courslyCalendar.startOfDay(for: date) < courslyCalendar.startOfDay(for: store.now)
+            let isPastDay = oraCalendar.startOfDay(for: date) < oraCalendar.startOfDay(for: store.now)
 
             ZStack(alignment: .topLeading) {
                 TimelineDayBackground(isPastDay: isPastDay, pastEmphasis: .day)
@@ -270,7 +270,7 @@ private struct DayTimelineCanvas: View {
                     .offset(x: x, y: top)
                 }
 
-                if courslyCalendar.isDate(date, inSameDayAs: store.now) {
+                if oraCalendar.isDate(date, inSameDayAs: store.now) {
                     TimelineCurrentTimeIndicator(hourHeight: hourHeight, width: contentWidth)
                         .offset(x: TimelineMetrics.timeColumnWidth)
                 }

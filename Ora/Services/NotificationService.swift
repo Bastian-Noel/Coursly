@@ -22,9 +22,9 @@ struct NotificationService {
             content.body = changes.prefix(4).map { "• \($0.title) — \($0.kind.frenchTitle.lowercased())" }.joined(separator: "\n")
         }
         content.sound = .default
-        content.threadIdentifier = "coursly-calendar-changes"
+        content.threadIdentifier = "ora-calendar-changes"
         content.userInfo = ["destination": "changes"]
-        let request = UNNotificationRequest(identifier: "coursly-changes-\(UUID().uuidString)", content: content, trigger: nil)
+        let request = UNNotificationRequest(identifier: "ora-changes-\(UUID().uuidString)", content: content, trigger: nil)
         try? await UNUserNotificationCenter.current().add(request)
     }
 }

@@ -137,7 +137,7 @@ jobs:
           app['version'] = version; app['buildVersion'] = build; app['versionDate'] = date; app['downloadURL'] = download; app['size'] = int(size); app['sha256'] = sha256
           app.pop('marketingVersion', None); app.setdefault('appPermissions', {})
           source_path.write_text(json.dumps(source, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
-          latest = {'name': 'Ora', 'bundleIdentifier': 'fr.bastiannoel.coursly', 'version': version, 'buildVersion': build, 'date': date, 'downloadURL': download, 'size': int(size), 'sha256': sha256}
+          latest = {'name': 'Ora', 'bundleIdentifier': 'fr.bastiannoel.ora', 'version': version, 'buildVersion': build, 'date': date, 'downloadURL': download, 'size': int(size), 'sha256': sha256}
           pathlib.Path('public/latest.json').write_text(json.dumps(latest, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
           PY
           cd public

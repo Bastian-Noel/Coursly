@@ -11,12 +11,12 @@ enum TimelineMetrics {
 
 enum TimelineAxis {
     static func minute(of date: Date) -> Int {
-        let components = courslyCalendar.dateComponents([.hour, .minute], from: date)
+        let components = oraCalendar.dateComponents([.hour, .minute], from: date)
         return (components.hour ?? 0) * 60 + (components.minute ?? 0)
     }
 
     static func y(for date: Date, hourHeight: CGFloat) -> CGFloat {
-        let components = courslyCalendar.dateComponents([.hour, .minute, .second], from: date)
+        let components = oraCalendar.dateComponents([.hour, .minute, .second], from: date)
         let minutes = CGFloat((components.hour ?? 0) * 60 + (components.minute ?? 0))
             + CGFloat(components.second ?? 0) / 60
         return y(forMinute: Double(minutes), hourHeight: hourHeight)
@@ -220,7 +220,7 @@ struct TimelineCurrentTimeIndicator: View {
     }
 }
 
-let courslyCalendar: Calendar = {
+let oraCalendar: Calendar = {
     var value = Calendar(identifier: .gregorian)
     value.locale = Locale(identifier: "fr_FR")
     value.timeZone = TimeZone(identifier: "Europe/Paris") ?? .current
@@ -228,13 +228,13 @@ let courslyCalendar: Calendar = {
 }()
 
 func timelineDayID(_ date: Date) -> String {
-    "timeline-day-\(Int(courslyCalendar.startOfDay(for: date).timeIntervalSince1970))"
+    "timeline-day-\(Int(oraCalendar.startOfDay(for: date).timeIntervalSince1970))"
 }
 
 func capitalizedWeekday(_ date: Date) -> String {
     let formatter = DateFormatter()
     formatter.locale = Locale(identifier: "fr_FR")
-    formatter.timeZone = courslyCalendar.timeZone
+    formatter.timeZone = oraCalendar.timeZone
     formatter.dateFormat = "EEE"
     let value = formatter.string(from: date)
     return value.prefix(1).uppercased() + value.dropFirst()
@@ -243,7 +243,7 @@ func capitalizedWeekday(_ date: Date) -> String {
 func shortTime(_ date: Date) -> String {
     let formatter = DateFormatter()
     formatter.locale = Locale(identifier: "fr_FR")
-    formatter.timeZone = courslyCalendar.timeZone
+    formatter.timeZone = oraCalendar.timeZone
     formatter.dateFormat = "HH:mm"
     return formatter.string(from: date)
 }
