@@ -1,10 +1,10 @@
 {
   "name": "Ora",
-  "bundleIdentifier": "fr.bastiannoel.coursly",
-  "version": "0.3.25",
-  "buildVersion": "25",
-  "date": "2026-08-29T19:30:13Z",
-  "downloadURL": "https://github.com/Bastian-Noel/Coursly/releases/download/v0.3.25/Ora.ipa",
-  "size": 5148405,
-  "sha256": "fcd7b2d2d9f5b09c40c0ebdbe4e603677bad7cfadd5d97694ca38d520162a370"
+  "bundleIdentifier": "fr.bastiannoel.ora",
+  "version": "0.3.26",
+  "buildVersion": "26",
+  "date": "2026-08-30T11:47:44Z",
+  "downloadURL": "https://github.com/Bastian-Noel/Ora/releases/download/v0.3.26/Ora.ipa",
+  "size": 5146701,
+  "sha256": "b0f64d8908b4712b4b1214ea9336591419d9b1886370c0e087ae506083e8b48d"
 }
